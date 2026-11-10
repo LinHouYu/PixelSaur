@@ -34,7 +34,7 @@ namespace PixelSaur.Water
 
         [Tooltip("水波向外扩散速率（米/秒）")]
         [Range(0.5f, 8.0f)]
-        [SerializeField] private float rippleExpandSpeed = 2.2f;
+        [SerializeField] private float rippleExpandSpeed = 1.1f;
 
         [Tooltip("单个涟漪最大扩散半径（米）")]
         [Range(0.8f, 6.0f)]
@@ -46,16 +46,16 @@ namespace PixelSaur.Water
 
         [Tooltip("涟漪内圈残影消退速度（保持圆环中空清澈）")]
         [Range(0.5f, 12.0f)]
-        [SerializeField] private float rippleFadeSpeed = 6.5f;
+        [SerializeField] private float rippleFadeSpeed = 3.2f;
 
         [Header("涉水触发灵敏度")]
         [Tooltip("角色在水中移动触发新涟漪的步幅间隔（米）")]
         [Range(0.1f, 2.0f)]
-        [SerializeField] private float spawnIntervalDistance = 0.35f;
+        [SerializeField] private float spawnIntervalDistance = 0.55f;
 
         [Tooltip("角色在水中静止站立时产生呼吸波纹的间隔（秒）")]
         [Range(0.4f, 4.0f)]
-        [SerializeField] private float idleRippleInterval = 1.1f;
+        [SerializeField] private float idleRippleInterval = 1.8f;
 
         [Header("材质引用")]
         [SerializeField] private Shader painterShader;

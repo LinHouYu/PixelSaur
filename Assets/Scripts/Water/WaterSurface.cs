@@ -39,7 +39,7 @@ namespace PixelSaur.Water
 
         [Header("波浪与噪点微调")]
         [Range(0.1f, 5.0f)]
-        [SerializeField] private float waveSpeed = 1.1f;
+        [SerializeField] private float waveSpeed = 0.65f;
 
         [Range(0.2f, 5.0f)]
         [SerializeField] private float waveFrequency = 1.6f;

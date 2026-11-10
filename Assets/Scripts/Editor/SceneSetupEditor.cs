@@ -46,7 +46,7 @@ namespace PixelSaur.Editor
                 mat.SetFloat("_DepthMaxDistance", 0.42f);
                 mat.SetFloat("_FoamDistance", 0.22f);
                 mat.SetFloat("_FoamCutoff", 0.52f);
-                mat.SetFloat("_WaveSpeed", 1.1f);
+                mat.SetFloat("_WaveSpeed", 0.65f);
                 mat.SetFloat("_WaveFrequency", 1.6f);
                 mat.SetFloat("_WaveHeight", 0.002f);
                 mat.SetFloat("_Smoothness", 0.85f);
@@ -192,11 +192,12 @@ namespace PixelSaur.Editor
             rippleSO.FindProperty("waterLevel").floatValue = optimalWaterY;
             rippleSO.FindProperty("rtResolution").intValue = 256;
             rippleSO.FindProperty("orthographicCamSize").floatValue = 14f;
-            rippleSO.FindProperty("rippleExpandSpeed").floatValue = 2.0f;
+            rippleSO.FindProperty("rippleExpandSpeed").floatValue = 1.1f;
             rippleSO.FindProperty("maxRippleWorldRadius").floatValue = 2.6f;
             rippleSO.FindProperty("rippleRingThickness").floatValue = 0.008f;
-            rippleSO.FindProperty("rippleFadeSpeed").floatValue = 6.5f;
-            rippleSO.FindProperty("spawnIntervalDistance").floatValue = 0.35f;
+            rippleSO.FindProperty("rippleFadeSpeed").floatValue = 3.2f;
+            rippleSO.FindProperty("spawnIntervalDistance").floatValue = 0.55f;
+            rippleSO.FindProperty("idleRippleInterval").floatValue = 1.8f;
             rippleSO.ApplyModifiedProperties();
 
             // 7. 配置 UI Canvas（正圆形虚拟摇杆与右屏滑动区域）

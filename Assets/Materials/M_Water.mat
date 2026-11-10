@@ -31,7 +31,7 @@ Material:
     - _Smoothness: 0.85
     - _WaveFrequency: 1.6
     - _WaveHeight: 0.002
-    - _WaveSpeed: 1.1
+    - _WaveSpeed: 0.65
     m_Colors:
     - _DeepWaterColor: {r: 0.06, g: 0.34, b: 0.68, a: 0.94}
     - _FoamColor: {r: 1, g: 1, b: 1, a: 0.95}

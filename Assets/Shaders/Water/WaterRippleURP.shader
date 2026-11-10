@@ -14,7 +14,7 @@ Shader "PixelSaur/WaterRippleURP"
         _FoamCutoff ("泡沫裁剪阈值 (Foam Cutoff)", Range(0.1, 0.95)) = 0.52
 
         [Header(Wave and Noise Animation)]
-        _WaveSpeed ("水波流动速度 (Wave Speed)", Range(0.1, 5.0)) = 1.1
+        _WaveSpeed ("水波流动速度 (Wave Speed)", Range(0.1, 5.0)) = 0.65
         _WaveFrequency ("水波噪点缩放 (Noise Scale)", Range(0.2, 5.0)) = 1.6
         _WaveHeight ("顶点微起伏高度 (严禁过高以防没过岛屿)", Range(0.0, 0.02)) = 0.002
 
