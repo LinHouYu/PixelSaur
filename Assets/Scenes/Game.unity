@@ -1705,7 +1705,7 @@ MonoBehaviour:
   maxRippleWorldRadius: 2.6
   rippleRingThickness: 0.008
   rippleFadeSpeed: 3.2
-  moveRippleInterval: 0.4
+  moveRippleInterval: 0.25
   minMoveDistance: 0.08
   enableIdleRipple: 0
   idleRippleInterval: 2.5
