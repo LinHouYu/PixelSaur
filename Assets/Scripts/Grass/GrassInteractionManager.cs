@@ -24,17 +24,17 @@ namespace PixelSaur.Grass
         [SerializeField] private float interactionAreaSize = 14f;
 
         [Header("足迹与交互微调参数")]
-        [Tooltip("角色接触草丛拂碰半径（米），贴合角色身形以产生走过碰到的自然触感")]
+        [Tooltip("角色踩踏壓草半径（米）")]
         [Range(0.3f, 3.5f)]
-        [SerializeField] private float footprintRadius = 0.95f;
+        [SerializeField] private float footprintRadius = 1.25f;
 
-        [Tooltip("接触边缘过渡硬度")]
+        [Tooltip("踩踏边缘过渡硬度")]
         [Range(0.3f, 4.0f)]
-        [SerializeField] private float footprintHardness = 1.0f;
+        [SerializeField] private float footprintHardness = 1.2f;
 
-        [Tooltip("草叶受碰后回弹恢复速度（数值越大回弹恢复越迅速轻快）")]
+        [Tooltip("草地踩踏后回弹恢复速度（数值越小轨迹保留越久，越大恢复越快）")]
         [Range(0.1f, 5.0f)]
-        [SerializeField] private float recoverySpeed = 1.35f;
+        [SerializeField] private float recoverySpeed = 0.75f;
 
         [Header("材质引用")]
         [SerializeField] private Shader painterShader;

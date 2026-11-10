@@ -336,11 +336,11 @@ MonoBehaviour:
   targetMeshFilter: {fileID: 1793047647}
   grassMaterial: {fileID: 2100000, guid: f375e4e2b63054845b00c3c1404409ac, type: 2}
   customBladeMesh: {fileID: 0}
-  grassCount: 2000
+  grassCount: 8000
   bladeHeight: 0.72
-  bladeWidth: 0.11
+  bladeWidth: 0.12
   heightVariation: 0.35
-  maxDrawDistance: 38
+  maxDrawDistance: 45
 --- !u!114 &149820784
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -356,9 +356,9 @@ MonoBehaviour:
   targetPlayer: {fileID: 380207065}
   rtResolution: 64
   interactionAreaSize: 14
-  footprintRadius: 0.95
-  footprintHardness: 1
-  recoverySpeed: 1.35
+  footprintRadius: 1.25
+  footprintHardness: 1.2
+  recoverySpeed: 0.75
   painterShader: {fileID: 4800000, guid: ce16caf4278b34546b28f1c505e163c3, type: 3}
 --- !u!4 &149820785
 Transform:
@@ -1527,10 +1527,8 @@ MonoBehaviour:
   maxRippleWorldRadius: 2.6
   rippleRingThickness: 0.008
   rippleFadeSpeed: 3.2
-  moveRippleInterval: 0.4
-  minMoveDistance: 0.08
-  enableIdleRipple: 0
-  idleRippleInterval: 2.5
+  spawnIntervalDistance: 0.55
+  idleRippleInterval: 1.8
   painterShader: {fileID: 4800000, guid: 9184b4b2e5141fc4486cd1f88cf58a9e, type: 3}
 --- !u!4 &1621821313
 Transform:

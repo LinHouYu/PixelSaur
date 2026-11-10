@@ -13,8 +13,7 @@ Shader "PixelSaur/GrassURP"
         _WindFrequency("风频波长 (Wind Frequency)", Range(0.05, 3.0)) = 0.6
 
         [Header(Interaction Settings)]
-        _MaxBendAngle("最大受触弯折角度 (Max Bend Angle)", Range(15.0, 75.0)) = 45.0
-        _InteractionStrength("互动反应灵敏度 (Touch Sensitivity)", Range(0.2, 2.0)) = 1.0
+        _InteractionStrength("互动压弯强度 (Bend Strength)", Range(0.1, 3.5)) = 1.45
     }
 
     SubShader
@@ -67,7 +66,6 @@ Shader "PixelSaur/GrassURP"
                 float _WindSpeed;
                 float _WindStrength;
                 float _WindFrequency;
-                float _MaxBendAngle;
                 float _InteractionStrength;
             CBUFFER_END
 
@@ -133,21 +131,15 @@ Shader "PixelSaur/GrassURP"
                 float3 windOffset = float3(windWave, 0.0, windWaveZ * 0.6) * (_WindStrength * heightFactor * windDamp);
                 worldPos += windOffset;
 
-                // 3. 角色接触走过拂动：微微压弯，最低倾角45°，绝不压扁贴地（犹如衣角或身躯走过轻轻碰拂）
+                // 3. 玩家踩踏向外排开并压低草叶（严禁低于草根高度以防穿入地面以下）
                 if (interactWeight > 0.001)
                 {
-                    float maxAngleRad = radians(_MaxBendAngle);
-                    float touchFactor = saturate(interactWeight * _InteractionStrength);
-                    // 弯折角度随高度渐进（草根 heightFactor=0 不动，草尖最大 45°）
-                    float bendAngle = touchFactor * maxAngleRad * heightFactor;
+                    float bendAmount = interactWeight * _InteractionStrength;
+                    worldPos.xz += awayDir * (bendAmount * heightFactor);
 
-                    float originalRelY = max(0.001, worldPos.y - bladeRootPos.y);
-                    float sinAngle = sin(bendAngle);
-                    float cosAngle = cos(bendAngle);
-
-                    // 沿着远离角色的方向轻柔拂开，垂直方向保持 cos(angle) 高度（45° 时保留 70.7% 原高）
-                    worldPos.xz += awayDir * (originalRelY * sinAngle);
-                    worldPos.y = bladeRootPos.y + max(0.05 * heightFactor, originalRelY * cosAngle);
+                    float originalRelY = max(0.0, worldPos.y - bladeRootPos.y);
+                    float flattenedRelY = originalRelY * saturate(1.0 - interactWeight * 0.85);
+                    worldPos.y = bladeRootPos.y + max(0.03 * heightFactor, flattenedRelY);
                 }
 
                 output.positionCS = TransformWorldToHClip(worldPos);
@@ -163,8 +155,8 @@ Shader "PixelSaur/GrassURP"
             {
                 UNITY_SETUP_INSTANCE_ID(input);
 
-                // 根部到尖端渐变，叠加轻柔触碰微调色
-                half4 tipCol = lerp(_TipColor, _PressedColor, input.interactFactor * 0.15);
+                // 根部到尖端渐变，叠加踩踏微调色
+                half4 tipCol = lerp(_TipColor, _PressedColor, input.interactFactor * 0.45);
                 half4 grassColor = lerp(_BaseColor, tipCol, input.uv.y);
 
                 // 漫反射与环境光照明

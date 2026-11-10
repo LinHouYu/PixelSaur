@@ -34,8 +34,7 @@ namespace PixelSaur.Editor
                 mat.SetFloat("_WindSpeed", 2.5f);
                 mat.SetFloat("_WindStrength", 0.22f);
                 mat.SetFloat("_WindFrequency", 0.6f);
-                mat.SetFloat("_MaxBendAngle", 45.0f);
-                mat.SetFloat("_InteractionStrength", 1.0f);
+                mat.SetFloat("_InteractionStrength", 1.35f);
             });
 
             Material waterMat = CreateOrUpdateMaterial("Assets/Materials/M_Water.mat", "PixelSaur/WaterRippleURP", mat =>
@@ -132,9 +131,9 @@ namespace PixelSaur.Editor
             grassInterSO.FindProperty("targetPlayer").objectReferenceValue = player.transform;
             grassInterSO.FindProperty("rtResolution").intValue = 64;
             grassInterSO.FindProperty("interactionAreaSize").floatValue = 14f;
-            grassInterSO.FindProperty("footprintRadius").floatValue = 0.95f;
-            grassInterSO.FindProperty("footprintHardness").floatValue = 1.0f;
-            grassInterSO.FindProperty("recoverySpeed").floatValue = 1.35f;
+            grassInterSO.FindProperty("footprintRadius").floatValue = 1.25f;
+            grassInterSO.FindProperty("footprintHardness").floatValue = 1.2f;
+            grassInterSO.FindProperty("recoverySpeed").floatValue = 0.75f;
             grassInterSO.ApplyModifiedProperties();
 
             ProceduralGrassRenderer grassRenderer = grassMgrObj.GetComponent<ProceduralGrassRenderer>();
@@ -142,10 +141,9 @@ namespace PixelSaur.Editor
 
             SerializedObject grassRendererSO = new SerializedObject(grassRenderer);
             grassRendererSO.FindProperty("grassMaterial").objectReferenceValue = grassMat;
-            grassRendererSO.FindProperty("grassCount").intValue = 2000;
+            grassRendererSO.FindProperty("grassCount").intValue = 8000;
             grassRendererSO.FindProperty("bladeHeight").floatValue = 0.72f;
-            grassRendererSO.FindProperty("bladeWidth").floatValue = 0.11f;
-            grassRendererSO.FindProperty("maxDrawDistance").floatValue = 38f;
+            grassRendererSO.FindProperty("bladeWidth").floatValue = 0.12f;
             GameObject grassCenterObj = GameObject.Find("grass_center") ?? GameObject.Find("Grass_Plain");
             if (grassCenterObj != null)
             {
@@ -198,10 +196,8 @@ namespace PixelSaur.Editor
             rippleSO.FindProperty("maxRippleWorldRadius").floatValue = 2.6f;
             rippleSO.FindProperty("rippleRingThickness").floatValue = 0.008f;
             rippleSO.FindProperty("rippleFadeSpeed").floatValue = 3.2f;
-            rippleSO.FindProperty("moveRippleInterval").floatValue = 0.4f;
-            rippleSO.FindProperty("minMoveDistance").floatValue = 0.08f;
-            rippleSO.FindProperty("enableIdleRipple").boolValue = false;
-            rippleSO.FindProperty("idleRippleInterval").floatValue = 2.5f;
+            rippleSO.FindProperty("spawnIntervalDistance").floatValue = 0.55f;
+            rippleSO.FindProperty("idleRippleInterval").floatValue = 1.8f;
             rippleSO.ApplyModifiedProperties();
 
             // 7. 配置 UI Canvas（正圆形虚拟摇杆与右屏滑动区域）
@@ -344,35 +340,6 @@ namespace PixelSaur.Editor
             }
             AssetDatabase.SaveAssets();
             return mat;
-        }
-
-        [MenuItem("PixelSaur/验证场景配置与优化指标")]
-        public static void ValidateOptimizationMetrics()
-        {
-            ProceduralGrassRenderer grass = Object.FindAnyObjectByType<ProceduralGrassRenderer>();
-            WaterRippleManager water = Object.FindAnyObjectByType<WaterRippleManager>();
-            GrassInteractionManager grassInter = Object.FindAnyObjectByType<GrassInteractionManager>();
-
-            int grassCount = 0;
-            if (grass != null)
-            {
-                SerializedObject so = new SerializedObject(grass);
-                grassCount = so.FindProperty("grassCount").intValue;
-            }
-
-            float rippleInterval = 0f;
-            bool idleRipple = true;
-            if (water != null)
-            {
-                SerializedObject so = new SerializedObject(water);
-                rippleInterval = so.FindProperty("moveRippleInterval").floatValue;
-                idleRipple = so.FindProperty("enableIdleRipple").boolValue;
-            }
-
-            Material grassMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Grass.mat");
-            float bendAngle = grassMat != null ? grassMat.GetFloat("_MaxBendAngle") : 0f;
-
-            Debug.Log($"<color=#00FFFF>[验证结果] 草叶数量: {grassCount} (已减少4倍), 弯折角度: {bendAngle}°, 移动水波间隔: {rippleInterval}s, 待机产生水波: {idleRipple}</color>");
         }
     }
 }
