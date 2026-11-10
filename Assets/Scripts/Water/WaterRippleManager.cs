@@ -49,13 +49,20 @@ namespace PixelSaur.Water
         [SerializeField] private float rippleFadeSpeed = 3.2f;
 
         [Header("涉水触发灵敏度")]
-        [Tooltip("角色在水中移动触发新涟漪的步幅间隔（米）")]
+        [Tooltip("角色在水中移动时生成水波的固定时间间隔（秒），严格控制为 0.4 秒")]
         [Range(0.1f, 2.0f)]
-        [SerializeField] private float spawnIntervalDistance = 0.55f;
+        [SerializeField] private float moveRippleInterval = 0.4f;
 
-        [Tooltip("角色在水中静止站立时产生呼吸波纹的间隔（秒）")]
-        [Range(0.4f, 4.0f)]
-        [SerializeField] private float idleRippleInterval = 1.8f;
+        [Tooltip("判定角色处于有效移动状态的最小位移阈值（米）")]
+        [Range(0.01f, 1.0f)]
+        [SerializeField] private float minMoveDistance = 0.08f;
+
+        [Tooltip("是否允许角色在水中静止站立时产生波纹（按需求默认关闭：角色不移动绝不出现水波纹）")]
+        [SerializeField] private bool enableIdleRipple = false;
+
+        [Tooltip("角色在水中静止站立时产生呼吸波纹的间隔（秒，仅在开启 enableIdleRipple 时生效）")]
+        [Range(0.4f, 5.0f)]
+        [SerializeField] private float idleRippleInterval = 2.5f;
 
         [Header("材质引用")]
         [SerializeField] private Shader painterShader;
@@ -75,6 +82,7 @@ namespace PixelSaur.Water
         private bool _pingPong;
         private Material _painterMaterial;
         private Vector3 _lastSpawnPos;
+        private Vector3 _prevPos;
         private float _lastSpawnTime;
         private Vector3 _centerPosition;
         private bool _hasCenterInit;
@@ -105,6 +113,7 @@ namespace PixelSaur.Water
             if (targetPlayer != null)
             {
                 _lastSpawnPos = targetPlayer.position;
+                _prevPos = targetPlayer.position;
                 _centerPosition = targetPlayer.position;
                 _hasCenterInit = true;
             }
@@ -216,12 +225,16 @@ namespace PixelSaur.Water
                 footY = playerRenderer.bounds.min.y;
             }
 
+            // 实时计算角色与上一帧的水平移动位移
+            float horizontalStep = Vector2.Distance(new Vector2(currentPos.x, currentPos.z), new Vector2(_prevPos.x, _prevPos.z));
+            _prevPos = currentPos;
+
             // 当角色脚底接触或低于水面（允许轻微岸边水花余量 +0.018m）时判定为涉水互动状态
             bool isWadingInWater = footY <= (waterLevel + 0.018f);
 
             if (isWadingInWater)
             {
-                float moveDist = Vector2.Distance(new Vector2(currentPos.x, currentPos.z), new Vector2(_lastSpawnPos.x, _lastSpawnPos.z));
+                float moveDistFromLastSpawn = Vector2.Distance(new Vector2(currentPos.x, currentPos.z), new Vector2(_lastSpawnPos.x, _lastSpawnPos.z));
                 float now = Application.isPlaying ? Time.time : (float)
 #if UNITY_EDITOR
                     UnityEditor.EditorApplication.timeSinceStartup
@@ -230,17 +243,27 @@ namespace PixelSaur.Water
 #endif
                     ;
 
-                if (moveDist >= spawnIntervalDistance)
+                // 判定是否正在移动：当前帧有位移，或者与上一次生成点有一定距离累积
+                bool isMoving = (horizontalStep > 0.001f) || (moveDistFromLastSpawn >= minMoveDistance);
+
+                if (isMoving)
                 {
-                    CreateRippleAtWorldPos(currentPos, 1.0f);
-                    _lastSpawnPos = currentPos;
-                    _lastSpawnTime = now;
+                    // 角色在水中移动：严格每 0.4 秒产生一次水波
+                    if (now - _lastSpawnTime >= moveRippleInterval && moveDistFromLastSpawn >= minMoveDistance)
+                    {
+                        CreateRippleAtWorldPos(currentPos, 1.0f);
+                        _lastSpawnPos = currentPos;
+                        _lastSpawnTime = now;
+                    }
                 }
-                else if (now - _lastSpawnTime >= idleRippleInterval)
+                else
                 {
-                    // 角色在水中驻留时也会产生轻柔的环状水波互动
-                    CreateRippleAtWorldPos(currentPos, 0.9f);
-                    _lastSpawnTime = now;
+                    // 角色如果不移动，绝对不要出现水波纹（默认关闭，仅在手动勾选时生效）
+                    if (enableIdleRipple && (now - _lastSpawnTime >= idleRippleInterval))
+                    {
+                        CreateRippleAtWorldPos(currentPos, 0.75f);
+                        _lastSpawnTime = now;
+                    }
                 }
             }
         }

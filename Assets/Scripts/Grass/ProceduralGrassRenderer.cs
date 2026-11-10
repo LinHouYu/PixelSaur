@@ -22,18 +22,18 @@ namespace PixelSaur.Grass
         [Tooltip("自定义单株草叶网格（留空时自动程序化生成标准草叶）")]
         [SerializeField] private Mesh customBladeMesh;
 
-        [Header("密度与规模配置")]
-        [Tooltip("草叶总生成数量")]
-        [Range(100, 30000)]
-        [SerializeField] private int grassCount = 6000;
+        [Header("密度与规模配置 (手机性能优化)")]
+        [Tooltip("草叶总生成数量（已按性能优化减少4倍，手机端推荐 1500~2000）")]
+        [Range(100, 15000)]
+        [SerializeField] private int grassCount = 2000;
 
         [Tooltip("单株草基准高度（米）")]
         [Range(0.2f, 2.5f)]
-        [SerializeField] private float bladeHeight = 0.85f;
+        [SerializeField] private float bladeHeight = 0.72f;
 
         [Tooltip("单株草基准宽度（米）")]
         [Range(0.02f, 0.5f)]
-        [SerializeField] private float bladeWidth = 0.12f;
+        [SerializeField] private float bladeWidth = 0.11f;
 
         [Tooltip("高度随机差异幅度")]
         [Range(0f, 0.8f)]
@@ -42,7 +42,7 @@ namespace PixelSaur.Grass
         [Header("剔除与视距")]
         [Tooltip("草地可视最大渲染距离（超出平滑剔除）")]
         [Range(10f, 150f)]
-        [SerializeField] private float maxDrawDistance = 45f;
+        [SerializeField] private float maxDrawDistance = 38f;
 
         private Mesh _generatedBladeMesh;
         private readonly List<Matrix4x4[]> _batches = new List<Matrix4x4[]>();
