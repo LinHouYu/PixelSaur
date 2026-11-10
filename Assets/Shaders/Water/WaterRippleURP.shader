@@ -2,23 +2,24 @@ Shader "PixelSaur/WaterRippleURP"
 {
     Properties
     {
-        [Header(Water Colors)]
-        _WaterColor ("水面浅水颜色 (Shallow Color)", Color) = (0.2, 0.65, 0.85, 0.75)
-        _DeepWaterColor ("水面深水颜色 (Deep Color)", Color) = (0.05, 0.25, 0.55, 0.95)
-        _RippleColor ("涟漪高光颜色 (_RippleColor)", Color) = (1.0, 1.0, 1.0, 1.0)
+        [Header(MinionsArt Water Colors)]
+        _WaterColor ("浅水区颜色 (Shallow Turquoise)", Color) = (0.22, 0.78, 0.88, 0.78)
+        _DeepWaterColor ("深水区颜色 (Deep Ocean Blue)", Color) = (0.06, 0.34, 0.68, 0.94)
+        _FoamColor ("海岸泡沫颜色 (Shoreline Foam Color)", Color) = (1.0, 1.0, 1.0, 0.95)
+        _RippleColor ("交互涟漪颜色 (_RippleColor)", Color) = (1.0, 1.0, 1.0, 1.0)
 
-        [Header(Wave Animation)]
-        _WaveSpeed ("水波流动速度", Range(0.1, 5.0)) = 1.2
-        _WaveFrequency ("水波纹理频率", Range(0.1, 5.0)) = 1.0
-        _WaveHeight ("波浪微起伏高度", Range(0.0, 0.5)) = 0.05
+        [Header(Depth and Shoreline Foam)]
+        _DepthMaxDistance ("深浅水过渡深度 (Depth Gradient Dist)", Range(0.05, 3.0)) = 0.42
+        _FoamDistance ("岸边/角色泡沫宽度 (Foam Distance)", Range(0.02, 1.2)) = 0.22
+        _FoamCutoff ("泡沫裁剪阈值 (Foam Cutoff)", Range(0.1, 0.95)) = 0.52
 
-        [Header(Ripple Parameters)]
-        _OrthographicCamSize ("正交相机半高 (_OrthographicCamSize)", Float) = 20.0
-        _Position ("正交中心点 (_Position)", Vector) = (0, 0, 0, 0)
-        _GlobalEffectRT ("涟漪RT贴图 (_GlobalEffectRT 256x256)", 2D) = "black" {}
+        [Header(Wave and Noise Animation)]
+        _WaveSpeed ("水波流动速度 (Wave Speed)", Range(0.1, 5.0)) = 1.1
+        _WaveFrequency ("水波噪点缩放 (Noise Scale)", Range(0.2, 5.0)) = 1.6
+        _WaveHeight ("顶点微起伏高度 (严禁过高以防没过岛屿)", Range(0.0, 0.02)) = 0.002
 
         [Header(Lighting)]
-        _Smoothness ("平滑高光 (Smoothness)", Range(0.0, 1.0)) = 0.85
+        _Smoothness ("水面高光平滑度 (Smoothness)", Range(0.0, 1.0)) = 0.85
     }
 
     SubShader
@@ -42,10 +43,10 @@ Shader "PixelSaur/WaterRippleURP"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
             struct Attributes
             {
@@ -60,12 +61,17 @@ Shader "PixelSaur/WaterRippleURP"
                 float2 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 float3 worldNormal : NORMAL;
+                float4 screenPos : TEXCOORD2;
             };
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _WaterColor;
                 float4 _DeepWaterColor;
+                float4 _FoamColor;
                 float4 _RippleColor;
+                float _DepthMaxDistance;
+                float _FoamDistance;
+                float _FoamCutoff;
                 float _WaveSpeed;
                 float _WaveFrequency;
                 float _WaveHeight;
@@ -77,56 +83,113 @@ Shader "PixelSaur/WaterRippleURP"
             float4 _Position;
             float _OrthographicCamSize;
 
+            // 2D 程序化平滑噪波（用于 MinionsArt 风格海岸泡沫与卡通水波纹，消除平行条纹伪影）
+            float hash21(float2 p)
+            {
+                p = frac(p * float2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return frac(p.x * p.y);
+            }
+
+            float valueNoise(float2 p)
+            {
+                float2 i = floor(p);
+                float2 f = frac(p);
+                float2 u = f * f * (3.0 - 2.0 * f);
+
+                float a = hash21(i);
+                float b = hash21(i + float2(1.0, 0.0));
+                float c = hash21(i + float2(0.0, 1.0));
+                float d = hash21(i + float2(1.0, 1.0));
+
+                return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+            }
+
+            float fbmWaterNoise(float2 worldXZ, float time)
+            {
+                float2 uv1 = worldXZ * _WaveFrequency + float2(time * 0.35, time * 0.25);
+                float2 uv2 = worldXZ * (_WaveFrequency * 1.7) - float2(time * 0.28, -time * 0.32);
+                float n1 = valueNoise(uv1);
+                float n2 = valueNoise(uv2);
+                return (n1 * 0.6 + n2 * 0.4);
+            }
+
             Varyings vert(Attributes input)
             {
                 Varyings output;
                 float3 worldPos = TransformObjectToWorld(input.positionOS.xyz);
 
-                // 微弱正弦顶点波浪
-                float wave = sin(_Time.y * _WaveSpeed + worldPos.x * _WaveFrequency + worldPos.z * _WaveFrequency);
+                // 极微弱平滑起伏，严格限制高度以保证绝不没过岛屿沙滩
+                float wave = sin(_Time.y * _WaveSpeed + worldPos.x * 1.5) * cos(_Time.y * _WaveSpeed * 0.8 + worldPos.z * 1.5);
                 worldPos.y += wave * _WaveHeight;
 
                 output.positionCS = TransformWorldToHClip(worldPos);
                 output.worldPos = worldPos;
                 output.worldNormal = TransformObjectToWorldNormal(input.normalOS);
                 output.uv = input.uv;
+                output.screenPos = ComputeScreenPos(output.positionCS);
 
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                // ==================== 规范要求的核心技术实现 ====================
-                // 1. 先计算 RT 图的采样 UV 值
+                // ==================== 1. 规范要求的核心 256x256 交互涟漪实现 ====================
+                // 先计算 RT 图的采样 UV 值
                 float2 uv = input.worldPos.xz - _Position.xz; // 像素点相对于相机中心的距离(获得每个片段在以相机Pos为圆心的坐标系里的坐标值)
-                uv = uv / (_OrthographicCamSize * 2.0);        // UV转为 -0.5 ~ 0.5 (矫正Scale)
+                uv = uv / (_OrthographicCamSize * 2.0);       // UV转为 -0.5 ~ 0.5 (矫正Scale)
                 uv += 0.5;                                    // UV转为 0 ~ 1 (矫正Offset偏移)
 
-                // 2. 然后采样 RT 图, 并计算 Ripple 颜色值
+                // 然后采样 RT 图, 并计算 Ripple 颜色值
                 float ripples = 0.0;
                 if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0)
                 {
                     ripples = tex2D(_GlobalEffectRT, uv).r;   // 只需要红色值 r
                 }
 
-                // 3. 计算 RippleColor
+                // 计算 RippleColor
                 ripples = step(0.9, ripples * 3.0);           // "ripples * 3" 将计算好的ripples的值中较小部分的值提亮接近1，且对其做裁剪处理去除平滑部分
                 float4 ripplesColored = ripples * _RippleColor;// 颜色混合
-                // ===============================================================
+                // ================================================================================
 
-                // 基础水体渐变着色
-                float waveNoise = sin(_Time.y * (_WaveSpeed * 0.8) + input.worldPos.x * 2.0 + input.worldPos.z * 1.5) * 0.5 + 0.5;
-                half4 baseWater = lerp(_DeepWaterColor, _WaterColor, waveNoise * 0.5 + 0.5);
+                // ==================== 2. MinionsArt 风格海水深度渐变与海岸/涉水泡沫 ====================
+                float2 screenUV = input.screenPos.xy / max(0.0001, input.screenPos.w);
+                float rawDepth = SampleSceneDepth(screenUV);
+                float sceneEyeDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
+                float fragmentEyeDepth = input.screenPos.w;
+                float depthDiff = max(0.0, sceneEyeDepth - fragmentEyeDepth);
 
-                // 光照计算
+                // 2D 双向流动水波噪点
+                float noise = fbmWaterNoise(input.worldPos.xz, _Time.y * _WaveSpeed);
+
+                // 浅水 -> 深水颜色平滑过渡
+                float depthFactor = saturate(depthDiff / max(0.01, _DepthMaxDistance));
+                half4 baseWater = lerp(_WaterColor, _DeepWaterColor, depthFactor);
+
+                // 海面卡通波光细胞高光 (Toon Surface Shimmer)
+                float surfaceHighlight = step(0.76, noise) * 0.12;
+                baseWater.rgb += surfaceHighlight;
+
+                // 海岸线与水中角色交界泡沫 (MinionsArt Shoreline & Intersection Foam)
+                float foamLine = 1.0 - saturate(depthDiff / max(0.01, _FoamDistance));
+                // 叠加流动正弦与噪点，生成活泼的海岸浪花与涉水白圈
+                float shoreWave = sin(_Time.y * (_WaveSpeed * 2.2) - depthDiff * 28.0) * 0.15 + 0.85;
+                float modulatedFoam = foamLine * lerp(0.65, 1.35, noise) * shoreWave;
+                float foamMask = step(_FoamCutoff, modulatedFoam);
+                half4 foamColored = foamMask * _FoamColor;
+
+                // 太阳高光反射
                 Light mainLight = GetMainLight();
                 float3 viewDir = normalize(GetCameraPositionWS() - input.worldPos);
                 float3 halfDir = normalize(mainLight.direction + viewDir);
-                float spec = pow(saturate(dot(normalize(input.worldNormal), halfDir)), _Smoothness * 128.0 + 8.0);
+                float spec = pow(saturate(dot(normalize(input.worldNormal), halfDir)), _Smoothness * 96.0 + 16.0) * 0.35;
 
-                // 混合水面与涟漪
-                half3 finalRGB = lerp(baseWater.rgb + (mainLight.color * spec * 0.5), ripplesColored.rgb, ripples);
-                half finalAlpha = saturate(baseWater.a + ripplesColored.a * ripples);
+                // 3. 组合海面底色、岸边泡沫与 256x256 玩家交互涟漪
+                half3 waterRGB = baseWater.rgb + mainLight.color * spec;
+                half3 withFoamRGB = lerp(waterRGB, foamColored.rgb, foamMask * _FoamColor.a);
+                half3 finalRGB = lerp(withFoamRGB, ripplesColored.rgb, ripples);
+
+                half finalAlpha = saturate(max(baseWater.a, max(foamMask * _FoamColor.a, ripples * ripplesColored.a)));
 
                 return half4(finalRGB, finalAlpha);
             }

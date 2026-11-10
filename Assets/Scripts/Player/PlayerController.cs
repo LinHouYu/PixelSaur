@@ -41,6 +41,15 @@ namespace PixelSaur.Player
         private void Awake()
         {
             _characterController = GetComponent<CharacterController>();
+            if (_characterController != null)
+            {
+                // 确保 CharacterController 碰撞中心与 Unity 标准 Capsule 网格中心 (0,0,0) 完全对齐，杜绝半截身体穿入地下
+                _characterController.center = Vector3.zero;
+                _characterController.height = 2.0f;
+                _characterController.radius = 0.5f;
+                _characterController.stepOffset = 0.35f;
+                _characterController.skinWidth = 0.03f;
+            }
             if (cameraTransform == null && UnityEngine.Camera.main != null)
             {
                 cameraTransform = UnityEngine.Camera.main.transform;

@@ -130,42 +130,72 @@ namespace PixelSaur.Grass
             {
                 Mesh mesh = targetMeshFilter.sharedMesh;
                 Transform meshTr = targetMeshFilter.transform;
-                Vector3[] vertices = mesh.vertices;
-                int[] triangles = mesh.triangles;
-                Vector3[] normals = mesh.normals;
 
-                int triCount = triangles.Length / 3;
-                if (triCount > 0)
+                if (mesh.isReadable)
                 {
+                    Vector3[] vertices = mesh.vertices;
+                    int[] triangles = mesh.triangles;
+
+                    // 预先筛选出所有朝上的顶面三角形，避免在侧面和底面浪费采样次数
+                    List<int> upwardTris = new List<int>();
+                    int triCount = triangles.Length / 3;
+                    for (int t = 0; t < triCount; t++)
+                    {
+                        int baseIdx = t * 3;
+                        Vector3 p0 = meshTr.TransformPoint(vertices[triangles[baseIdx]]);
+                        Vector3 p1 = meshTr.TransformPoint(vertices[triangles[baseIdx + 1]]);
+                        Vector3 p2 = meshTr.TransformPoint(vertices[triangles[baseIdx + 2]]);
+                        Vector3 faceNormal = Vector3.Cross(p1 - p0, p2 - p0).normalized;
+
+                        if (Vector3.Dot(faceNormal, Vector3.up) > 0.45f)
+                        {
+                            upwardTris.Add(baseIdx);
+                        }
+                    }
+
+                    if (upwardTris.Count > 0)
+                    {
+                        for (int i = 0; i < grassCount; i++)
+                        {
+                            int triIndex = upwardTris[Random.Range(0, upwardTris.Count)];
+                            Vector3 v0 = vertices[triangles[triIndex]];
+                            Vector3 v1 = vertices[triangles[triIndex + 1]];
+                            Vector3 v2 = vertices[triangles[triIndex + 2]];
+
+                            // 重心坐标均匀随机采样
+                            float r1 = Random.value;
+                            float r2 = Random.value;
+                            if (r1 + r2 > 1f) { r1 = 1f - r1; r2 = 1f - r2; }
+                            float r3 = 1f - r1 - r2;
+
+                            Vector3 localPos = v0 * r1 + v1 * r2 + v2 * r3;
+                            Vector3 worldPos = meshTr.TransformPoint(localPos);
+
+                            Quaternion rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                            float scaleY = bladeHeight * (1f + Random.Range(-heightVariation, heightVariation));
+                            float scaleXZ = bladeWidth * (1f + Random.Range(-0.2f, 0.2f));
+                            Vector3 scale = new Vector3(scaleXZ, scaleY, scaleXZ);
+
+                            matrices.Add(Matrix4x4.TRS(worldPos, rotation, scale));
+                        }
+                        return matrices;
+                    }
+                }
+
+                // 若网格未开启 Read/Write，则直接基于 MeshRenderer 的世界包围盒顶面精准散布
+                MeshRenderer mr = targetMeshFilter.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    Bounds b = mr.bounds;
                     for (int i = 0; i < grassCount; i++)
                     {
-                        // 随机选取一个三角形面
-                        int triIndex = Random.Range(0, triCount) * 3;
-                        Vector3 v0 = vertices[triangles[triIndex]];
-                        Vector3 v1 = vertices[triangles[triIndex + 1]];
-                        Vector3 v2 = vertices[triangles[triIndex + 2]];
-
-                        // 重心坐标随机点
-                        float r1 = Random.value;
-                        float r2 = Random.value;
-                        if (r1 + r2 > 1f) { r1 = 1f - r1; r2 = 1f - r2; }
-                        float r3 = 1f - r1 - r2;
-
-                        Vector3 localPos = v0 * r1 + v1 * r2 + v2 * r3;
-                        Vector3 worldPos = meshTr.TransformPoint(localPos);
-
-                        Vector3 localNorm = (normals.Length > 0) ? (normals[triangles[triIndex]] * r1 + normals[triangles[triIndex + 1]] * r2 + normals[triangles[triIndex + 2]] * r3).normalized : Vector3.up;
-                        Vector3 worldNorm = meshTr.TransformDirection(localNorm);
-
-                        // 仅在向上坡度可生长的表面（法线倾斜度过滤）
-                        if (Vector3.Dot(worldNorm, Vector3.up) < 0.45f) continue;
-
+                        float x = Random.Range(b.min.x + 0.1f, b.max.x - 0.1f);
+                        float z = Random.Range(b.min.z + 0.1f, b.max.z - 0.1f);
+                        Vector3 worldPos = new Vector3(x, b.max.y, z);
                         Quaternion rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                         float scaleY = bladeHeight * (1f + Random.Range(-heightVariation, heightVariation));
                         float scaleXZ = bladeWidth * (1f + Random.Range(-0.2f, 0.2f));
-                        Vector3 scale = new Vector3(scaleXZ, scaleY, scaleXZ);
-
-                        matrices.Add(Matrix4x4.TRS(worldPos, rotation, scale));
+                        matrices.Add(Matrix4x4.TRS(worldPos, rotation, new Vector3(scaleXZ, scaleY, scaleXZ)));
                     }
                     return matrices;
                 }

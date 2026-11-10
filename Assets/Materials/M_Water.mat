@@ -22,22 +22,20 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs:
-    - _GlobalEffectRT:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
+    m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _OrthographicCamSize: 20
-    - _Smoothness: 0.88
-    - _WaveFrequency: 1
-    - _WaveHeight: 0.05
-    - _WaveSpeed: 1.2
+    - _DepthMaxDistance: 0.42
+    - _FoamCutoff: 0.52
+    - _FoamDistance: 0.22
+    - _Smoothness: 0.85
+    - _WaveFrequency: 1.6
+    - _WaveHeight: 0.002
+    - _WaveSpeed: 1.1
     m_Colors:
-    - _DeepWaterColor: {r: 0.04, g: 0.22, b: 0.52, a: 0.95}
-    - _Position: {r: 0, g: 0, b: 0, a: 0}
+    - _DeepWaterColor: {r: 0.06, g: 0.34, b: 0.68, a: 0.94}
+    - _FoamColor: {r: 1, g: 1, b: 1, a: 0.95}
     - _RippleColor: {r: 1, g: 1, b: 1, a: 1}
-    - _WaterColor: {r: 0.2, g: 0.68, b: 0.88, a: 0.78}
+    - _WaterColor: {r: 0.22, g: 0.78, b: 0.88, a: 0.78}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

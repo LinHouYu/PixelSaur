@@ -4,9 +4,10 @@ Shader "Hidden/PixelSaur/GrassInteractionPainter"
     {
         _MainTex ("Previous Frame", 2D) = "black" {}
         _StampCenter ("Stamp Center UV", Vector) = (0.5, 0.5, 0, 0)
-        _StampRadius ("Stamp Radius UV", Float) = 0.05
-        _StampHardness ("Stamp Hardness", Float) = 2.0
-        _FadeRate ("Fade Rate Per Second", Float) = 2.0
+        _UVOffset ("World Shift UV Offset", Vector) = (0, 0, 0, 0)
+        _StampRadius ("Stamp Radius UV", Float) = 0.08
+        _StampHardness ("Stamp Hardness", Float) = 1.5
+        _FadeRate ("Fade Rate Per Second", Float) = 1.2
         _DeltaTime ("Delta Time", Float) = 0.02
     }
     SubShader
@@ -35,6 +36,7 @@ Shader "Hidden/PixelSaur/GrassInteractionPainter"
 
             sampler2D _MainTex;
             float4 _StampCenter;
+            float4 _UVOffset;
             float _StampRadius;
             float _StampHardness;
             float _FadeRate;
@@ -43,27 +45,47 @@ Shader "Hidden/PixelSaur/GrassInteractionPainter"
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.uv = input.uv;
+                // 直接使用全屏 Clip 空间映射，彻底规避 URP RenderMeshInstanced 遗留的矩阵干扰
+                float2 clipXY = input.uv * 2.0 - 1.0;
+                #if UNITY_UV_STARTS_AT_TOP
+                clipXY.y = -clipXY.y;
+                #endif
+                output.positionCS = float4(clipXY, 0.0, 1.0);
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                // 读取上一帧历史状态
-                half history = tex2D(_MainTex, input.uv).r;
+                // 1. 根据相机/中心点位移偏移采样上一帧历史轨迹（确保压草轨迹固定在世界空间）
+                float2 prevUV = input.uv + _UVOffset.xy;
+                half4 historySample = half4(0, 0.5, 0.5, 1);
+                if (prevUV.x >= 0.0 && prevUV.x <= 1.0 && prevUV.y >= 0.0 && prevUV.y <= 1.0)
+                {
+                    historySample = tex2D(_MainTex, prevUV);
+                }
 
-                // 历史轨迹自然平滑回弹消退
-                history = saturate(history - (_FadeRate * _DeltaTime));
+                // 历史压痕权重自然衰减回弹
+                half historyWeight = saturate(historySample.r - (_FadeRate * _DeltaTime));
+                float2 historyDir = historySample.gb * 2.0 - 1.0;
 
-                // 计算当前帧玩家足迹盖章强度
-                float dist = distance(input.uv, _StampCenter.xy);
+                // 2. 计算当前帧玩家足迹盖章强度与向外推开的方向
+                float2 diff = input.uv - _StampCenter.xy;
+                float dist = length(diff);
+                float2 pushDir = (dist > 0.0001) ? (diff / dist) : float2(0.0, 1.0);
+
                 float stamp = saturate(1.0 - (dist / max(_StampRadius, 0.001)));
-                stamp = pow(stamp, _StampHardness);
+                stamp = pow(stamp, max(0.2, _StampHardness));
 
-                // 叠加当前压痕与消退后的历史痕迹
-                half finalWeight = max(history, stamp);
-                return half4(finalWeight, 0, 0, 1);
+                // 3. 混合最新踩踏与历史轨迹
+                half finalWeight = max(historyWeight, stamp);
+                float2 finalDir = (stamp >= historyWeight) ? pushDir : historyDir;
+                if (length(finalDir) > 0.001)
+                {
+                    finalDir = normalize(finalDir);
+                }
+
+                return half4(finalWeight, finalDir.x * 0.5 + 0.5, finalDir.y * 0.5 + 0.5, 1.0);
             }
             ENDHLSL
         }
