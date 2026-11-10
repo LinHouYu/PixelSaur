@@ -49,7 +49,9 @@ ExportedObj/
 # Unity3D Generated File On Crash Reports
 sysinfo.txt
 
-# Builds
+# Unity native debug / build cache
+.utmp/
+scratch/
 *.apk
 *.aab
 *.unitypackage
