@@ -317,6 +317,23 @@ namespace PixelSaur.Editor
 
                 touchObj.AddComponent<TouchLookArea>();
             }
+
+            // 3. 屏幕底部居中生存状态条 (生命、食物、口渴，顶部居中图标)
+            Transform statusTr = canvas.transform.Find("StatusBarsPanel");
+            GameObject statusObj;
+            if (statusTr == null)
+            {
+                statusObj = new GameObject("StatusBarsPanel", typeof(RectTransform));
+                statusObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                statusObj = statusTr.gameObject;
+            }
+
+            PlayerStatusUI statusUI = statusObj.GetComponent<PlayerStatusUI>();
+            if (statusUI == null) statusUI = statusObj.AddComponent<PlayerStatusUI>();
+            statusUI.EnsureUIHierarchy();
         }
 
         private static Material CreateOrUpdateMaterial(string assetPath, string shaderName, System.Action<Material> initAction)
