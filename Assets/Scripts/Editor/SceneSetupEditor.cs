@@ -34,7 +34,8 @@ namespace PixelSaur.Editor
                 mat.SetFloat("_WindSpeed", 2.5f);
                 mat.SetFloat("_WindStrength", 0.22f);
                 mat.SetFloat("_WindFrequency", 0.6f);
-                mat.SetFloat("_InteractionStrength", 1.35f);
+                mat.SetFloat("_MaxBendAngle", 45.0f);
+                mat.SetFloat("_InteractionStrength", 1.0f);
             });
 
             Material waterMat = CreateOrUpdateMaterial("Assets/Materials/M_Water.mat", "PixelSaur/WaterRippleURP", mat =>
@@ -196,8 +197,10 @@ namespace PixelSaur.Editor
             rippleSO.FindProperty("maxRippleWorldRadius").floatValue = 2.6f;
             rippleSO.FindProperty("rippleRingThickness").floatValue = 0.008f;
             rippleSO.FindProperty("rippleFadeSpeed").floatValue = 3.2f;
-            rippleSO.FindProperty("spawnIntervalDistance").floatValue = 0.55f;
-            rippleSO.FindProperty("idleRippleInterval").floatValue = 1.8f;
+            rippleSO.FindProperty("moveRippleInterval").floatValue = 0.4f;
+            rippleSO.FindProperty("minMoveDistance").floatValue = 0.08f;
+            rippleSO.FindProperty("enableIdleRipple").boolValue = false;
+            rippleSO.FindProperty("idleRippleInterval").floatValue = 2.5f;
             rippleSO.ApplyModifiedProperties();
 
             // 7. 配置 UI Canvas（正圆形虚拟摇杆与右屏滑动区域）

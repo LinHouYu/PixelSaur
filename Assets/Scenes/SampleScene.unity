@@ -1527,8 +1527,10 @@ MonoBehaviour:
   maxRippleWorldRadius: 2.6
   rippleRingThickness: 0.008
   rippleFadeSpeed: 3.2
-  spawnIntervalDistance: 0.55
-  idleRippleInterval: 1.8
+  moveRippleInterval: 0.4
+  minMoveDistance: 0.08
+  enableIdleRipple: 0
+  idleRippleInterval: 2.5
   painterShader: {fileID: 4800000, guid: 9184b4b2e5141fc4486cd1f88cf58a9e, type: 3}
 --- !u!4 &1621821313
 Transform:

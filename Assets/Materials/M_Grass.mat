@@ -25,7 +25,8 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _InteractionStrength: 1.35
+    - _InteractionStrength: 1
+    - _MaxBendAngle: 45
     - _WindFrequency: 0.6
     - _WindSpeed: 2.5
     - _WindStrength: 0.22
