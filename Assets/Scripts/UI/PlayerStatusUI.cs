@@ -38,6 +38,12 @@ namespace PixelSaur.UI
         [SerializeField] private float currentThirst = 100f;
         [SerializeField] private float maxThirst = 100f;
 
+        [Header("文本与排版配置")]
+        [Tooltip("数值文本是否在条内居中显示（勾选为居中对齐，不勾选为靠左内缩对齐）")]
+        [SerializeField] private bool centerValueText = true;
+        [Tooltip("靠左对齐时的左侧内缩边距（像素）")]
+        [SerializeField] private float textLeftPadding = 12f;
+
         [Header("UI 控件绑定")]
         [SerializeField] private Slider healthSlider;
         [SerializeField] private Text healthText;
@@ -197,8 +203,8 @@ namespace PixelSaur.UI
             panelRT.anchorMin = new Vector2(0.5f, 0f);
             panelRT.anchorMax = new Vector2(0.5f, 0f);
             panelRT.pivot = new Vector2(0.5f, 0f);
-            panelRT.anchoredPosition = new Vector2(0f, 28f); // 底部边距 28px
-            panelRT.sizeDelta = new Vector2(760f, 60f);
+            panelRT.anchoredPosition = new Vector2(0f, 24f); // 底部边距 24px
+            panelRT.sizeDelta = new Vector2(760f, 34f);
 
             // 1. 生命状态条 (草绿色填充)
             healthSlider = SetupOrUpdateStatItem("HealthBar", panelRT, new Vector2(-255f, 0f), 
@@ -229,18 +235,18 @@ namespace PixelSaur.UI
             itemRT.anchorMax = new Vector2(0.5f, 0f);
             itemRT.pivot = new Vector2(0.5f, 0f);
             itemRT.anchoredPosition = pos;
-            itemRT.sizeDelta = new Vector2(220f, 58f);
+            itemRT.sizeDelta = new Vector2(240f, 32f);
 
-            // 1. 顶部居中的 8x8 像素图标 (整倍数 32x32，Point 滤波清晰，紧贴 Slider 顶部)
+            // 1. 移动到 Slider 左边边缘的 8x8 像素图标 (整倍数 30x30，紧贴 Slider 左侧)
             Transform iconTr = itemObj.transform.Find("Icon");
             GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
             RectTransform iconRT = iconObj.GetComponent<RectTransform>();
             iconRT.SetParent(itemRT, false);
-            iconRT.anchorMin = new Vector2(0.5f, 1f);
-            iconRT.anchorMax = new Vector2(0.5f, 1f);
-            iconRT.pivot = new Vector2(0.5f, 1f);
-            iconRT.anchoredPosition = Vector2.zero; // 顶端居中
-            iconRT.sizeDelta = new Vector2(32f, 32f);
+            iconRT.anchorMin = new Vector2(0f, 0.5f);
+            iconRT.anchorMax = new Vector2(0f, 0.5f);
+            iconRT.pivot = new Vector2(0f, 0.5f);
+            iconRT.anchoredPosition = new Vector2(0f, 0f); // 左侧靠齐
+            iconRT.sizeDelta = new Vector2(30f, 30f);
 
             Image iconImg = iconObj.GetComponent<Image>();
             iconImg.sprite = iconSp;
@@ -249,16 +255,16 @@ namespace PixelSaur.UI
             iconImg.raycastTarget = false;
             outIcon = iconImg;
 
-            // 2. 下方的 Slider 像素进度条 (220 x 26，高度占 0~26，与顶部 32~58 图标无缝贴合)
+            // 2. 右侧紧挨着的 Slider 像素进度条 (202 x 24)
             Transform sliderTr = itemObj.transform.Find("Slider");
             GameObject sliderObj = sliderTr != null ? sliderTr.gameObject : new GameObject("Slider", typeof(RectTransform), typeof(Slider));
             RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
             sliderRT.SetParent(itemRT, false);
-            sliderRT.anchorMin = new Vector2(0.5f, 0f);
-            sliderRT.anchorMax = new Vector2(0.5f, 0f);
-            sliderRT.pivot = new Vector2(0.5f, 0f);
-            sliderRT.anchoredPosition = Vector2.zero;
-            sliderRT.sizeDelta = new Vector2(220f, 26f);
+            sliderRT.anchorMin = new Vector2(0f, 0.5f);
+            sliderRT.anchorMax = new Vector2(0f, 0.5f);
+            sliderRT.pivot = new Vector2(0f, 0.5f);
+            sliderRT.anchoredPosition = new Vector2(34f, 0f);
+            sliderRT.sizeDelta = new Vector2(202f, 24f);
 
             Slider slider = sliderObj.GetComponent<Slider>();
             slider.interactable = false;
@@ -318,7 +324,7 @@ namespace PixelSaur.UI
             slider.targetGraphic = bgImg;
             slider.fillRect = fillRT;
 
-            // 3. 数值文本（条内完全居中，加粗带描边）
+            // 3. 数值文本（条内居中或靠左内缩，加粗带描边）
             Transform textTr = sliderObj.transform.Find("ValueText");
             GameObject textObj = textTr != null ? textTr.gameObject : new GameObject("ValueText", typeof(RectTransform), typeof(Text), typeof(Outline));
             RectTransform textRT = textObj.GetComponent<RectTransform>();
@@ -326,8 +332,16 @@ namespace PixelSaur.UI
             textRT.anchorMin = Vector2.zero;
             textRT.anchorMax = Vector2.one;
             textRT.pivot = new Vector2(0.5f, 0.5f);
-            textRT.offsetMin = Vector2.zero;
-            textRT.offsetMax = Vector2.zero;
+            if (!centerValueText)
+            {
+                textRT.offsetMin = new Vector2(textLeftPadding, 0f);
+                textRT.offsetMax = new Vector2(-textLeftPadding, 0f);
+            }
+            else
+            {
+                textRT.offsetMin = Vector2.zero;
+                textRT.offsetMax = Vector2.zero;
+            }
             textRT.anchoredPosition = Vector2.zero;
 
             Text textComp = textObj.GetComponent<Text>();
@@ -336,7 +350,7 @@ namespace PixelSaur.UI
             textComp.font = font;
             textComp.fontSize = 16;
             textComp.fontStyle = FontStyle.Bold;
-            textComp.alignment = TextAnchor.MiddleCenter; // 居中显示！
+            textComp.alignment = centerValueText ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
             textComp.color = Color.white;
             textComp.text = "100";
             textComp.raycastTarget = false;

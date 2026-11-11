@@ -32,15 +32,41 @@ namespace PixelSaur.UI
         [Tooltip("是否为动态摇杆（按下时将底盘移至手指触摸点）")]
         [SerializeField] private bool dynamicJoystick = false;
 
+        [Header("奔跑按钮配置 (PUBG/COD手游上推奔跑)")]
+        [Tooltip("上方圆形奔跑按钮")]
+        [SerializeField] private RectTransform sprintButton;
+        [SerializeField] private Image sprintButtonBg;
+        [SerializeField] private Image sprintButtonIcon;
+        [Tooltip("32*32 像素翼龙奔跑图标资产")]
+        [SerializeField] private Sprite pterosaurRunSprite;
+        [Tooltip("奔跑按钮在摇杆正上方的垂直距离（像素）")]
+        [Range(100f, 250f)]
+        [SerializeField] private float sprintButtonYOffset = 160f;
+        [Tooltip("手指滑动到奔跑按钮的吸附判定半径")]
+        [Range(20f, 80f)]
+        [SerializeField] private float sprintSnapDistance = 48f;
+        [SerializeField] private Color sprintNormalColor = new Color(0.10f, 0.14f, 0.20f, 0.75f);
+        [SerializeField] private Color sprintActiveColor = new Color(0.18f, 0.75f, 0.95f, 0.92f);
+
         private Vector2 _defaultBackgroundPosition;
         private Canvas _canvas;
         private static Sprite _cachedBaseCircleSprite;
         private static Sprite _cachedKnobCircleSprite;
 
+        public bool IsSprinting { get; private set; }
+
         private void Awake()
         {
             InitializeReferences();
             EnsureCircularAppearance();
+        }
+
+        private void Start()
+        {
+            if (Application.isPlaying && sprintButton != null)
+            {
+                sprintButton.gameObject.SetActive(false);
+            }
         }
 
         private void OnEnable()
@@ -76,8 +102,57 @@ namespace PixelSaur.UI
         /// <summary>
         /// 确保摇杆底座和中心圆钮始终渲染为平滑抗锯齿的正圆形
         /// </summary>
+        private void EnsureSprintButtonHierarchy()
+        {
+#if UNITY_EDITOR
+            if (pterosaurRunSprite == null)
+            {
+                pterosaurRunSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
+            }
+#endif
+            Transform sprintTr = transform.Find("SprintButton");
+            GameObject sprintObj = sprintTr != null ? sprintTr.gameObject : new GameObject("SprintButton", typeof(RectTransform));
+            sprintButton = sprintObj.GetComponent<RectTransform>();
+            sprintButton.SetParent(transform, false);
+            sprintButton.anchorMin = new Vector2(0.5f, 0.5f);
+            sprintButton.anchorMax = new Vector2(0.5f, 0.5f);
+            sprintButton.pivot = new Vector2(0.5f, 0.5f);
+            sprintButton.anchoredPosition = new Vector2(0f, sprintButtonYOffset);
+            sprintButton.sizeDelta = new Vector2(76f, 76f);
+
+            sprintButtonBg = sprintObj.GetComponent<Image>();
+            if (sprintButtonBg == null) sprintButtonBg = sprintObj.AddComponent<Image>();
+            if (_cachedBaseCircleSprite == null) _cachedBaseCircleSprite = CreateAntiAliasedCircleSprite(256, true);
+            sprintButtonBg.sprite = _cachedBaseCircleSprite;
+            sprintButtonBg.color = sprintNormalColor;
+            sprintButtonBg.raycastTarget = false;
+
+            Transform iconTr = sprintObj.transform.Find("Icon");
+            GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            RectTransform iconRT = iconObj.GetComponent<RectTransform>();
+            iconRT.SetParent(sprintButton, false);
+            iconRT.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRT.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRT.pivot = new Vector2(0.5f, 0.5f);
+            iconRT.anchoredPosition = Vector2.zero;
+            iconRT.sizeDelta = new Vector2(36f, 36f);
+
+            sprintButtonIcon = iconObj.GetComponent<Image>();
+            sprintButtonIcon.sprite = pterosaurRunSprite;
+            sprintButtonIcon.color = Color.white;
+            sprintButtonIcon.preserveAspect = true;
+            sprintButtonIcon.raycastTarget = false;
+
+            if (Application.isPlaying)
+            {
+                sprintButton.gameObject.SetActive(false);
+            }
+        }
+
         public void EnsureCircularAppearance()
         {
+            EnsureSprintButtonHierarchy();
+
             if (background != null)
             {
                 Image bgImg = background.GetComponent<Image>();
@@ -187,9 +262,8 @@ namespace PixelSaur.UI
 
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(background, eventData.position, cam, out Vector2 position))
             {
-                // 计算偏移向量并严格限制在圆形半径内
+                // 计算偏移向量并限制在摇杆范围内
                 Vector2 clampedPos = Vector2.ClampMagnitude(position, handleRange);
-                handle.anchoredPosition = clampedPos;
 
                 // 归一化输入值 (-1 ~ 1)
                 Vector2 normalizedInput = clampedPos / handleRange;
@@ -198,15 +272,58 @@ namespace PixelSaur.UI
                     normalizedInput = Vector2.zero;
                 }
 
+                // 奔跑按钮逻辑 (手指向上推进进入奔跑区域)
+                if (sprintButton != null)
+                {
+                    // 仅当玩家有移动输入时显示奔跑按钮，静止时不显示
+                    if (normalizedInput.sqrMagnitude > 0.01f)
+                    {
+                        if (!sprintButton.gameObject.activeSelf) sprintButton.gameObject.SetActive(true);
+
+                        float distToSprint = Vector2.Distance(position, sprintButton.anchoredPosition);
+                        if (position.y > handleRange * 0.75f && distToSprint <= sprintSnapDistance)
+                        {
+                            IsSprinting = true;
+                            handle.anchoredPosition = sprintButton.anchoredPosition;
+                            if (sprintButtonBg != null) sprintButtonBg.color = sprintActiveColor;
+                            normalizedInput = Vector2.up; // 向上全速狂奔
+                        }
+                        else
+                        {
+                            IsSprinting = false;
+                            handle.anchoredPosition = clampedPos;
+                            if (sprintButtonBg != null) sprintButtonBg.color = sprintNormalColor;
+                        }
+                    }
+                    else
+                    {
+                        IsSprinting = false;
+                        handle.anchoredPosition = clampedPos;
+                        if (sprintButton.gameObject.activeSelf) sprintButton.gameObject.SetActive(false);
+                    }
+                }
+                else
+                {
+                    handle.anchoredPosition = clampedPos;
+                }
+
                 if (PlayerInputProxy.Instance != null)
                 {
                     PlayerInputProxy.Instance.SetJoystickInput(normalizedInput);
+                    PlayerInputProxy.Instance.SetSprint(IsSprinting);
                 }
             }
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            IsSprinting = false;
+            if (sprintButton != null)
+            {
+                sprintButton.gameObject.SetActive(false);
+                if (sprintButtonBg != null) sprintButtonBg.color = sprintNormalColor;
+            }
+
             if (handle != null)
             {
                 handle.anchoredPosition = Vector2.zero;
@@ -220,6 +337,7 @@ namespace PixelSaur.UI
             if (PlayerInputProxy.Instance != null)
             {
                 PlayerInputProxy.Instance.SetJoystickInput(Vector2.zero);
+                PlayerInputProxy.Instance.SetSprint(false);
             }
         }
     }

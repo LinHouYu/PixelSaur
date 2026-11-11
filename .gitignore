@@ -52,6 +52,7 @@ sysinfo.txt
 # Unity native debug / build cache
 .utmp/
 scratch/
+Moba/
 *.apk
 *.aab
 *.unitypackage

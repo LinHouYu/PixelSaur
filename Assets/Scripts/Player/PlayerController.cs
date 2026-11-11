@@ -10,9 +10,19 @@ namespace PixelSaur.Player
     public class PlayerController : MonoBehaviour
     {
         [Header("移动参数配置")]
-        [Tooltip("基础移动速度（米/秒）")]
+        [Tooltip("常态走路速度（米/秒）")]
         [Range(1f, 15f)]
-        [SerializeField] private float moveSpeed = 5.5f;
+        [SerializeField] private float walkSpeed = 4.2f;
+
+        [Tooltip("奔跑移动速度（米/秒）")]
+        [Range(2f, 25f)]
+        [SerializeField] private float runSpeed = 7.6f;
+
+        [Tooltip("奔跑扣水时间间隔（秒）")]
+        [SerializeField] private float sprintThirstInterval = 0.5f;
+
+        [Tooltip("奔跑每次消耗口渴度数值")]
+        [SerializeField] private float sprintThirstCost = 2.0f;
 
         [Tooltip("转向目标方向的平滑角速度")]
         [Range(360f, 1440f)]
@@ -34,9 +44,28 @@ namespace PixelSaur.Player
         private CharacterController _characterController;
         private float _verticalVelocity;
         private readonly float _baseGravity = -9.81f;
+        private float _sprintThirstTimer = 0f;
+
+        // 冲击技能瞬时位移
+        private Vector3 _dashVelocity = Vector3.zero;
+        private float _dashTimeRemaining = 0f;
+
+        /// <summary>
+        /// 动作硬直位移锁定：进食、喝水时不可移动
+        /// </summary>
+        public bool MovementLocked { get; set; } = false;
 
         public CharacterController Controller => _characterController;
         public bool IsGrounded => _characterController != null && _characterController.isGrounded;
+
+        /// <summary>
+        /// 触发冲击技能向前冲撞位移
+        /// </summary>
+        public void PerformDash(Vector3 direction, float speed, float duration)
+        {
+            _dashVelocity = direction.normalized * speed;
+            _dashTimeRemaining = duration;
+        }
 
         private void Awake()
         {
@@ -68,7 +97,11 @@ namespace PixelSaur.Player
 
         private void HandleMovement()
         {
-            Vector2 input = PlayerInputProxy.Instance != null ? PlayerInputProxy.Instance.MoveInput : Vector2.zero;
+            Vector2 input = Vector2.zero;
+            if (!MovementLocked && PlayerInputProxy.Instance != null)
+            {
+                input = PlayerInputProxy.Instance.MoveInput;
+            }
 
             // 1. 获取摄像机前向与右向在水平面 (XZ) 的投影
             Vector3 camForward = Vector3.forward;
@@ -93,7 +126,30 @@ namespace PixelSaur.Player
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
 
-            // 3. 处理重力与跳跃
+            // 3. 奔跑判定与每0.5秒扣2点口渴度
+            bool isSprinting = PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSprinting && !MovementLocked;
+            if (isSprinting && PixelSaur.UI.PlayerStatusUI.Instance != null && PixelSaur.UI.PlayerStatusUI.Instance.Thirst <= 0.01f)
+            {
+                isSprinting = false; // 缺水无法奔跑
+            }
+
+            float currentSpeed = isSprinting ? runSpeed : walkSpeed;
+
+            if (isSprinting && input.sqrMagnitude > 0.01f)
+            {
+                _sprintThirstTimer += Time.deltaTime;
+                if (_sprintThirstTimer >= sprintThirstInterval)
+                {
+                    _sprintThirstTimer = 0f;
+                    PixelSaur.UI.PlayerStatusUI.Instance?.ModifyThirst(-sprintThirstCost);
+                }
+            }
+            else
+            {
+                _sprintThirstTimer = 0f;
+            }
+
+            // 4. 处理重力与跳跃
             if (_characterController.isGrounded)
             {
                 if (_verticalVelocity < 0f)
@@ -101,7 +157,7 @@ namespace PixelSaur.Player
                     _verticalVelocity = -2f; // 贴地缓冲力
                 }
 
-                if (PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.JumpRequested)
+                if (!MovementLocked && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.JumpRequested)
                 {
                     _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * (_baseGravity * gravityMultiplier));
                 }
@@ -111,8 +167,15 @@ namespace PixelSaur.Player
                 _verticalVelocity += _baseGravity * gravityMultiplier * Time.deltaTime;
             }
 
-            // 4. 组合最终位移向量并驱动 CharacterController
-            Vector3 motion = (moveDirection * moveSpeed) + (Vector3.up * _verticalVelocity);
+            // 5. 组合最终位移向量 (包含冲击位移)
+            Vector3 horizontalMotion = moveDirection * currentSpeed;
+            if (_dashTimeRemaining > 0f)
+            {
+                _dashTimeRemaining -= Time.deltaTime;
+                horizontalMotion += _dashVelocity;
+            }
+
+            Vector3 motion = horizontalMotion + (Vector3.up * _verticalVelocity);
             _characterController.Move(motion * Time.deltaTime);
         }
     }

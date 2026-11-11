@@ -56,7 +56,22 @@ namespace PixelSaur.Cam
         private float _currentDistance;
         private Vector3 _smoothVelocity;
 
+        [Header("摄像机微抖动参数")]
+        private float _shakeIntensity = 0f;
+        private float _shakeDuration = 0f;
+        private float _shakeTimer = 0f;
+
         public Transform Target => target;
+
+        /// <summary>
+        /// 触发摄像机微抖动（用于冲击技能或撞击打击感）
+        /// </summary>
+        public void TriggerShake(float intensity = 0.16f, float duration = 0.22f)
+        {
+            _shakeIntensity = intensity;
+            _shakeDuration = duration;
+            _shakeTimer = duration;
+        }
 
         public void SetTarget(Transform newTarget)
         {
@@ -139,6 +154,20 @@ namespace PixelSaur.Cam
             _currentDistance = Mathf.Lerp(_currentDistance, targetDistance, Time.deltaTime * 15f);
 
             Vector3 finalPosition = targetPivot + desiredDirection * _currentDistance;
+
+            if (_shakeTimer > 0f)
+            {
+                _shakeTimer -= Time.deltaTime;
+                float progress = Mathf.Clamp01(_shakeTimer / _shakeDuration);
+                float curStrength = _shakeIntensity * progress;
+                Vector3 shakeOffset = new Vector3(
+                    (Mathf.PerlinNoise(Time.time * 45f, 0f) - 0.5f) * 2f * curStrength,
+                    (Mathf.PerlinNoise(0f, Time.time * 45f) - 0.5f) * 2f * curStrength,
+                    (Mathf.PerlinNoise(Time.time * 30f, Time.time * 30f) - 0.5f) * curStrength
+                );
+                finalPosition += rotation * shakeOffset;
+            }
+
             transform.position = Vector3.SmoothDamp(transform.position, finalPosition, ref _smoothVelocity, positionSmoothTime);
             transform.rotation = rotation;
         }

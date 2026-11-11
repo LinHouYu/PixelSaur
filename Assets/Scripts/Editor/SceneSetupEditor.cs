@@ -11,6 +11,8 @@ using PixelSaur.UI;
 using PixelSaur.Environment;
 using PixelSaur.Grass;
 using PixelSaur.Water;
+using PixelSaur.Combat;
+using PixelSaur.Creatures;
 
 namespace PixelSaur.Editor
 {
@@ -121,6 +123,24 @@ namespace PixelSaur.Editor
 
             PlayerController controller = player.GetComponent<PlayerController>();
             if (controller == null) controller = player.AddComponent<PlayerController>();
+
+            // 3.1 恐龙近战战斗与交互组件 (DinoCombatController, DinoInteractionController, DinoAttackIndicator)
+            DinoCombatController combat = player.GetComponent<DinoCombatController>();
+            if (combat == null) combat = player.AddComponent<DinoCombatController>();
+
+            DinoInteractionController interaction = player.GetComponent<DinoInteractionController>();
+            if (interaction == null) interaction = player.AddComponent<DinoInteractionController>();
+
+            Transform indicatorTr = player.transform.Find("AttackIndicator");
+            if (indicatorTr == null)
+            {
+                GameObject indObj = new GameObject("AttackIndicator");
+                indObj.transform.SetParent(player.transform, false);
+                indObj.AddComponent<DinoAttackIndicator>();
+            }
+
+            // 3.2 创建双测试胶囊生物 (红色危险生物、绿色猎物)
+            SetupTestCreatures(player.transform.position);
 
             // 4. 配置第三人称相机 (Main Camera) 并开启 Depth Texture 支持 MinionsArt 海岸线泡沫
             Camera mainCam = Camera.main;
@@ -384,6 +404,9 @@ namespace PixelSaur.Editor
             PlayerStatusUI statusUI = statusObj.GetComponent<PlayerStatusUI>();
             if (statusUI == null) statusUI = statusObj.AddComponent<PlayerStatusUI>();
             statusUI.EnsureUIHierarchy();
+
+            // 4. 右下角圆形攻击与双击冲击技能按钮
+            SetupAttackButton(canvas);
         }
 
         private static Material CreateOrUpdateMaterial(string assetPath, string shaderName, System.Action<Material> initAction)
@@ -410,6 +433,96 @@ namespace PixelSaur.Editor
             }
             AssetDatabase.SaveAssets();
             return mat;
+        }
+        private static void SetupAttackButton(Canvas canvas)
+        {
+            Transform attackTr = canvas.transform.Find("DinoAttackButton");
+            GameObject attackObj;
+            if (attackTr == null)
+            {
+                attackObj = new GameObject("DinoAttackButton", typeof(RectTransform));
+                attackObj.transform.SetParent(canvas.transform, false);
+            }
+            else
+            {
+                attackObj = attackTr.gameObject;
+            }
+
+            RectTransform attackRT = attackObj.GetComponent<RectTransform>();
+            attackRT.anchorMin = new Vector2(1f, 0f);
+            attackRT.anchorMax = new Vector2(1f, 0f);
+            attackRT.pivot = new Vector2(0.5f, 0.5f);
+            attackRT.anchoredPosition = new Vector2(-190f, 190f);
+            attackRT.sizeDelta = new Vector2(140f, 140f);
+
+            Image bgImg = attackObj.GetComponent<Image>();
+            if (bgImg == null) bgImg = attackObj.AddComponent<Image>();
+            bgImg.color = new Color(0.12f, 0.16f, 0.22f, 0.75f);
+
+            Transform iconTr = attackObj.transform.Find("Icon");
+            GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            RectTransform iconRT = iconObj.GetComponent<RectTransform>();
+            iconRT.SetParent(attackRT, false);
+            iconRT.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRT.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRT.pivot = new Vector2(0.5f, 0.5f);
+            iconRT.anchoredPosition = Vector2.zero;
+            iconRT.sizeDelta = new Vector2(64f, 64f);
+
+            Image iconImg = iconObj.GetComponent<Image>();
+            iconImg.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
+            iconImg.color = Color.white;
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+
+            DinoAttackButton btn = attackObj.GetComponent<DinoAttackButton>();
+            if (btn == null) btn = attackObj.AddComponent<DinoAttackButton>();
+            btn.EnsureAppearance();
+        }
+
+        private static void SetupTestCreatures(Vector3 playerPos)
+        {
+            // 1. 红色危险生物胶囊 (碰一下扣20血，0.4s间隔)
+            if (Object.FindAnyObjectByType<RedHazardCapsule>() == null)
+            {
+                GameObject redObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                redObj.name = "Creature_RedHazard";
+                redObj.transform.position = playerPos + new Vector3(3.5f, 0.35f, 2.5f);
+                redObj.transform.localScale = Vector3.one * 1.0f;
+
+                redObj.AddComponent<RedHazardCapsule>();
+
+                // 设置醒目鲜红材质
+                MeshRenderer mr = redObj.GetComponent<MeshRenderer>();
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit");
+                if (shader != null)
+                {
+                    Material redMat = new Material(shader) { name = "M_RedHazard_Capsule" };
+                    redMat.SetColor("_BaseColor", new Color(0.95f, 0.15f, 0.15f, 1f));
+                    mr.sharedMaterial = redMat;
+                }
+            }
+
+            // 2. 绿色猎物生物胶囊 (100血量，死后倒地可吃3次)
+            if (Object.FindAnyObjectByType<GreenPreyCapsule>() == null)
+            {
+                GameObject greenObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                greenObj.name = "Creature_GreenPrey";
+                greenObj.transform.position = playerPos + new Vector3(-3.2f, 0.35f, 2.2f);
+                greenObj.transform.localScale = Vector3.one * 1.0f;
+
+                greenObj.AddComponent<GreenPreyCapsule>();
+
+                // 设置初始翠绿材质
+                MeshRenderer mr = greenObj.GetComponent<MeshRenderer>();
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit");
+                if (shader != null)
+                {
+                    Material greenMat = new Material(shader) { name = "M_GreenPrey_Capsule" };
+                    greenMat.SetColor("_BaseColor", new Color(0.25f, 0.85f, 0.35f, 1f));
+                    mr.sharedMaterial = greenMat;
+                }
+            }
         }
     }
 }

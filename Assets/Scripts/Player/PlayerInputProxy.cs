@@ -31,11 +31,18 @@ namespace PixelSaur.Player
         public Vector2 MoveInput { get; private set; }
         public Vector2 LookInput { get; private set; }
         public bool JumpRequested { get; private set; }
+        public bool IsSprinting { get; private set; }
 
         private Vector2 _joystickInput;
         private Vector2 _touchLookDelta;
         private Vector2 _smoothedKeyboardInput;
         private bool _jumpFlag;
+        private bool _joystickSprint;
+
+        public void SetSprint(bool sprinting)
+        {
+            _joystickSprint = sprinting;
+        }
 
         private void Awake()
         {
@@ -121,6 +128,15 @@ namespace PixelSaur.Player
 
             // 3. 严格归一化 (限制最大模长为 1.0)
             MoveInput = Vector2.ClampMagnitude(combined, 1f);
+
+            // 4. 判定奔跑状态 (移动端上推摇杆锁定 或 PC 左Shift)
+            bool pcSprint = false;
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) pcSprint = true;
+#else
+            if (Input.GetKey(KeyCode.LeftShift)) pcSprint = true;
+#endif
+            IsSprinting = _joystickSprint || pcSprint;
         }
 
         private void UpdateLookInput()
