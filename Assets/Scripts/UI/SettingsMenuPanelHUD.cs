@@ -120,13 +120,11 @@ namespace PixelSaur.UI
             bgRT.offsetMax = Vector2.zero;
 
             foggyBgImage = bgObj.GetComponent<Image>();
-            foggyBgImage.sprite = roundedPillSprite;
-            foggyBgImage.type = Image.Type.Filled;
-            foggyBgImage.fillMethod = Image.FillMethod.Vertical;
-            foggyBgImage.fillOrigin = (int)Image.OriginVertical.Bottom;
-            foggyBgImage.fillAmount = _isOpen ? 1f : 0f;
+            foggyBgImage.sprite = null;
+            foggyBgImage.type = Image.Type.Simple;
             foggyBgImage.color = foggyOverlayColor;
             foggyBgImage.raycastTarget = true;
+            SetFoggyFill(_isOpen ? 1f : 0f);
 
             // 点击背景也可顺畅关闭
             Button bgBtn = bgObj.GetComponent<Button>();
@@ -229,7 +227,7 @@ namespace PixelSaur.UI
             if (!_isOpen)
             {
                 if (centerPanelRect != null) centerPanelRect.localScale = Vector3.one;
-                if (foggyBgImage != null) foggyBgImage.fillAmount = 0f;
+                SetFoggyFill(0f);
             }
         }
 
@@ -366,7 +364,7 @@ namespace PixelSaur.UI
             {
                 _isOpen = true;
                 if (rootRect != null) rootRect.anchoredPosition = Vector2.zero;
-                if (foggyBgImage != null) foggyBgImage.fillAmount = 1f;
+                SetFoggyFill(1f);
                 if (centerPanelRect != null) centerPanelRect.localScale = Vector3.one;
                 if (centerPanelCanvasGroup != null) centerPanelCanvasGroup.alpha = 1f;
                 TopBarStatusHUD.Instance?.SetGearActive(true);
@@ -387,7 +385,7 @@ namespace PixelSaur.UI
             {
                 _isOpen = false;
                 if (rootRect != null) rootRect.anchoredPosition = Vector2.zero;
-                if (foggyBgImage != null) foggyBgImage.fillAmount = 0f;
+                SetFoggyFill(0f);
                 gameObject.SetActive(false);
                 TopBarStatusHUD.Instance?.SetGearActive(false);
             }
@@ -405,6 +403,18 @@ namespace PixelSaur.UI
             return x * x * x;
         }
 
+        private void SetFoggyFill(float t)
+        {
+            if (foggyBgImage != null)
+            {
+                RectTransform rt = foggyBgImage.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = new Vector2(1f, Mathf.Clamp01(t));
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+        }
+
         private IEnumerator AnimateOpen()
         {
             _isOpen = true;
@@ -413,13 +423,7 @@ namespace PixelSaur.UI
 
             if (centerPanelCanvasGroup != null) centerPanelCanvasGroup.alpha = 0f;
             if (centerPanelRect != null) centerPanelRect.localScale = new Vector3(0.2f, 0.2f, 1f);
-            if (foggyBgImage != null)
-            {
-                foggyBgImage.type = Image.Type.Filled;
-                foggyBgImage.fillMethod = Image.FillMethod.Vertical;
-                foggyBgImage.fillOrigin = (int)Image.OriginVertical.Bottom;
-                foggyBgImage.fillAmount = 0f;
-            }
+            SetFoggyFill(0f);
 
             TopBarStatusHUD.Instance?.SetGearActive(true);
 
@@ -429,11 +433,8 @@ namespace PixelSaur.UI
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / openDuration);
 
-                // 1. 灰蒙蒙背景从下往上填充
-                if (foggyBgImage != null)
-                {
-                    foggyBgImage.fillAmount = Mathf.SmoothStep(0f, 1f, t);
-                }
+                // 1. 灰蒙蒙背景从下往上填充 (无图片纯色遮罩拉伸)
+                SetFoggyFill(Mathf.SmoothStep(0f, 1f, t));
 
                 // 2. Panel 从小变大（带自然微弹性）
                 if (centerPanelRect != null)
@@ -450,7 +451,7 @@ namespace PixelSaur.UI
                 yield return null;
             }
 
-            if (foggyBgImage != null) foggyBgImage.fillAmount = 1f;
+            SetFoggyFill(1f);
             if (centerPanelRect != null) centerPanelRect.localScale = Vector3.one;
             if (centerPanelCanvasGroup != null) centerPanelCanvasGroup.alpha = 1f;
             _animCoroutine = null;
@@ -490,7 +491,7 @@ namespace PixelSaur.UI
             }
 
             if (rootRect != null) rootRect.anchoredPosition = Vector2.zero;
-            if (foggyBgImage != null) foggyBgImage.fillAmount = 0f;
+            SetFoggyFill(0f);
             gameObject.SetActive(false);
             _animCoroutine = null;
         }
