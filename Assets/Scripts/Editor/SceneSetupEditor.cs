@@ -160,7 +160,13 @@ namespace PixelSaur.Editor
             }
             else
             {
-                if (grassInterMgr.targetPlayer == null) grassInterMgr.targetPlayer = player.transform;
+                var so = new SerializedObject(grassInterMgr);
+                var p = so.FindProperty("targetPlayer");
+                if (p.objectReferenceValue == null)
+                {
+                    p.objectReferenceValue = player.transform;
+                    so.ApplyModifiedProperties();
+                }
             }
 
             ProceduralGrassRenderer grassRenderer = grassMgrObj.GetComponent<ProceduralGrassRenderer>();
@@ -238,7 +244,13 @@ namespace PixelSaur.Editor
             }
             else
             {
-                if (rippleMgr.targetPlayer == null) rippleMgr.targetPlayer = player.transform;
+                var so = new SerializedObject(rippleMgr);
+                var p = so.FindProperty("targetPlayer");
+                if (p.objectReferenceValue == null)
+                {
+                    p.objectReferenceValue = player.transform;
+                    so.ApplyModifiedProperties();
+                }
             }
 
             // 7. 配置 UI Canvas（正圆形虚拟摇杆与右屏滑动区域）
