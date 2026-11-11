@@ -7,13 +7,14 @@ namespace PixelSaur.Creatures
 {
     /// <summary>
     /// 绿色猎物测试生物（无 AI，静止）：
-    /// 1. 存活时 100 血量，在玩家攻击范围内显示红色高亮 Shader/描边；
-    /// 2. 死亡后倒地，在玩家攻击范围内显示绿色；
-    /// 3. 支持长按进食：共可吃 3 次，每口 1.5 秒，每口恢复 20 饱食度并回复 15 生命；
-    /// 4. 饱食度满（100）时不可进食；
-    /// 5. 吃完 3 口后猎物彻底被食用完毕，并在设定时间后原地重新生成；
+    /// 1. 存活时 100 血量，仅在玩家攻击范围内显示头顶血条，平时完全隐藏；
+    /// 2. 存活时进入玩家攻击范围，外圈呈现红色描边Shader，头顶显现动态血条与数值；
+    /// 3. 死亡后倒地，在玩家攻击范围内外圈呈现黄色描边Shader，头顶显现剩余食用次数；
+    /// 4. 处于攻击范围时长按 0.4s 进食：共可吃 3 次，每口 1.5 秒，每口恢复 20 饱食度并回复 15 生命；
+    /// 5. 饱食度满（100）时不可进食；吃完 3 口后彻底食用完毕并在 5 秒后原地重新生成；
     /// 6. 所有参数全部支持 Inspector 灵活微调。
     /// </summary>
+    [ExecuteAlways]
     [RequireComponent(typeof(Collider))]
     public class GreenPreyCapsule : MonoBehaviour
     {
@@ -47,7 +48,7 @@ namespace PixelSaur.Creatures
         [SerializeField] private Color corpseOutlineColor = new Color(1.0f, 0.85f, 0.15f, 1f); // 死后在进食范围内显示外圈黄色Shader
         [SerializeField] private float outlineWidth = 0.06f; // 外圈描边宽度
 
-        [Header("头顶 UI (自动构建)")]
+        [Header("头顶 UI (仅在攻击范围内显示)")]
         [SerializeField] private Transform headBarRoot;
         [SerializeField] private Slider hpSlider;
         [SerializeField] private Text statusText;
@@ -98,20 +99,22 @@ namespace PixelSaur.Creatures
             EnsureHighlightMaterial();
             EnsureUIHierarchy();
             UpdateVisualColor();
+            UpdateHeadBarVisibility();
         }
 
         private void Update()
         {
-            if (headBarRoot != null && Camera.main != null)
+            if (headBarRoot != null && headBarRoot.gameObject.activeSelf && Camera.main != null)
             {
                 headBarRoot.rotation = Camera.main.transform.rotation; // 始终面向摄像机
             }
 
-            // 心跳检测：若超过 0.15 秒未收到攻击范围通知，自动取消外圈描边
+            // 心跳检测：若超过 0.15 秒未收到攻击范围通知，自动取消外圈描边并隐藏血条
             if (_isInAttackRange && Time.time - _lastRangePingTime > 0.15f)
             {
                 _isInAttackRange = false;
                 UpdateVisualColor();
+                UpdateHeadBarVisibility();
             }
         }
 
@@ -125,6 +128,16 @@ namespace PixelSaur.Creatures
             {
                 _isInAttackRange = inRange;
                 UpdateVisualColor();
+                UpdateHeadBarVisibility();
+            }
+        }
+
+        private void UpdateHeadBarVisibility()
+        {
+            if (headBarRoot != null)
+            {
+                // 核心规则：仅在玩家攻击范围内才显示头顶UI（血条或可食用次数）！
+                headBarRoot.gameObject.SetActive(_isInAttackRange);
             }
         }
 
@@ -143,10 +156,6 @@ namespace PixelSaur.Creatures
             {
                 Die();
             }
-            else
-            {
-                UpdateVisualColor();
-            }
         }
 
         private void Die()
@@ -155,7 +164,7 @@ namespace PixelSaur.Creatures
             currentHealth = 0f;
             remainingFeedCount = totalFeedCount;
 
-            // 倒地死亡表现：倒在地面上
+            // 倒地死亡表现
             transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
 
             if (hpSlider != null) hpSlider.gameObject.SetActive(false);
@@ -166,6 +175,7 @@ namespace PixelSaur.Creatures
             }
 
             UpdateVisualColor();
+            UpdateHeadBarVisibility();
         }
 
         /// <summary>
@@ -236,7 +246,6 @@ namespace PixelSaur.Creatures
             if (_renderer != null) _renderer.enabled = true;
             if (_collider != null) _collider.enabled = true;
 
-            if (headBarRoot != null) headBarRoot.gameObject.SetActive(true);
             if (hpSlider != null)
             {
                 hpSlider.gameObject.SetActive(true);
@@ -250,6 +259,7 @@ namespace PixelSaur.Creatures
             }
 
             UpdateVisualColor();
+            UpdateHeadBarVisibility();
         }
 
         private void UpdateVisualColor()
@@ -275,47 +285,111 @@ namespace PixelSaur.Creatures
             _renderer.SetPropertyBlock(_propBlock);
         }
 
-        private void EnsureUIHierarchy()
+        public void EnsureUIHierarchy()
         {
-            if (headBarRoot != null) return;
-
             Transform hbTr = transform.Find("HeadBar");
-            if (hbTr == null)
+            GameObject hbObj;
+            if (hbTr != null)
             {
-                GameObject hbObj = new GameObject("HeadBar");
-                hbObj.transform.SetParent(transform, false);
-                hbObj.transform.localPosition = new Vector3(0f, 1.4f, 0f);
-                headBarRoot = hbObj.transform;
+                headBarRoot = hbTr;
+                hpSlider = hbTr.GetComponentInChildren<Slider>();
+                statusText = hbTr.GetComponentInChildren<Text>();
+                if (hpSlider != null && statusText != null)
+                {
+                    headBarRoot.gameObject.SetActive(false);
+                    return;
+                }
 
-                Canvas c = hbObj.AddComponent<Canvas>();
-                c.renderMode = RenderMode.WorldSpace;
-                RectTransform crt = hbObj.GetComponent<RectTransform>();
-                crt.sizeDelta = new Vector2(160f, 40f);
-                crt.localScale = Vector3.one * 0.008f;
-
-                // 文字
-                GameObject textObj = new GameObject("StatusText", typeof(RectTransform), typeof(Text), typeof(Outline));
-                textObj.transform.SetParent(headBarRoot, false);
-                RectTransform trt = textObj.GetComponent<RectTransform>();
-                trt.sizeDelta = new Vector2(160f, 24f);
-                trt.anchoredPosition = new Vector2(0f, 10f);
-
-                statusText = textObj.GetComponent<Text>();
-                statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-                statusText.fontSize = 14;
-                statusText.alignment = TextAnchor.MiddleCenter;
-                statusText.color = Color.white;
-                statusText.text = "猎物 HP: 100/100";
-
-                Outline outline = textObj.GetComponent<Outline>();
-                outline.effectColor = new Color(0, 0, 0, 0.9f);
-                outline.effectDistance = new Vector2(1, -1);
+                // 清理旧子节点
+                for (int i = hbTr.childCount - 1; i >= 0; i--)
+                {
+                    DestroyImmediate(hbTr.GetChild(i).gameObject);
+                }
+                hbObj = hbTr.gameObject;
             }
             else
             {
-                headBarRoot = hbTr;
-                statusText = headBarRoot.GetComponentInChildren<Text>();
+                hbObj = new GameObject("HeadBar");
+                hbObj.transform.SetParent(transform, false);
+                hbObj.transform.localPosition = new Vector3(0f, 1.45f, 0f);
             }
+
+            headBarRoot = hbObj.transform;
+
+            Canvas canvas = hbObj.GetComponent<Canvas>() ?? hbObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            RectTransform canvasRT = hbObj.GetComponent<RectTransform>();
+            canvasRT.sizeDelta = new Vector2(140f, 32f);
+            canvasRT.localScale = Vector3.one * 0.0075f;
+
+            // 1. Slider
+            GameObject sliderObj = new GameObject("HPSlider", typeof(RectTransform), typeof(Slider));
+            sliderObj.transform.SetParent(headBarRoot, false);
+            RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
+            sliderRT.sizeDelta = new Vector2(120f, 12f);
+            sliderRT.anchoredPosition = new Vector2(0f, 7f);
+
+            Slider slider = sliderObj.GetComponent<Slider>();
+            slider.interactable = false;
+            slider.transition = Selectable.Transition.None;
+
+            // Background
+            GameObject bgObj = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bgObj.transform.SetParent(sliderRT, false);
+            RectTransform bgRT = bgObj.GetComponent<RectTransform>();
+            bgRT.anchorMin = Vector2.zero;
+            bgRT.anchorMax = Vector2.one;
+            bgRT.sizeDelta = Vector2.zero;
+            Image bgImg = bgObj.GetComponent<Image>();
+            bgImg.color = new Color(0.12f, 0.12f, 0.14f, 0.88f);
+
+            // Fill Area
+            GameObject fillAreaObj = new GameObject("Fill Area", typeof(RectTransform));
+            fillAreaObj.transform.SetParent(sliderRT, false);
+            RectTransform fillAreaRT = fillAreaObj.GetComponent<RectTransform>();
+            fillAreaRT.anchorMin = Vector2.zero;
+            fillAreaRT.anchorMax = Vector2.one;
+            fillAreaRT.offsetMin = new Vector2(1f, 1f);
+            fillAreaRT.offsetMax = new Vector2(-1f, -1f);
+
+            // Fill
+            GameObject fillObj = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fillObj.transform.SetParent(fillAreaRT, false);
+            RectTransform fillRT = fillObj.GetComponent<RectTransform>();
+            fillRT.anchorMin = Vector2.zero;
+            fillRT.anchorMax = Vector2.one;
+            fillRT.sizeDelta = Vector2.zero;
+            Image fillImg = fillObj.GetComponent<Image>();
+            fillImg.color = new Color(0.25f, 0.85f, 0.35f, 1f); // 翠绿血条
+
+            slider.fillRect = fillRT;
+            slider.targetGraphic = bgImg;
+            slider.maxValue = maxHealth;
+            slider.value = currentHealth;
+            hpSlider = slider;
+
+            // 2. StatusText
+            GameObject textObj = new GameObject("StatusText", typeof(RectTransform), typeof(Text), typeof(Outline));
+            textObj.transform.SetParent(headBarRoot, false);
+            RectTransform textRT = textObj.GetComponent<RectTransform>();
+            textRT.sizeDelta = new Vector2(140f, 16f);
+            textRT.anchoredPosition = new Vector2(0f, -8f);
+
+            statusText = textObj.GetComponent<Text>();
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            statusText.font = font;
+            statusText.fontSize = 12;
+            statusText.fontStyle = FontStyle.Bold;
+            statusText.alignment = TextAnchor.MiddleCenter;
+            statusText.color = Color.white;
+            statusText.text = $"猎物 HP: {Mathf.CeilToInt(currentHealth)}/{maxHealth}";
+
+            Outline outline = textObj.GetComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            // 初始隐藏，进入攻击范围才显示！
+            headBarRoot.gameObject.SetActive(false);
         }
     }
 }

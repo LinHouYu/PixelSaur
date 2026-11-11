@@ -106,6 +106,7 @@ namespace PixelSaur.Combat
                 var prey = hit.GetComponentInParent<GreenPreyCapsule>();
                 if (prey != null)
                 {
+                    prey.SetInAttackRange(true);
                     float d = Vector3.Distance(center, prey.transform.position);
                     if (d < closestDist)
                     {
@@ -115,13 +116,11 @@ namespace PixelSaur.Combat
                 }
 
                 var hazard = hit.GetComponentInParent<RedHazardCapsule>();
-                if (hazard != null) closestHazard = hazard;
-            }
-
-            // 更新猎物的受威胁范围判定
-            if (closestPrey != null)
-            {
-                closestPrey.SetInAttackRange(true);
+                if (hazard != null)
+                {
+                    hazard.SetInAttackRange(true);
+                    closestHazard = hazard;
+                }
             }
 
             // 检测是否近水

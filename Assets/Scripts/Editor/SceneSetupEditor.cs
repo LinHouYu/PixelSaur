@@ -494,10 +494,9 @@ namespace PixelSaur.Editor
                 redObj.transform.localScale = Vector3.one * 1.0f;
             }
 
-            if (redObj.GetComponent<RedHazardCapsule>() == null)
-            {
-                redObj.AddComponent<RedHazardCapsule>();
-            }
+            RedHazardCapsule redComp = redObj.GetComponent<RedHazardCapsule>();
+            if (redComp == null) redComp = redObj.AddComponent<RedHazardCapsule>();
+            redComp.EnsureUIHierarchy();
 
             MeshRenderer redMR = redObj.GetComponent<MeshRenderer>();
             if (redMR != null && highlightShader != null)
@@ -519,10 +518,9 @@ namespace PixelSaur.Editor
                 greenObj.transform.localScale = Vector3.one * 1.0f;
             }
 
-            if (greenObj.GetComponent<GreenPreyCapsule>() == null)
-            {
-                greenObj.AddComponent<GreenPreyCapsule>();
-            }
+            GreenPreyCapsule greenComp = greenObj.GetComponent<GreenPreyCapsule>();
+            if (greenComp == null) greenComp = greenObj.AddComponent<GreenPreyCapsule>();
+            greenComp.EnsureUIHierarchy();
 
             MeshRenderer greenMR = greenObj.GetComponent<MeshRenderer>();
             if (greenMR != null && highlightShader != null)

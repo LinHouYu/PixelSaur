@@ -131,6 +131,14 @@ namespace PixelSaur.Combat
                     hitAny = true;
                     Debug.Log($"<color=#FF5555>[DinoCombat] 咬中猎物！造成 {biteDamage} 伤害，剩余生命 {prey.Health}。</color>");
                 }
+
+                var hazard = hit.GetComponentInParent<RedHazardCapsule>();
+                if (hazard != null && !hazard.IsDead)
+                {
+                    hazard.TakeDamage(biteDamage);
+                    hitAny = true;
+                    Debug.Log($"<color=#FF5555>[DinoCombat] 咬中敌人！造成 {biteDamage} 伤害，剩余生命 {hazard.Health}。</color>");
+                }
             }
 
             // 轻微镜头点震增强咬击手感
@@ -221,6 +229,12 @@ namespace PixelSaur.Combat
                 if (prey != null && !prey.IsDead)
                 {
                     prey.TakeDamage(dashDamage);
+                }
+
+                var hazard = hit.GetComponentInParent<RedHazardCapsule>();
+                if (hazard != null && !hazard.IsDead)
+                {
+                    hazard.TakeDamage(dashDamage);
                 }
             }
 
