@@ -11,7 +11,7 @@ Shader "PixelSaur/DinoRangeIndicator"
     {
         Tags 
         { 
-            "Queue" = "Transparent+100" 
+            "Queue" = "Transparent+10" 
             "RenderType" = "Transparent" 
             "RenderPipeline" = "UniversalPipeline"
             "IgnoreProjector" = "True"
@@ -24,9 +24,9 @@ Shader "PixelSaur/DinoRangeIndicator"
 
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            ZTest Always // 永远不被地表凹凸、草丛遮挡
+            ZTest LEqual // 严格启用深度测试：被角色身体遮挡，绝不穿透玩家！
             Cull Off
-            Offset -5, -5 // 深度向前偏移，杜绝地表穿模
+            Offset -3, -3 // 深度向前偏移，紧贴地表防Z-fighting穿模
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -73,12 +73,15 @@ Shader "PixelSaur/DinoRangeIndicator"
                     discard;
                 }
 
+                // 中心微小柔和内淡出，让角色立足点更加干净剔透
+                float centerFade = smoothstep(0.10, 0.35, dist);
+
                 // 外边缘高亮环
                 float ringInner = 1.0 - _RingWidth;
                 float isRing = smoothstep(ringInner - _SoftEdge, ringInner, dist);
 
                 // 内圈半透明填充 + 外环高亮
-                float finalAlpha = lerp(_InnerAlpha, 1.0, isRing) * outerFade * _BaseColor.a;
+                float finalAlpha = lerp(_InnerAlpha * centerFade, 1.0, isRing) * outerFade * _BaseColor.a;
 
                 return half4(_BaseColor.rgb, finalAlpha);
             }
