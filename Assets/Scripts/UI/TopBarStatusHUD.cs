@@ -298,8 +298,7 @@ namespace PixelSaur.UI
             if (fpsBadgeSprite == null)
                 fpsBadgeSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_fps_badge_32x32.png");
             if (panelBgSprite == null)
-                panelBgSprite = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd") 
-                                ?? UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+                panelBgSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
 #endif
         }
 

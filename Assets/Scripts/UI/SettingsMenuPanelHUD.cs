@@ -31,11 +31,11 @@ namespace PixelSaur.UI
 
         [Header("颜色配置")]
         [SerializeField] private Color foggyOverlayColor = new Color(0.22f, 0.25f, 0.30f, 0.72f);
-        [SerializeField] private Color panelBgColor = new Color(0.12f, 0.14f, 0.18f, 0.95f);
-        [SerializeField] private Color resumeBtnColor = new Color(0.18f, 0.45f, 0.65f, 0.98f);
-        [SerializeField] private Color buttonBgColor = new Color(0.20f, 0.24f, 0.32f, 0.98f);
-        [SerializeField] private Color buttonHoverColor = new Color(0.28f, 0.36f, 0.48f, 1f);
-        [SerializeField] private Color buttonPressedColor = new Color(0.14f, 0.55f, 0.82f, 1f);
+        [SerializeField] private Color panelBgColor = new Color(0.38f, 0.42f, 0.48f, 0.96f);
+        [SerializeField] private Color resumeBtnColor = new Color(0.70f, 1.10f, 1.35f, 1.0f);
+        [SerializeField] private Color buttonBgColor = Color.white;
+        [SerializeField] private Color buttonHoverColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+        [SerializeField] private Color buttonPressedColor = new Color(0.70f, 0.85f, 1.0f, 1f);
 
         [Header("动画时长")]
         [SerializeField] private float openDuration = 0.35f;
@@ -90,8 +90,7 @@ namespace PixelSaur.UI
 #if UNITY_EDITOR
             if (roundedPillSprite == null)
             {
-                roundedPillSprite = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd")
-                                    ?? UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+                roundedPillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
             }
 #endif
         }
@@ -121,7 +120,7 @@ namespace PixelSaur.UI
             bgRT.offsetMax = Vector2.zero;
 
             foggyBgImage = bgObj.GetComponent<Image>();
-            foggyBgImage.sprite = null;
+            foggyBgImage.sprite = roundedPillSprite;
             foggyBgImage.type = Image.Type.Filled;
             foggyBgImage.fillMethod = Image.FillMethod.Vertical;
             foggyBgImage.fillOrigin = (int)Image.OriginVertical.Bottom;
