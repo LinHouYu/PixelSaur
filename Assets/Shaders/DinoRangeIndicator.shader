@@ -11,7 +11,7 @@ Shader "PixelSaur/DinoRangeIndicator"
     {
         Tags 
         { 
-            "Queue" = "Transparent+60" 
+            "Queue" = "Transparent+100" 
             "RenderType" = "Transparent" 
             "RenderPipeline" = "UniversalPipeline"
             "IgnoreProjector" = "True"
@@ -24,9 +24,9 @@ Shader "PixelSaur/DinoRangeIndicator"
 
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            ZTest LEqual
+            ZTest Always // 永远不被地表凹凸、草丛遮挡
             Cull Off
-            Offset -3, -3 // 深度向前偏移，杜绝地表穿模
+            Offset -5, -5 // 深度向前偏移，杜绝地表穿模
 
             HLSLPROGRAM
             #pragma vertex vert

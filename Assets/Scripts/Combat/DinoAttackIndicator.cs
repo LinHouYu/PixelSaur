@@ -130,17 +130,31 @@ namespace PixelSaur.Combat
             Transform parent = transform.parent;
             Vector3 center = parent != null ? parent.position : transform.position;
 
-            // 向地表打短射线以适应凹凸起伏与坡度
-            Vector3 rayStart = center + Vector3.up * 1.5f;
-            if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, 3.5f, groundLayer, QueryTriggerInteraction.Ignore))
+            // 脚底基准高度（胶囊体高度 2.0，中心 y=1.0，脚底为 center.y - 1.0）
+            float feetY = parent != null ? parent.position.y - 1.0f : center.y;
+
+            // 向地表打射线以适应凹凸起伏与坡度，必须过滤掉玩家自身所有碰撞体
+            Vector3 rayStart = new Vector3(center.x, feetY + 1.0f, center.z);
+            RaycastHit[] hits = Physics.RaycastAll(rayStart, Vector3.down, 4.0f, groundLayer, QueryTriggerInteraction.Ignore);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            bool foundGround = false;
+            foreach (var hit in hits)
             {
+                if (parent != null && (hit.transform == parent || hit.transform.IsChildOf(parent) || hit.transform.root == parent.root))
+                {
+                    continue; // 彻底排除玩家自身碰撞体，绝不打在头顶
+                }
+
                 transform.position = hit.point + Vector3.up * groundOffset;
-                // 微微贴合地面法线，避免倾斜地面悬空或插地
                 transform.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
+                foundGround = true;
+                break;
             }
-            else
+
+            if (!foundGround)
             {
-                transform.position = center + Vector3.up * groundOffset;
+                transform.position = new Vector3(center.x, feetY + groundOffset, center.z);
                 transform.rotation = Quaternion.identity;
             }
 

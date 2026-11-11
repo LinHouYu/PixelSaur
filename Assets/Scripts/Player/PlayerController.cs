@@ -55,6 +55,8 @@ namespace PixelSaur.Player
         /// </summary>
         public bool MovementLocked { get; set; } = false;
 
+        public static PlayerController Instance { get; private set; }
+
         public CharacterController Controller => _characterController;
         public bool IsGrounded => _characterController != null && _characterController.isGrounded;
 
@@ -69,6 +71,7 @@ namespace PixelSaur.Player
 
         private void Awake()
         {
+            Instance = this;
             _characterController = GetComponent<CharacterController>();
             if (_characterController != null)
             {
@@ -177,6 +180,18 @@ namespace PixelSaur.Player
 
             Vector3 motion = horizontalMotion + (Vector3.up * _verticalVelocity);
             _characterController.Move(motion * Time.deltaTime);
+        }
+
+        private void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (hit.gameObject != null)
+            {
+                var hazard = hit.gameObject.GetComponentInParent<PixelSaur.Creatures.RedHazardCapsule>();
+                if (hazard != null)
+                {
+                    hazard.NotifyPlayerContact(this);
+                }
+            }
         }
     }
 }

@@ -482,46 +482,56 @@ namespace PixelSaur.Editor
 
         private static void SetupTestCreatures(Vector3 playerPos)
         {
+            Shader highlightShader = Shader.Find("PixelSaur/CreatureHighlight") ?? Shader.Find("Universal Render Pipeline/Lit");
+
             // 1. 红色危险生物胶囊 (碰一下扣20血，0.4s间隔)
-            if (Object.FindAnyObjectByType<RedHazardCapsule>() == null)
+            GameObject redObj = GameObject.Find("Creature_RedHazard");
+            if (redObj == null)
             {
-                GameObject redObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                redObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                 redObj.name = "Creature_RedHazard";
                 redObj.transform.position = playerPos + new Vector3(3.5f, 0.35f, 2.5f);
                 redObj.transform.localScale = Vector3.one * 1.0f;
-
-                redObj.AddComponent<RedHazardCapsule>();
-
-                // 设置醒目鲜红材质
-                MeshRenderer mr = redObj.GetComponent<MeshRenderer>();
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit");
-                if (shader != null)
-                {
-                    Material redMat = new Material(shader) { name = "M_RedHazard_Capsule" };
-                    redMat.SetColor("_BaseColor", new Color(0.95f, 0.15f, 0.15f, 1f));
-                    mr.sharedMaterial = redMat;
-                }
             }
 
-            // 2. 绿色猎物生物胶囊 (100血量，死后倒地可吃3次)
-            if (Object.FindAnyObjectByType<GreenPreyCapsule>() == null)
+            if (redObj.GetComponent<RedHazardCapsule>() == null)
             {
-                GameObject greenObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                redObj.AddComponent<RedHazardCapsule>();
+            }
+
+            MeshRenderer redMR = redObj.GetComponent<MeshRenderer>();
+            if (redMR != null && highlightShader != null)
+            {
+                Material redMat = new Material(highlightShader) { name = "M_RedHazard_Capsule" };
+                redMat.SetColor("_BaseColor", new Color(0.95f, 0.15f, 0.15f, 1f));
+                redMat.SetColor("_OutlineColor", Color.clear);
+                redMat.SetFloat("_OutlineWidth", 0f);
+                redMR.sharedMaterial = redMat;
+            }
+
+            // 2. 绿色猎物生物胶囊 (100血量，存活红圈描边，死后倒地黄圈描边可吃3次)
+            GameObject greenObj = GameObject.Find("Creature_GreenPrey");
+            if (greenObj == null)
+            {
+                greenObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                 greenObj.name = "Creature_GreenPrey";
                 greenObj.transform.position = playerPos + new Vector3(-3.2f, 0.35f, 2.2f);
                 greenObj.transform.localScale = Vector3.one * 1.0f;
+            }
 
+            if (greenObj.GetComponent<GreenPreyCapsule>() == null)
+            {
                 greenObj.AddComponent<GreenPreyCapsule>();
+            }
 
-                // 设置初始翠绿材质
-                MeshRenderer mr = greenObj.GetComponent<MeshRenderer>();
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit");
-                if (shader != null)
-                {
-                    Material greenMat = new Material(shader) { name = "M_GreenPrey_Capsule" };
-                    greenMat.SetColor("_BaseColor", new Color(0.25f, 0.85f, 0.35f, 1f));
-                    mr.sharedMaterial = greenMat;
-                }
+            MeshRenderer greenMR = greenObj.GetComponent<MeshRenderer>();
+            if (greenMR != null && highlightShader != null)
+            {
+                Material greenMat = new Material(highlightShader) { name = "M_GreenPrey_Capsule" };
+                greenMat.SetColor("_BaseColor", new Color(0.25f, 0.85f, 0.35f, 1f));
+                greenMat.SetColor("_OutlineColor", Color.clear);
+                greenMat.SetFloat("_OutlineWidth", 0f);
+                greenMR.sharedMaterial = greenMat;
             }
         }
     }

@@ -49,11 +49,30 @@ namespace PixelSaur.Combat
         private PlayerController _playerController;
         private DinoAttackIndicator _indicator;
 
+        public static DinoInteractionController Instance { get; private set; }
+
         public InteractionType CurrentInteraction => currentInteraction;
         public bool IsInteracting => currentInteraction != InteractionType.None;
 
+        private bool _mobileButtonPressed = false;
+        private float _holdTimer = 0f;
+
+        public bool CanDrinkWater { get; private set; }
+        public bool CanEatPrey { get; private set; }
+        public bool CanInteract => CanEatPrey || CanDrinkWater;
+
+        public void SetButtonPressed(bool pressed)
+        {
+            _mobileButtonPressed = pressed;
+            if (!pressed && currentInteraction != InteractionType.None)
+            {
+                InterruptInteraction("玩家按键松开，打断动作");
+            }
+        }
+
         private void Awake()
         {
+            Instance = this;
             _playerController = GetComponent<PlayerController>();
             _indicator = GetComponentInChildren<DinoAttackIndicator>();
         }
@@ -143,7 +162,7 @@ namespace PixelSaur.Combat
             // 1. 若玩家拖动摇杆主动位移，或者按下跳跃，立即打断退出任何交互
             if (PlayerInputProxy.Instance != null && (PlayerInputProxy.Instance.MoveInput.sqrMagnitude > 0.05f || PlayerInputProxy.Instance.JumpRequested))
             {
-                InterruptInteraction("玩家输入打断");
+                InterruptInteraction("玩家移动输入，打断动作");
                 return;
             }
 
@@ -164,48 +183,53 @@ namespace PixelSaur.Combat
             }
 
             bool isNearWater = (transform.position.y <= waterLevelY + waterContactTolerance);
+            CanEatPrey = ediblePrey != null && (PlayerStatusUI.Instance == null || PlayerStatusUI.Instance.Food < 100f);
+            CanDrinkWater = isNearWater && (PlayerStatusUI.Instance == null || PlayerStatusUI.Instance.Thirst < 100f);
 
-            // 3. 尚未进入交互时：在范围内停留 0.4 秒触发
+            // 3. 判定长按状态 (移动端攻击按键按住 或 PC J/E键按住)
+            bool pcHold = false;
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null)
+            {
+                pcHold = UnityEngine.InputSystem.Keyboard.current.jKey.isPressed || UnityEngine.InputSystem.Keyboard.current.eKey.isPressed;
+            }
+#else
+            pcHold = Input.GetKey(KeyCode.J) || Input.GetKey(KeyCode.E);
+#endif
+            bool isHolding = _mobileButtonPressed || pcHold;
+
+            // 4. 尚未进入交互时：必须长按按键满 0.4 秒才触发，杜绝直接走入水域自动喝水的Bug
             if (currentInteraction == InteractionType.None)
             {
-                if (ediblePrey != null)
+                if (isHolding && CanInteract)
                 {
-                    // 饱食度已满时不进食
-                    if (PlayerStatusUI.Instance != null && PlayerStatusUI.Instance.Food >= 100f)
+                    _holdTimer += Time.deltaTime;
+                    if (_holdTimer >= triggerDelay)
                     {
-                        stayTimer = 0f;
-                        return;
-                    }
-
-                    stayTimer += Time.deltaTime;
-                    if (stayTimer >= triggerDelay)
-                    {
-                        StartInteraction(InteractionType.EatingPrey);
-                    }
-                }
-                else if (isNearWater)
-                {
-                    // 口渴度已满时不喝水
-                    if (PlayerStatusUI.Instance != null && PlayerStatusUI.Instance.Thirst >= 100f)
-                    {
-                        stayTimer = 0f;
-                        return;
-                    }
-
-                    stayTimer += Time.deltaTime;
-                    if (stayTimer >= triggerDelay)
-                    {
-                        StartInteraction(InteractionType.DrinkingWater);
+                        if (CanEatPrey)
+                        {
+                            StartInteraction(InteractionType.EatingPrey);
+                        }
+                        else if (CanDrinkWater)
+                        {
+                            StartInteraction(InteractionType.DrinkingWater);
+                        }
                     }
                 }
                 else
                 {
-                    stayTimer = 0f;
+                    _holdTimer = 0f;
                 }
             }
-            // 4. 正在交互中：执行动作逻辑
+            // 5. 正在交互中：按键松开立即打断，或数值回满自动打断
             else
             {
+                if (!isHolding)
+                {
+                    InterruptInteraction("按键松开，动作打断");
+                    return;
+                }
+
                 if (currentInteraction == InteractionType.DrinkingWater)
                 {
                     if (!isNearWater || (PlayerStatusUI.Instance != null && PlayerStatusUI.Instance.Thirst >= 100f))
@@ -219,7 +243,7 @@ namespace PixelSaur.Combat
                     {
                         actionTimer = 0f;
                         PlayerStatusUI.Instance?.ModifyThirst(drinkRecoveryAmount);
-                        Debug.Log($"<color=#33CCFF>[DinoInteraction] 咕噜咕噜喝水中... 恢复 {drinkRecoveryAmount} 点水量。</color>");
+                        Debug.Log($"<color=#33CCFF>[DinoInteraction] 长按喝水中... 恢复 {drinkRecoveryAmount} 点水量。</color>");
                     }
                 }
                 else if (currentInteraction == InteractionType.EatingPrey)

@@ -41,10 +41,11 @@ namespace PixelSaur.Creatures
         [SerializeField] private float respawnDelay = 5.0f;
 
         [Header("视觉与描边高亮材质")]
-        [SerializeField] private Color aliveNormalColor = new Color(0.25f, 0.85f, 0.35f, 1f);
-        [SerializeField] private Color inRangeThreatColor = new Color(0.95f, 0.20f, 0.20f, 1f); // 攻击范围内显示红色
-        [SerializeField] private Color corpseDeadColor = new Color(0.18f, 0.45f, 0.18f, 1f);
-        [SerializeField] private Color corpseInFeedRangeColor = new Color(0.20f, 0.95f, 0.35f, 1f); // 尸体在进食范围内显示亮绿
+        [SerializeField] private Color aliveNormalColor = new Color(0.25f, 0.85f, 0.35f, 1f); // 活体常态绿
+        [SerializeField] private Color aliveOutlineColor = new Color(1.0f, 0.15f, 0.15f, 1f); // 攻击范围内显示外圈红色Shader
+        [SerializeField] private Color corpseDeadColor = new Color(0.18f, 0.35f, 0.18f, 1f); // 尸体暗绿底色
+        [SerializeField] private Color corpseOutlineColor = new Color(1.0f, 0.85f, 0.15f, 1f); // 死后在进食范围内显示外圈黄色Shader
+        [SerializeField] private float outlineWidth = 0.06f; // 外圈描边宽度
 
         [Header("头顶 UI (自动构建)")]
         [SerializeField] private Transform headBarRoot;
@@ -58,7 +59,10 @@ namespace PixelSaur.Creatures
         private Quaternion _spawnRotation;
         private bool _isDead = false;
         private bool _isInAttackRange = false;
+        private float _lastRangePingTime = -999f;
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
+        private static readonly int OutlineColorProp = Shader.PropertyToID("_OutlineColor");
+        private static readonly int OutlineWidthProp = Shader.PropertyToID("_OutlineWidth");
 
         public bool IsDead => _isDead;
         public float Health => currentHealth;
@@ -71,12 +75,27 @@ namespace PixelSaur.Creatures
             _collider = GetComponent<Collider>();
             _spawnPosition = transform.position;
             _spawnRotation = transform.rotation;
+            EnsureHighlightMaterial();
             EnsureUIHierarchy();
             ResetPrey();
         }
 
+        private void EnsureHighlightMaterial()
+        {
+            if (_renderer != null)
+            {
+                Shader shader = Shader.Find("PixelSaur/CreatureHighlight");
+                if (shader != null && (_renderer.sharedMaterial == null || _renderer.sharedMaterial.shader != shader))
+                {
+                    Material mat = new Material(shader) { name = "M_GreenPrey_Highlight" };
+                    _renderer.sharedMaterial = mat;
+                }
+            }
+        }
+
         private void OnEnable()
         {
+            EnsureHighlightMaterial();
             EnsureUIHierarchy();
             UpdateVisualColor();
         }
@@ -87,6 +106,13 @@ namespace PixelSaur.Creatures
             {
                 headBarRoot.rotation = Camera.main.transform.rotation; // 始终面向摄像机
             }
+
+            // 心跳检测：若超过 0.15 秒未收到攻击范围通知，自动取消外圈描边
+            if (_isInAttackRange && Time.time - _lastRangePingTime > 0.15f)
+            {
+                _isInAttackRange = false;
+                UpdateVisualColor();
+            }
         }
 
         /// <summary>
@@ -94,6 +120,7 @@ namespace PixelSaur.Creatures
         /// </summary>
         public void SetInAttackRange(bool inRange)
         {
+            _lastRangePingTime = Time.time;
             if (_isInAttackRange != inRange)
             {
                 _isInAttackRange = inRange;
@@ -229,21 +256,22 @@ namespace PixelSaur.Creatures
         {
             if (_renderer == null) return;
 
-            Color targetColor;
-            if (!_isDead)
+            Color baseCol = _isDead ? corpseDeadColor : aliveNormalColor;
+            Color outlineCol = Color.clear;
+            float currentWidth = 0f;
+
+            if (_isInAttackRange)
             {
-                // 存活：在攻击范围内显示红色高亮，否则常态绿
-                targetColor = _isInAttackRange ? inRangeThreatColor : aliveNormalColor;
-            }
-            else
-            {
-                // 死亡：在攻击范围内显示鲜绿高亮，否则暗绿
-                targetColor = _isInAttackRange ? corpseInFeedRangeColor : corpseDeadColor;
+                // 存活时外圈红色Shader，死后外圈黄色Shader
+                outlineCol = _isDead ? corpseOutlineColor : aliveOutlineColor;
+                currentWidth = outlineWidth;
             }
 
             if (_propBlock == null) _propBlock = new MaterialPropertyBlock();
             _renderer.GetPropertyBlock(_propBlock);
-            _propBlock.SetColor(BaseColorProp, targetColor);
+            _propBlock.SetColor(BaseColorProp, baseCol);
+            _propBlock.SetColor(OutlineColorProp, outlineCol);
+            _propBlock.SetFloat(OutlineWidthProp, currentWidth);
             _renderer.SetPropertyBlock(_propBlock);
         }
 

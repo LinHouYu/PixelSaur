@@ -23,6 +23,9 @@ namespace PixelSaur.Creatures
         [Tooltip("碰击时给玩家轻微后退击退力")]
         [SerializeField] private float knockbackForce = 2.5f;
 
+        [Tooltip("贴身触碰检测距离（米）")]
+        [SerializeField] private float contactDistance = 1.25f;
+
         private float _lastDamageTime = -999f;
         private MeshRenderer _renderer;
         private Color _baseColor = new Color(0.95f, 0.15f, 0.15f, 1f);
@@ -38,17 +41,40 @@ namespace PixelSaur.Creatures
             EnsureVisuals();
         }
 
+        private void Update()
+        {
+            // 距离检测双重保障：当角色贴近胶囊体时稳定触发扣血
+            if (PlayerController.Instance != null)
+            {
+                float d = Vector3.Distance(transform.position, PlayerController.Instance.transform.position);
+                if (d <= contactDistance)
+                {
+                    TryDamagePlayer(PlayerController.Instance.gameObject);
+                }
+            }
+        }
+
         private void EnsureVisuals()
         {
-            if (_renderer != null && _renderer.sharedMaterial == null)
+            if (_renderer != null)
             {
-                Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
-                if (unlitShader != null)
+                Shader shader = Shader.Find("PixelSaur/CreatureHighlight") ?? Shader.Find("Universal Render Pipeline/Lit");
+                if (shader != null && (_renderer.sharedMaterial == null || _renderer.sharedMaterial.shader != shader))
                 {
-                    Material mat = new Material(unlitShader) { name = "M_RedHazard_Mat" };
+                    Material mat = new Material(shader) { name = "M_RedHazard_Mat" };
                     mat.SetColor("_BaseColor", _baseColor);
+                    mat.SetColor("_OutlineColor", Color.clear);
+                    mat.SetFloat("_OutlineWidth", 0f);
                     _renderer.sharedMaterial = mat;
                 }
+            }
+        }
+
+        public void NotifyPlayerContact(PlayerController player)
+        {
+            if (player != null)
+            {
+                TryDamagePlayer(player.gameObject);
             }
         }
 
