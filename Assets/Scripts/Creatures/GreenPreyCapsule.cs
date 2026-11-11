@@ -101,6 +101,7 @@ namespace PixelSaur.Creatures
 
         private void Awake()
         {
+            if (!enabled) enabled = true; // 防御机制：强制激活组件，确保 Update 与 LateUpdate 正常执行
             _renderer = GetComponent<MeshRenderer>();
             _collider = GetComponent<Collider>();
             _spawnPosition = transform.position;
