@@ -119,23 +119,25 @@ namespace PixelSaur.Creatures
             // 保持在生物正上方世界坐标 1.55m，防止胶囊体翻滚或受击时歪斜
             headBarRoot.position = transform.position + Vector3.up * 1.55f;
 
-            // 动态面向视线：优先主摄像机视点（随玩家移动与摄像机跟随平滑变向），备选玩家角色坐标
-            Vector3 viewPos = Vector3.zero;
-            if (Camera.main != null)
+            // 核心要求：头顶 UI 的 rotation 始终直接看向玩家角色
+            Transform playerTr = null;
+            if (PlayerController.Instance != null)
             {
-                viewPos = Camera.main.transform.position;
+                playerTr = PlayerController.Instance.transform;
             }
-            else if (PlayerController.Instance != null)
+            else
             {
-                viewPos = PlayerController.Instance.transform.position;
+                var p = GameObject.FindGameObjectWithTag("Player");
+                if (p != null) playerTr = p.transform;
             }
 
-            if (viewPos != Vector3.zero)
+            if (playerTr != null)
             {
-                Vector3 toViewer = viewPos - headBarRoot.position;
-                if (toViewer.sqrMagnitude > 0.001f)
+                Vector3 toPlayer = playerTr.position - headBarRoot.position;
+                toPlayer.y = 0f; // 水平朝向玩家，保持立正不歪斜
+                if (toPlayer.sqrMagnitude > 0.001f)
                 {
-                    headBarRoot.rotation = Quaternion.LookRotation(-toViewer.normalized, Vector3.up);
+                    headBarRoot.rotation = Quaternion.LookRotation(-toPlayer.normalized, Vector3.up);
                 }
             }
         }
