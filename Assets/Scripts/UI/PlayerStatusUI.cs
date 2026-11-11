@@ -198,7 +198,7 @@ namespace PixelSaur.UI
             panelRT.anchorMax = new Vector2(0.5f, 0f);
             panelRT.pivot = new Vector2(0.5f, 0f);
             panelRT.anchoredPosition = new Vector2(0f, 28f); // 底部边距 28px
-            panelRT.sizeDelta = new Vector2(760f, 66f);
+            panelRT.sizeDelta = new Vector2(760f, 60f);
 
             // 1. 生命状态条 (草绿色填充)
             healthSlider = SetupOrUpdateStatItem("HealthBar", panelRT, new Vector2(-255f, 0f), 
@@ -229,9 +229,9 @@ namespace PixelSaur.UI
             itemRT.anchorMax = new Vector2(0.5f, 0f);
             itemRT.pivot = new Vector2(0.5f, 0f);
             itemRT.anchoredPosition = pos;
-            itemRT.sizeDelta = new Vector2(220f, 64f);
+            itemRT.sizeDelta = new Vector2(220f, 58f);
 
-            // 1. 顶部居中的 8x8 像素图标 (整倍数 32x32，Point 滤波清晰)
+            // 1. 顶部居中的 8x8 像素图标 (整倍数 32x32，Point 滤波清晰，紧贴 Slider 顶部)
             Transform iconTr = itemObj.transform.Find("Icon");
             GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
             RectTransform iconRT = iconObj.GetComponent<RectTransform>();
@@ -239,7 +239,7 @@ namespace PixelSaur.UI
             iconRT.anchorMin = new Vector2(0.5f, 1f);
             iconRT.anchorMax = new Vector2(0.5f, 1f);
             iconRT.pivot = new Vector2(0.5f, 1f);
-            iconRT.anchoredPosition = new Vector2(0f, 0f); // 顶端居中
+            iconRT.anchoredPosition = Vector2.zero; // 顶端居中
             iconRT.sizeDelta = new Vector2(32f, 32f);
 
             Image iconImg = iconObj.GetComponent<Image>();
@@ -249,7 +249,7 @@ namespace PixelSaur.UI
             iconImg.raycastTarget = false;
             outIcon = iconImg;
 
-            // 2. 下方的 Slider 像素进度条 (220 x 24)
+            // 2. 下方的 Slider 像素进度条 (220 x 26，高度占 0~26，与顶部 32~58 图标无缝贴合)
             Transform sliderTr = itemObj.transform.Find("Slider");
             GameObject sliderObj = sliderTr != null ? sliderTr.gameObject : new GameObject("Slider", typeof(RectTransform), typeof(Slider));
             RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
@@ -257,35 +257,44 @@ namespace PixelSaur.UI
             sliderRT.anchorMin = new Vector2(0.5f, 0f);
             sliderRT.anchorMax = new Vector2(0.5f, 0f);
             sliderRT.pivot = new Vector2(0.5f, 0f);
-            sliderRT.anchoredPosition = new Vector2(0f, 0f);
-            sliderRT.sizeDelta = new Vector2(220f, 24f);
+            sliderRT.anchoredPosition = Vector2.zero;
+            sliderRT.sizeDelta = new Vector2(220f, 26f);
 
             Slider slider = sliderObj.GetComponent<Slider>();
             slider.interactable = false;
             slider.transition = Selectable.Transition.None;
 
-            // Slider Background (深色槽九宫格)
+            // Slider Background (深色槽九宫格，四周严密贴齐 Slider)
             Transform bgTr = sliderObj.transform.Find("Background");
             GameObject bgObj = bgTr != null ? bgTr.gameObject : new GameObject("Background", typeof(RectTransform), typeof(Image));
             RectTransform bgRT = bgObj.GetComponent<RectTransform>();
             bgRT.SetParent(sliderRT, false);
             bgRT.anchorMin = Vector2.zero;
             bgRT.anchorMax = Vector2.one;
+            bgRT.pivot = new Vector2(0.5f, 0.5f);
+            bgRT.offsetMin = Vector2.zero;
+            bgRT.offsetMax = Vector2.zero;
+            bgRT.anchoredPosition = Vector2.zero;
             bgRT.sizeDelta = Vector2.zero;
+
             Image bgImg = bgObj.GetComponent<Image>();
             bgImg.sprite = barBgSprite;
             bgImg.type = Image.Type.Sliced;
+            bgImg.pixelsPerUnitMultiplier = 1f;
             bgImg.color = Color.white;
             bgImg.raycastTarget = false;
 
-            // Fill Area & Fill (内缩 2px)
+            // Fill Area & Fill (2px 内缩槽位，严丝合缝)
             Transform fillAreaTr = sliderObj.transform.Find("Fill Area");
             GameObject fillAreaObj = fillAreaTr != null ? fillAreaTr.gameObject : new GameObject("Fill Area", typeof(RectTransform));
             RectTransform fillAreaRT = fillAreaObj.GetComponent<RectTransform>();
             fillAreaRT.SetParent(sliderRT, false);
-            fillAreaRT.anchorMin = new Vector2(0f, 0f);
-            fillAreaRT.anchorMax = new Vector2(1f, 1f);
-            fillAreaRT.sizeDelta = new Vector2(-4f, -4f);
+            fillAreaRT.anchorMin = Vector2.zero;
+            fillAreaRT.anchorMax = Vector2.one;
+            fillAreaRT.pivot = new Vector2(0.5f, 0.5f);
+            fillAreaRT.offsetMin = new Vector2(2f, 2f);
+            fillAreaRT.offsetMax = new Vector2(-2f, -2f);
+            fillAreaRT.anchoredPosition = Vector2.zero;
 
             Transform fillTr = fillAreaObj.transform.Find("Fill");
             GameObject fillObj = fillTr != null ? fillTr.gameObject : new GameObject("Fill", typeof(RectTransform), typeof(Image));
@@ -293,33 +302,41 @@ namespace PixelSaur.UI
             fillRT.SetParent(fillAreaRT, false);
             fillRT.anchorMin = Vector2.zero;
             fillRT.anchorMax = Vector2.one;
+            fillRT.pivot = new Vector2(0.5f, 0.5f);
+            fillRT.offsetMin = Vector2.zero;
+            fillRT.offsetMax = Vector2.zero;
+            fillRT.anchoredPosition = Vector2.zero;
             fillRT.sizeDelta = Vector2.zero;
+
             Image fillImg = fillObj.GetComponent<Image>();
             fillImg.sprite = barFillSprite;
             fillImg.type = Image.Type.Sliced;
+            fillImg.pixelsPerUnitMultiplier = 1f;
             fillImg.color = fillColor;
             fillImg.raycastTarget = false;
 
             slider.targetGraphic = bgImg;
             slider.fillRect = fillRT;
 
-            // 3. 数值文本（条内居左，加粗带描边）
+            // 3. 数值文本（条内完全居中，加粗带描边）
             Transform textTr = sliderObj.transform.Find("ValueText");
             GameObject textObj = textTr != null ? textTr.gameObject : new GameObject("ValueText", typeof(RectTransform), typeof(Text), typeof(Outline));
             RectTransform textRT = textObj.GetComponent<RectTransform>();
             textRT.SetParent(sliderRT, false);
-            textRT.anchorMin = new Vector2(0f, 0f);
-            textRT.anchorMax = new Vector2(1f, 1f);
-            textRT.offsetMin = new Vector2(10f, 0f);
-            textRT.offsetMax = new Vector2(-10f, 0f);
+            textRT.anchorMin = Vector2.zero;
+            textRT.anchorMax = Vector2.one;
+            textRT.pivot = new Vector2(0.5f, 0.5f);
+            textRT.offsetMin = Vector2.zero;
+            textRT.offsetMax = Vector2.zero;
+            textRT.anchoredPosition = Vector2.zero;
 
             Text textComp = textObj.GetComponent<Text>();
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             textComp.font = font;
-            textComp.fontSize = 17;
+            textComp.fontSize = 16;
             textComp.fontStyle = FontStyle.Bold;
-            textComp.alignment = TextAnchor.MiddleLeft;
+            textComp.alignment = TextAnchor.MiddleCenter; // 居中显示！
             textComp.color = Color.white;
             textComp.text = "100";
             textComp.raycastTarget = false;

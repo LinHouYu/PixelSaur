@@ -19,6 +19,24 @@ namespace PixelSaur.Editor
     /// </summary>
     public static class SceneSetupEditor
     {
+        [MenuItem("PixelSaur/仅刷新UI状态条")]
+        public static void RefreshOnlyUI()
+        {
+            var panel = UnityEngine.GameObject.Find("StatusBarsPanel");
+            if (panel != null)
+            {
+                var ui = panel.GetComponent<PixelSaur.UI.PlayerStatusUI>();
+                if (ui != null)
+                {
+                    ui.EnsureUIHierarchy();
+                    UnityEditor.EditorUtility.SetDirty(panel);
+                    UnityEditor.EditorUtility.SetDirty(ui);
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
+                    Debug.Log("<color=#00FF00>[PixelSaur] UI 状态条已单独刷新完毕！未触碰草地和水体管理器。</color>");
+                }
+            }
+        }
+
         [MenuItem("PixelSaur/一键构建与配置完整游戏场景")]
         public static void SetupFullScene()
         {
@@ -119,45 +137,57 @@ namespace PixelSaur.Editor
                 orbitCam.SetTarget(player.transform);
             }
 
-            // 5. 配置草地系统 (GrassManager, 64x64 交互贴图)
+            // 5. 配置草地系统 (GrassManager, 严格保护用户调好的参数，绝不覆盖恢复出厂设置)
             GameObject grassMgrObj = GameObject.Find("GrassManager");
             if (grassMgrObj == null)
             {
                 grassMgrObj = new GameObject("GrassManager");
             }
             GrassInteractionManager grassInterMgr = grassMgrObj.GetComponent<GrassInteractionManager>();
-            if (grassInterMgr == null) grassInterMgr = grassMgrObj.AddComponent<GrassInteractionManager>();
+            bool isNewInter = (grassInterMgr == null);
+            if (isNewInter) grassInterMgr = grassMgrObj.AddComponent<GrassInteractionManager>();
 
-            SerializedObject grassInterSO = new SerializedObject(grassInterMgr);
-            grassInterSO.FindProperty("targetPlayer").objectReferenceValue = player.transform;
-            grassInterSO.FindProperty("rtResolution").intValue = 64;
-            grassInterSO.FindProperty("interactionAreaSize").floatValue = 14f;
-            grassInterSO.FindProperty("footprintRadius").floatValue = 1.25f;
-            grassInterSO.FindProperty("footprintHardness").floatValue = 1.2f;
-            grassInterSO.FindProperty("recoverySpeed").floatValue = 0.75f;
-            grassInterSO.ApplyModifiedProperties();
+            if (isNewInter)
+            {
+                SerializedObject grassInterSO = new SerializedObject(grassInterMgr);
+                grassInterSO.FindProperty("targetPlayer").objectReferenceValue = player.transform;
+                grassInterSO.FindProperty("rtResolution").intValue = 64;
+                grassInterSO.FindProperty("interactionAreaSize").floatValue = 14f;
+                grassInterSO.FindProperty("footprintRadius").floatValue = 0.4f;
+                grassInterSO.FindProperty("footprintHardness").floatValue = 1.2f;
+                grassInterSO.FindProperty("recoverySpeed").floatValue = 0.75f;
+                grassInterSO.ApplyModifiedProperties();
+            }
+            else
+            {
+                if (grassInterMgr.targetPlayer == null) grassInterMgr.targetPlayer = player.transform;
+            }
 
             ProceduralGrassRenderer grassRenderer = grassMgrObj.GetComponent<ProceduralGrassRenderer>();
-            if (grassRenderer == null) grassRenderer = grassMgrObj.AddComponent<ProceduralGrassRenderer>();
+            bool isNewRenderer = (grassRenderer == null);
+            if (isNewRenderer) grassRenderer = grassMgrObj.AddComponent<ProceduralGrassRenderer>();
 
-            SerializedObject grassRendererSO = new SerializedObject(grassRenderer);
-            grassRendererSO.FindProperty("grassMaterial").objectReferenceValue = grassMat;
-            grassRendererSO.FindProperty("grassCount").intValue = 8000;
-            grassRendererSO.FindProperty("bladeHeight").floatValue = 0.72f;
-            grassRendererSO.FindProperty("bladeWidth").floatValue = 0.12f;
-            GameObject grassCenterObj = GameObject.Find("grass_center") ?? GameObject.Find("Grass_Plain");
-            if (grassCenterObj != null)
+            if (isNewRenderer)
             {
-                MeshFilter mf = grassCenterObj.GetComponentInChildren<MeshFilter>();
-                if (mf != null)
+                SerializedObject grassRendererSO = new SerializedObject(grassRenderer);
+                grassRendererSO.FindProperty("grassMaterial").objectReferenceValue = grassMat;
+                grassRendererSO.FindProperty("grassCount").intValue = 1400;
+                grassRendererSO.FindProperty("bladeHeight").floatValue = 0.72f;
+                grassRendererSO.FindProperty("bladeWidth").floatValue = 0.12f;
+                GameObject grassCenterObj = GameObject.Find("grass_center") ?? GameObject.Find("Grass_Plain");
+                if (grassCenterObj != null)
                 {
-                    grassRendererSO.FindProperty("targetMeshFilter").objectReferenceValue = mf;
+                    MeshFilter mf = grassCenterObj.GetComponentInChildren<MeshFilter>();
+                    if (mf != null)
+                    {
+                        grassRendererSO.FindProperty("targetMeshFilter").objectReferenceValue = mf;
+                    }
                 }
+                grassRendererSO.ApplyModifiedProperties();
+                grassRenderer.RebuildGrass();
             }
-            grassRendererSO.ApplyModifiedProperties();
-            grassRenderer.RebuildGrass();
 
-            // 6. 配置水面系统 (WaterSurface_Plane & WaterRippleManager, 256x256 涟漪贴图)
+            // 6. 配置水面系统 (WaterSurface_Plane & WaterRippleManager，严格保护用户调好的参数)
             // 关键：sand_main 顶面高度为 0.0625，grass_center 顶面为 0.0781，水面严格设在 Y = 0.038f 绝不没过岛屿！
             const float optimalWaterY = 0.038f;
             GameObject waterObj = GameObject.Find("WaterSurface_Plane");
@@ -186,22 +216,30 @@ namespace PixelSaur.Editor
             GameObject waterMgrObj = GameObject.Find("WaterRippleManager");
             if (waterMgrObj == null) waterMgrObj = new GameObject("WaterRippleManager");
             WaterRippleManager rippleMgr = waterMgrObj.GetComponent<WaterRippleManager>();
-            if (rippleMgr == null) rippleMgr = waterMgrObj.AddComponent<WaterRippleManager>();
+            bool isNewRipple = (rippleMgr == null);
+            if (isNewRipple) rippleMgr = waterMgrObj.AddComponent<WaterRippleManager>();
 
-            SerializedObject rippleSO = new SerializedObject(rippleMgr);
-            rippleSO.FindProperty("targetPlayer").objectReferenceValue = player.transform;
-            rippleSO.FindProperty("waterLevel").floatValue = optimalWaterY;
-            rippleSO.FindProperty("rtResolution").intValue = 256;
-            rippleSO.FindProperty("orthographicCamSize").floatValue = 14f;
-            rippleSO.FindProperty("rippleExpandSpeed").floatValue = 1.1f;
-            rippleSO.FindProperty("maxRippleWorldRadius").floatValue = 2.6f;
-            rippleSO.FindProperty("rippleRingThickness").floatValue = 0.008f;
-            rippleSO.FindProperty("rippleFadeSpeed").floatValue = 3.2f;
-            rippleSO.FindProperty("moveRippleInterval").floatValue = 0.4f;
-            rippleSO.FindProperty("minMoveDistance").floatValue = 0.08f;
-            rippleSO.FindProperty("enableIdleRipple").boolValue = false;
-            rippleSO.FindProperty("idleRippleInterval").floatValue = 2.5f;
-            rippleSO.ApplyModifiedProperties();
+            if (isNewRipple)
+            {
+                SerializedObject rippleSO = new SerializedObject(rippleMgr);
+                rippleSO.FindProperty("targetPlayer").objectReferenceValue = player.transform;
+                rippleSO.FindProperty("waterLevel").floatValue = optimalWaterY;
+                rippleSO.FindProperty("rtResolution").intValue = 512;
+                rippleSO.FindProperty("orthographicCamSize").floatValue = 14f;
+                rippleSO.FindProperty("rippleExpandSpeed").floatValue = 1.1f;
+                rippleSO.FindProperty("maxRippleWorldRadius").floatValue = 2.6f;
+                rippleSO.FindProperty("rippleRingThickness").floatValue = 0.008f;
+                rippleSO.FindProperty("rippleFadeSpeed").floatValue = 3.2f;
+                rippleSO.FindProperty("moveRippleInterval").floatValue = 0.2f;
+                rippleSO.FindProperty("minMoveDistance").floatValue = 0.08f;
+                rippleSO.FindProperty("enableIdleRipple").boolValue = false;
+                rippleSO.FindProperty("idleRippleInterval").floatValue = 2.5f;
+                rippleSO.ApplyModifiedProperties();
+            }
+            else
+            {
+                if (rippleMgr.targetPlayer == null) rippleMgr.targetPlayer = player.transform;
+            }
 
             // 7. 配置 UI Canvas（正圆形虚拟摇杆与右屏滑动区域）
             SetupUI(inputProxy);
