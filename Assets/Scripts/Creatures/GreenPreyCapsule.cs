@@ -49,7 +49,27 @@ namespace PixelSaur.Creatures
         [SerializeField] private Color corpseOutlineColor = new Color(1.0f, 0.85f, 0.15f, 1f); // 死后在进食范围内显示外圈黄色Shader
         [SerializeField] private float outlineWidth = 0.06f; // 外圈描边宽度
 
-        [Header("头顶 UI (仅在攻击范围内显示)")]
+        [Header("感知与血条显示配置 (可自由微调)")]
+        [Tooltip("触发显示头顶血条的感知距离（米），玩家靠近在此距离内显示，离开自动隐藏")]
+        [SerializeField] private float showHealthDistance = 2.8f;
+
+        [Header("性能优化与朝向更新 (防低端机卡顿)")]
+        [Tooltip("头顶UI朝向更新间隔（秒），默认 0.15s (即 150毫秒)，避免每帧计算降低手机发热")]
+        [SerializeField] private float orientationUpdateInterval = 0.15f;
+
+        [Tooltip("头顶血条相对生物底部世界空间的悬浮高度（米）")]
+        [SerializeField] private float headBarHeight = 1.55f;
+
+        [Tooltip("是否仅在水平 Y 轴旋转（保持直立不歪斜）")]
+        [SerializeField] private bool lockYAxis = true;
+
+        [Tooltip("是否开启平滑插值旋转（开启视觉更平滑，关闭为阶梯式更新更省电）")]
+        [SerializeField] private bool smoothRotate = true;
+
+        [Tooltip("平滑旋转插值速度")]
+        [SerializeField] private float rotateSpeed = 12.0f;
+
+        [Header("头顶 UI (仅在靠近或攻击范围内显示)")]
         [SerializeField] private Transform headBarRoot;
         [SerializeField] private Slider hpSlider;
         [SerializeField] private Text statusText;
@@ -62,6 +82,8 @@ namespace PixelSaur.Creatures
         private bool _isDead = false;
         private bool _isInAttackRange = false;
         private float _lastRangePingTime = -999f;
+        private float _lastOrientationUpdateTime = -999f;
+        private Quaternion _targetRotation = Quaternion.identity;
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
         private static readonly int OutlineColorProp = Shader.PropertyToID("_OutlineColor");
         private static readonly int OutlineWidthProp = Shader.PropertyToID("_OutlineWidth");
@@ -105,13 +127,8 @@ namespace PixelSaur.Creatures
 
         private void Update()
         {
-            // 心跳检测：若超过 0.15 秒未收到攻击范围通知，自动取消外圈描边并隐藏血条
-            if (_isInAttackRange && Time.time - _lastRangePingTime > 0.15f)
-            {
-                _isInAttackRange = false;
-                UpdateVisualColor();
-                UpdateHeadBarVisibility();
-            }
+            // 距离感知：玩家靠近显示血条/可食用次数，离开自动隐藏
+            UpdateDistanceAndVisibility();
         }
 
         private void LateUpdate()
@@ -119,33 +136,69 @@ namespace PixelSaur.Creatures
             UpdateHeadBarOrientation();
         }
 
+        private void UpdateDistanceAndVisibility()
+        {
+            Transform playerTr = PlayerController.Instance != null 
+                ? PlayerController.Instance.transform 
+                : GameObject.FindGameObjectWithTag("Player")?.transform;
+
+            bool isNear = false;
+            // 存活或者死后还有可食用次数时，玩家靠近均显示头顶UI
+            if (playerTr != null && (!_isDead || remainingFeedCount > 0))
+            {
+                float dist = Vector3.Distance(transform.position, playerTr.position);
+                isNear = (dist <= showHealthDistance);
+            }
+
+            // 心跳通知判定（如果有外部指示圈触发也同步支持）
+            bool inRange = isNear || (_isInAttackRange && Time.time - _lastRangePingTime <= 0.15f);
+
+            if (_isInAttackRange != inRange)
+            {
+                _isInAttackRange = inRange;
+                UpdateVisualColor();
+                UpdateHeadBarVisibility();
+            }
+            else
+            {
+                UpdateHeadBarVisibility();
+            }
+        }
+
         private void UpdateHeadBarOrientation()
         {
             if (headBarRoot == null || !headBarRoot.gameObject.activeSelf) return;
 
-            // 保持在生物正上方世界坐标 1.55m，即使倒地尸体也能悬浮于尸体上方居中
-            headBarRoot.position = transform.position + Vector3.up * 1.55f;
+            // 保持在生物正上方世界坐标 headBarHeight，即使倒地尸体也能悬浮于尸体上方居中
+            headBarRoot.position = transform.position + Vector3.up * headBarHeight;
 
-            // 核心要求：头顶 UI 的 rotation 始终直接看向玩家角色
-            Transform playerTr = null;
-            if (PlayerController.Instance != null)
+            Transform playerTr = PlayerController.Instance != null 
+                ? PlayerController.Instance.transform 
+                : GameObject.FindGameObjectWithTag("Player")?.transform;
+
+            if (playerTr == null) return;
+
+            // 核心优化：150毫秒 (orientationUpdateInterval) 定时更新朝向，降低手机算力开销
+            if (Time.time - _lastOrientationUpdateTime >= orientationUpdateInterval)
             {
-                playerTr = PlayerController.Instance.transform;
+                _lastOrientationUpdateTime = Time.time;
+
+                Vector3 toPlayer = playerTr.position - headBarRoot.position;
+                if (lockYAxis) toPlayer.y = 0f; // 锁定水平面向，保持立正不歪斜
+
+                if (toPlayer.sqrMagnitude > 0.001f)
+                {
+                    _targetRotation = Quaternion.LookRotation(-toPlayer.normalized, Vector3.up);
+                }
+            }
+
+            if (smoothRotate)
+            {
+                headBarRoot.rotation = Quaternion.Slerp(headBarRoot.rotation, _targetRotation, Time.deltaTime * rotateSpeed);
             }
             else
             {
-                var p = GameObject.FindGameObjectWithTag("Player");
-                if (p != null) playerTr = p.transform;
-            }
-
-            if (playerTr != null)
-            {
-                Vector3 toPlayer = playerTr.position - headBarRoot.position;
-                toPlayer.y = 0f; // 水平朝向玩家，保持立正不歪斜
-                if (toPlayer.sqrMagnitude > 0.001f)
-                {
-                    headBarRoot.rotation = Quaternion.LookRotation(-toPlayer.normalized, Vector3.up);
-                }
+                headBarRoot.rotation = _targetRotation;
             }
         }
 
@@ -167,8 +220,16 @@ namespace PixelSaur.Creatures
         {
             if (headBarRoot != null)
             {
-                // 核心规则：仅在玩家攻击范围内才显示头顶UI（血条或可食用次数）！
-                headBarRoot.gameObject.SetActive(_isInAttackRange);
+                // 仅在范围内且（存活或者死后还有可食用次数）时显示头顶UI
+                bool shouldShow = _isInAttackRange && (!_isDead || remainingFeedCount > 0);
+                if (headBarRoot.gameObject.activeSelf != shouldShow)
+                {
+                    headBarRoot.gameObject.SetActive(shouldShow);
+                    if (shouldShow)
+                    {
+                        _lastOrientationUpdateTime = -999f; // 刚显现瞬间立即计算一次面向与位置
+                    }
+                }
             }
         }
 
@@ -352,7 +413,7 @@ namespace PixelSaur.Creatures
             {
                 hbObj = new GameObject("HeadBar", typeof(RectTransform), typeof(Canvas));
                 hbObj.transform.SetParent(transform, false);
-                hbObj.transform.localPosition = new Vector3(0f, 1.55f, 0f);
+                hbObj.transform.localPosition = new Vector3(0f, headBarHeight, 0f);
             }
 
             headBarRoot = hbObj.transform;
