@@ -49,25 +49,31 @@ namespace PixelSaur.Creatures
         [SerializeField] private Color corpseOutlineColor = new Color(1.0f, 0.85f, 0.15f, 1f); // 死后在进食范围内显示外圈黄色Shader
         [SerializeField] private float outlineWidth = 0.06f; // 外圈描边宽度
 
-        [Header("感知与血条显示配置 (可自由微调)")]
-        [Tooltip("触发显示头顶血条的感知距离（米），玩家靠近在此距离内显示，离开自动隐藏")]
-        [SerializeField] private float showHealthDistance = 2.8f;
+        [Header("原神/开放世界摄像机朝向配置 (可自由微调)")]
+        [Tooltip("是否实时看向主摄像机（原神/开放世界模式）。无论玩家在哪个角度，血条正面始终面向摄像机，清晰无变形")]
+        [SerializeField] private bool faceCamera = true;
 
-        [Header("性能优化与朝向更新 (防低端机卡顿)")]
-        [Tooltip("头顶UI朝向更新间隔（秒），默认 0.15s (即 150毫秒)，避免每帧计算降低手机发热")]
-        [SerializeField] private float orientationUpdateInterval = 0.15f;
+        [Tooltip("是否开启全角度屏幕对齐（原神模式）。开启后不论仰视俯视，血条完全平面对齐屏幕，绝不倾斜或压扁")]
+        [SerializeField] private bool screenAligned = true;
+
+        [Tooltip("触发显示头顶血条的感知距离（米），玩家靠近在此距离内显示，离开自动隐藏")]
+        [SerializeField] private float showHealthDistance = 3.5f;
 
         [Tooltip("头顶血条相对生物底部世界空间的悬浮高度（米）")]
         [SerializeField] private float headBarHeight = 1.55f;
 
-        [Tooltip("是否仅在水平 Y 轴旋转（保持直立不歪斜）")]
-        [SerializeField] private bool lockYAxis = true;
+        [Header("朝向性能调节与回退配置")]
+        [Tooltip("朝向更新间隔（秒）。原神模式下直接对齐相机四元数仅为4个float赋值，设为0即每帧实时对齐；如需节流可设为0.15s")]
+        [SerializeField] private float orientationUpdateInterval = 0f;
 
-        [Tooltip("是否开启平滑插值旋转（开启视觉更平滑，关闭为阶梯式更新更省电）")]
-        [SerializeField] private bool smoothRotate = true;
+        [Tooltip("若关闭全角度屏幕对齐，是否锁定水平 Y 轴朝向相机（垂直立正）")]
+        [SerializeField] private bool lockYAxis = false;
+
+        [Tooltip("是否开启平滑插值旋转")]
+        [SerializeField] private bool smoothRotate = false;
 
         [Tooltip("平滑旋转插值速度")]
-        [SerializeField] private float rotateSpeed = 12.0f;
+        [SerializeField] private float rotateSpeed = 15.0f;
 
         [Header("头顶 UI (仅在靠近或攻击范围内显示)")]
         [SerializeField] private Transform headBarRoot;
@@ -165,6 +171,17 @@ namespace PixelSaur.Creatures
             }
         }
 
+        private Camera _cachedMainCamera;
+
+        private Camera GetMainCamera()
+        {
+            if (_cachedMainCamera == null || !_cachedMainCamera.gameObject.activeInHierarchy)
+            {
+                _cachedMainCamera = Camera.main;
+            }
+            return _cachedMainCamera;
+        }
+
         private void UpdateHeadBarOrientation()
         {
             if (headBarRoot == null || !headBarRoot.gameObject.activeSelf) return;
@@ -172,23 +189,59 @@ namespace PixelSaur.Creatures
             // 保持在生物正上方世界坐标 headBarHeight，即使倒地尸体也能悬浮于尸体上方居中
             headBarRoot.position = transform.position + Vector3.up * headBarHeight;
 
-            Transform playerTr = PlayerController.Instance != null 
-                ? PlayerController.Instance.transform 
-                : GameObject.FindGameObjectWithTag("Player")?.transform;
-
-            if (playerTr == null) return;
-
-            // 核心优化：150毫秒 (orientationUpdateInterval) 定时更新朝向，降低手机算力开销
-            if (Time.time - _lastOrientationUpdateTime >= orientationUpdateInterval)
+            // 核心：原神/开放世界经典模式，血条正面时时看着摄像机，保持正面无论玩家哪个角度看都是始终保持正面
+            if (faceCamera)
             {
-                _lastOrientationUpdateTime = Time.time;
+                Camera cam = GetMainCamera();
+                if (cam == null) return;
 
-                Vector3 toPlayer = playerTr.position - headBarRoot.position;
-                if (lockYAxis) toPlayer.y = 0f; // 锁定水平面向，保持立正不歪斜
-
-                if (toPlayer.sqrMagnitude > 0.001f)
+                if (screenAligned)
                 {
-                    _targetRotation = Quaternion.LookRotation(-toPlayer.normalized, Vector3.up);
+                    // 屏幕平行公告板模式（原神模式）：直接与相机四元数对齐，无论任何视角，血条绝对正对屏幕
+                    if (orientationUpdateInterval <= 0f)
+                    {
+                        headBarRoot.rotation = cam.transform.rotation;
+                        return;
+                    }
+                    else if (Time.time - _lastOrientationUpdateTime >= orientationUpdateInterval)
+                    {
+                        _lastOrientationUpdateTime = Time.time;
+                        _targetRotation = cam.transform.rotation;
+                    }
+                }
+                else
+                {
+                    // 视线朝向模式
+                    if (orientationUpdateInterval <= 0f || Time.time - _lastOrientationUpdateTime >= orientationUpdateInterval)
+                    {
+                        _lastOrientationUpdateTime = Time.time;
+                        Vector3 dirToCam = cam.transform.position - headBarRoot.position;
+                        if (lockYAxis) dirToCam.y = 0f;
+                        if (dirToCam.sqrMagnitude > 0.001f)
+                        {
+                            _targetRotation = Quaternion.LookRotation(-dirToCam.normalized, Vector3.up);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // 回退模式：朝向玩家角色模型
+                Transform playerTr = PlayerController.Instance != null 
+                    ? PlayerController.Instance.transform 
+                    : GameObject.FindGameObjectWithTag("Player")?.transform;
+
+                if (playerTr == null) return;
+
+                if (orientationUpdateInterval <= 0f || Time.time - _lastOrientationUpdateTime >= orientationUpdateInterval)
+                {
+                    _lastOrientationUpdateTime = Time.time;
+                    Vector3 toPlayer = playerTr.position - headBarRoot.position;
+                    if (lockYAxis) toPlayer.y = 0f;
+                    if (toPlayer.sqrMagnitude > 0.001f)
+                    {
+                        _targetRotation = Quaternion.LookRotation(-toPlayer.normalized, Vector3.up);
+                    }
                 }
             }
 
