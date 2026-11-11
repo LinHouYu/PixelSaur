@@ -36,7 +36,9 @@ namespace PixelSaur.UI
         [Tooltip("是否根据帧率高低为 FPS 数字着色（高于55绿色，高于30黄色，低于30红色）")]
         [SerializeField] private bool colorizeFPS = false;
 
-        [Header("齿轮点击效果 (雾蒙蒙灰色遮罩)")]
+        [Header("齿轮点击效果 (雾蒙蒙灰色遮罩与设置菜单)")]
+        [Tooltip("设置菜单面板组件引用")]
+        [SerializeField] private SettingsMenuPanelHUD settingsMenu;
         [Tooltip("点击齿轮时画面覆盖的雾蒙蒙灰色遮罩层")]
         [SerializeField] private GameObject foggyGreyOverlay;
         [SerializeField] private Color foggyColor = new Color(0.26f, 0.28f, 0.32f, 0.65f); // 雾蒙蒙的灰色，带呼吸透光感
@@ -191,11 +193,37 @@ namespace PixelSaur.UI
         }
 
         /// <summary>
-        /// 切换画面“雾蒙蒙的灰色”遮罩状态
+        /// 切换画面“雾蒙蒙的灰色”遮罩与设置菜单状态
         /// </summary>
         public void ToggleFoggyOverlay()
         {
-            SetFoggyOverlay(!isFoggyActive);
+            if (settingsMenu == null && transform.parent != null)
+            {
+                settingsMenu = transform.parent.GetComponentInChildren<SettingsMenuPanelHUD>(true);
+            }
+
+            if (settingsMenu != null)
+            {
+                settingsMenu.ToggleMenu();
+            }
+            else if (SettingsMenuPanelHUD.Instance != null)
+            {
+                SettingsMenuPanelHUD.Instance.ToggleMenu();
+            }
+            else
+            {
+                SetFoggyOverlay(!isFoggyActive);
+            }
+        }
+
+        public void SetGearActive(bool active)
+        {
+            isFoggyActive = active;
+            if (gearIcon != null)
+            {
+                gearIcon.color = active ? new Color(0.4f, 0.85f, 1.0f) : Color.white;
+                gearIcon.rectTransform.localEulerAngles = new Vector3(0f, 0f, active ? 22.5f : 0f);
+            }
         }
 
         public void SetFoggyOverlay(bool active)
@@ -206,11 +234,7 @@ namespace PixelSaur.UI
                 foggyGreyOverlay.SetActive(isFoggyActive);
             }
 
-            if (gearIcon != null)
-            {
-                gearIcon.color = isFoggyActive ? new Color(0.4f, 0.85f, 1.0f) : Color.white;
-                gearIcon.rectTransform.localEulerAngles = new Vector3(0f, 0f, isFoggyActive ? 22.5f : 0f);
-            }
+            SetGearActive(isFoggyActive);
 
             Debug.Log($"<color=#66CCFF>[TopBarStatusHUD] 齿轮点击：画面贴上雾蒙蒙灰色状态 = {isFoggyActive}</color>");
             onSettingsClicked?.Invoke();
@@ -469,42 +493,57 @@ namespace PixelSaur.UI
             fOutline.effectColor = new Color(0f, 0f, 0f, 0.90f);
             fOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            // 7. 确保全屏“雾蒙蒙的灰色”遮罩存在（位于 Canvas 下，但层级排在 HUD 之下）
+            // 7. 确保全屏“雾蒙蒙的灰色”遮罩或设置菜单面板存在（位于 Canvas 下，但层级排在 HUD 之下）
             Transform canvasTr = transform.parent;
             if (canvasTr != null)
             {
-                Transform overlayTr = canvasTr.Find("FoggyGreyOverlay");
-                if (overlayTr == null)
+                if (settingsMenu == null)
                 {
-                    var overlayObj = new GameObject("FoggyGreyOverlay", typeof(RectTransform), typeof(Image), typeof(Button));
-                    overlayObj.transform.SetParent(canvasTr, false);
-                    overlayTr = overlayObj.transform;
+                    settingsMenu = canvasTr.GetComponentInChildren<SettingsMenuPanelHUD>(true);
                 }
 
-                RectTransform overlayRT = overlayTr.GetComponent<RectTransform>();
-                overlayRT.anchorMin = Vector2.zero;
-                overlayRT.anchorMax = Vector2.one;
-                overlayRT.offsetMin = Vector2.zero;
-                overlayRT.offsetMax = Vector2.zero;
-
-                Image overlayImg = overlayTr.GetComponent<Image>();
-                overlayImg.color = foggyColor;
-                overlayImg.raycastTarget = true;
-
-                Button overlayBtn = overlayTr.GetComponent<Button>();
-                overlayBtn.targetGraphic = overlayImg;
-                overlayBtn.onClick.RemoveListener(ToggleFoggyOverlay);
-                overlayBtn.onClick.AddListener(ToggleFoggyOverlay);
-
-                foggyGreyOverlay = overlayTr.gameObject;
-                foggyGreyOverlay.SetActive(isFoggyActive);
-
-                // 保持 TopBarStatusHUD 位于遮罩上方，确保齿轮按钮永远清晰可点
-                int hudIndex = transform.GetSiblingIndex();
-                int overlayIndex = overlayTr.GetSiblingIndex();
-                if (overlayIndex > hudIndex)
+                if (settingsMenu != null)
                 {
-                    overlayTr.SetSiblingIndex(Mathf.Max(0, hudIndex));
+                    foggyGreyOverlay = settingsMenu.gameObject;
+                }
+                else
+                {
+                    Transform overlayTr = canvasTr.Find("FoggyGreyOverlay");
+                    if (overlayTr == null)
+                    {
+                        var overlayObj = new GameObject("FoggyGreyOverlay", typeof(RectTransform), typeof(Image), typeof(Button));
+                        overlayObj.transform.SetParent(canvasTr, false);
+                        overlayTr = overlayObj.transform;
+                    }
+
+                    RectTransform overlayRT = overlayTr.GetComponent<RectTransform>();
+                    overlayRT.anchorMin = Vector2.zero;
+                    overlayRT.anchorMax = Vector2.one;
+                    overlayRT.offsetMin = Vector2.zero;
+                    overlayRT.offsetMax = Vector2.zero;
+
+                    Image overlayImg = overlayTr.GetComponent<Image>();
+                    overlayImg.color = foggyColor;
+                    overlayImg.raycastTarget = true;
+
+                    Button overlayBtn = overlayTr.GetComponent<Button>();
+                    overlayBtn.targetGraphic = overlayImg;
+                    overlayBtn.onClick.RemoveListener(ToggleFoggyOverlay);
+                    overlayBtn.onClick.AddListener(ToggleFoggyOverlay);
+
+                    foggyGreyOverlay = overlayTr.gameObject;
+                    foggyGreyOverlay.SetActive(isFoggyActive);
+                }
+
+                // 保持 TopBarStatusHUD 位于菜单/遮罩上方，确保齿轮按钮永远清晰可点
+                if (foggyGreyOverlay != null)
+                {
+                    int hudIndex = transform.GetSiblingIndex();
+                    int overlayIndex = foggyGreyOverlay.transform.GetSiblingIndex();
+                    if (overlayIndex > hudIndex)
+                    {
+                        foggyGreyOverlay.transform.SetSiblingIndex(Mathf.Max(0, hudIndex));
+                    }
                 }
             }
         }
