@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using PixelSaur.UI;
+using PixelSaur.Player;
 
 namespace PixelSaur.Creatures
 {
@@ -104,17 +105,45 @@ namespace PixelSaur.Creatures
 
         private void Update()
         {
-            if (headBarRoot != null && headBarRoot.gameObject.activeSelf && Camera.main != null)
-            {
-                headBarRoot.rotation = Camera.main.transform.rotation; // 始终面向摄像机
-            }
-
             // 心跳检测：若超过 0.15 秒未收到攻击范围通知，自动取消外圈描边并隐藏血条
             if (_isInAttackRange && Time.time - _lastRangePingTime > 0.15f)
             {
                 _isInAttackRange = false;
                 UpdateVisualColor();
                 UpdateHeadBarVisibility();
+            }
+        }
+
+        private void LateUpdate()
+        {
+            UpdateHeadBarOrientation();
+        }
+
+        private void UpdateHeadBarOrientation()
+        {
+            if (headBarRoot == null || !headBarRoot.gameObject.activeSelf) return;
+
+            // 保持在生物正上方世界坐标 1.55m，即使倒地尸体也能悬浮于尸体上方居中
+            headBarRoot.position = transform.position + Vector3.up * 1.55f;
+
+            // 动态面向视线：优先主摄像机视点（随玩家移动与摄像机跟随平滑变向），备选玩家角色坐标
+            Vector3 viewPos = Vector3.zero;
+            if (Camera.main != null)
+            {
+                viewPos = Camera.main.transform.position;
+            }
+            else if (PlayerController.Instance != null)
+            {
+                viewPos = PlayerController.Instance.transform.position;
+            }
+
+            if (viewPos != Vector3.zero)
+            {
+                Vector3 toViewer = viewPos - headBarRoot.position;
+                if (toViewer.sqrMagnitude > 0.001f)
+                {
+                    headBarRoot.rotation = Quaternion.LookRotation(-toViewer.normalized, Vector3.up);
+                }
             }
         }
 
@@ -170,6 +199,7 @@ namespace PixelSaur.Creatures
             if (hpSlider != null) hpSlider.gameObject.SetActive(false);
             if (statusText != null)
             {
+                statusText.rectTransform.anchoredPosition = Vector2.zero;
                 statusText.text = $"可食用: {remainingFeedCount}/{totalFeedCount}口";
                 statusText.color = new Color(0.4f, 1f, 0.4f);
             }
@@ -254,6 +284,7 @@ namespace PixelSaur.Creatures
             }
             if (statusText != null)
             {
+                statusText.rectTransform.anchoredPosition = new Vector2(0f, -14f);
                 statusText.text = $"猎物 HP: {maxHealth}/{maxHealth}";
                 statusText.color = Color.white;
             }
@@ -294,8 +325,16 @@ namespace PixelSaur.Creatures
                 headBarRoot = hbTr;
                 hpSlider = hbTr.GetComponentInChildren<Slider>();
                 statusText = hbTr.GetComponentInChildren<Text>();
-                if (hpSlider != null && statusText != null)
+                Transform panelExist = hbTr.Find("PanelBg");
+                if (hpSlider != null && statusText != null && panelExist != null)
                 {
+                    Canvas cExist = hbTr.GetComponent<Canvas>();
+                    if (cExist != null)
+                    {
+                        cExist.overrideSorting = true;
+                        cExist.sortingOrder = 100;
+                        if (Camera.main != null) cExist.worldCamera = Camera.main;
+                    }
                     headBarRoot.gameObject.SetActive(false);
                     return;
                 }
@@ -309,25 +348,40 @@ namespace PixelSaur.Creatures
             }
             else
             {
-                hbObj = new GameObject("HeadBar");
+                hbObj = new GameObject("HeadBar", typeof(RectTransform), typeof(Canvas));
                 hbObj.transform.SetParent(transform, false);
-                hbObj.transform.localPosition = new Vector3(0f, 1.45f, 0f);
+                hbObj.transform.localPosition = new Vector3(0f, 1.55f, 0f);
             }
 
             headBarRoot = hbObj.transform;
 
-            Canvas canvas = hbObj.GetComponent<Canvas>() ?? hbObj.AddComponent<Canvas>();
+            Canvas canvas = hbObj.GetComponent<Canvas>();
+            if (canvas == null) canvas = hbObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 100; // 高优先级排序，彻底防止水面或半透明物体遮挡导致变淡
+            if (Camera.main != null) canvas.worldCamera = Camera.main;
+
             RectTransform canvasRT = hbObj.GetComponent<RectTransform>();
-            canvasRT.sizeDelta = new Vector2(140f, 32f);
-            canvasRT.localScale = Vector3.one * 0.0075f;
+            canvasRT.sizeDelta = new Vector2(260f, 70f);
+            canvasRT.localScale = Vector3.one * 0.0035f;
+
+            // 0. 深色半透明背景底板 (增强强光/水面/天空下的对比度)
+            GameObject panelObj = new GameObject("PanelBg", typeof(RectTransform), typeof(Image));
+            panelObj.transform.SetParent(headBarRoot, false);
+            RectTransform panelRT = panelObj.GetComponent<RectTransform>();
+            panelRT.anchorMin = Vector2.zero;
+            panelRT.anchorMax = Vector2.one;
+            panelRT.sizeDelta = Vector2.zero;
+            Image panelImg = panelObj.GetComponent<Image>();
+            panelImg.color = new Color(0.08f, 0.09f, 0.12f, 0.82f);
 
             // 1. Slider
             GameObject sliderObj = new GameObject("HPSlider", typeof(RectTransform), typeof(Slider));
             sliderObj.transform.SetParent(headBarRoot, false);
             RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
-            sliderRT.sizeDelta = new Vector2(120f, 12f);
-            sliderRT.anchoredPosition = new Vector2(0f, 7f);
+            sliderRT.sizeDelta = new Vector2(230f, 22f);
+            sliderRT.anchoredPosition = new Vector2(0f, 13f);
 
             Slider slider = sliderObj.GetComponent<Slider>();
             slider.interactable = false;
@@ -368,17 +422,18 @@ namespace PixelSaur.Creatures
             slider.value = currentHealth;
             hpSlider = slider;
 
-            // 2. StatusText
+            // 2. StatusText (高清晰度文字配置)
             GameObject textObj = new GameObject("StatusText", typeof(RectTransform), typeof(Text), typeof(Outline));
             textObj.transform.SetParent(headBarRoot, false);
             RectTransform textRT = textObj.GetComponent<RectTransform>();
-            textRT.sizeDelta = new Vector2(140f, 16f);
-            textRT.anchoredPosition = new Vector2(0f, -8f);
+            textRT.sizeDelta = new Vector2(250f, 28f);
+            textRT.anchoredPosition = new Vector2(0f, -14f);
 
             statusText = textObj.GetComponent<Text>();
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             statusText.font = font;
-            statusText.fontSize = 12;
+            statusText.fontSize = 22;
             statusText.fontStyle = FontStyle.Bold;
             statusText.alignment = TextAnchor.MiddleCenter;
             statusText.color = Color.white;
@@ -386,7 +441,7 @@ namespace PixelSaur.Creatures
 
             Outline outline = textObj.GetComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
 
             // 初始隐藏，进入攻击范围才显示！
             headBarRoot.gameObject.SetActive(false);
