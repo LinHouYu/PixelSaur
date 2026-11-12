@@ -49,11 +49,25 @@ namespace PixelSaur.UI
         [SerializeField] private Color sprintActiveColor = new Color(0.18f, 0.75f, 0.95f, 0.92f);
 
         private Vector2 _defaultBackgroundPosition;
+        private bool _hasRecordedDefaultPos;
+        private int _activePointerId = int.MinValue;
         private Canvas _canvas;
         private static Sprite _cachedBaseCircleSprite;
         private static Sprite _cachedKnobCircleSprite;
 
         public bool IsSprinting { get; private set; }
+
+        public bool DynamicJoystick
+        {
+            get => dynamicJoystick;
+            set
+            {
+                dynamicJoystick = value;
+                UpdateDynamicTouchZone();
+            }
+        }
+
+        private RectTransform _dynamicTouchZone;
 
         private void Awake()
         {
@@ -63,6 +77,15 @@ namespace PixelSaur.UI
 
         private void Start()
         {
+            if (Application.isPlaying)
+            {
+                if (PlayerPrefs.HasKey("SETTING_CTRL_DYNAMIC_JOYSTICK"))
+                {
+                    dynamicJoystick = PlayerPrefs.GetInt("SETTING_CTRL_DYNAMIC_JOYSTICK", 0) == 1;
+                }
+                UpdateDynamicTouchZone();
+            }
+
             if (Application.isPlaying && sprintButton != null)
             {
                 sprintButton.gameObject.SetActive(false);
@@ -93,9 +116,10 @@ namespace PixelSaur.UI
             }
 
             _canvas = GetComponentInParent<Canvas>();
-            if (background != null && Application.isPlaying)
+            if (background != null && Application.isPlaying && !_hasRecordedDefaultPos)
             {
                 _defaultBackgroundPosition = background.anchoredPosition;
+                _hasRecordedDefaultPos = true;
             }
         }
 
@@ -240,15 +264,12 @@ namespace PixelSaur.UI
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (_activePointerId != int.MinValue && _activePointerId != eventData.pointerId) return;
+            _activePointerId = eventData.pointerId;
+
             if (dynamicJoystick && background != null)
             {
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    background.parent as RectTransform,
-                    eventData.position,
-                    eventData.pressEventCamera,
-                    out Vector2 localPoint
-                );
-                background.anchoredPosition = localPoint;
+                MoveBackgroundToScreenPosition(eventData.position, eventData.pressEventCamera);
             }
 
             OnDrag(eventData);
@@ -257,6 +278,7 @@ namespace PixelSaur.UI
         public void OnDrag(PointerEventData eventData)
         {
             if (background == null || handle == null) return;
+            if (_activePointerId != int.MinValue && eventData.pointerId != _activePointerId) return;
 
             Camera cam = _canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceCamera ? _canvas.worldCamera : null;
 
@@ -317,6 +339,9 @@ namespace PixelSaur.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (_activePointerId != int.MinValue && eventData.pointerId != _activePointerId) return;
+            _activePointerId = int.MinValue;
+
             IsSprinting = false;
             if (sprintButton != null)
             {
@@ -339,6 +364,104 @@ namespace PixelSaur.UI
                 PlayerInputProxy.Instance.SetJoystickInput(Vector2.zero);
                 PlayerInputProxy.Instance.SetSprint(false);
             }
+        }
+
+        /// <summary>
+        /// 当开启动态摇杆时，在屏幕左半区建立全透明接收层（元气骑士机制：玩家按压左屏任何位置均吸附移动）
+        /// </summary>
+        public void UpdateDynamicTouchZone()
+        {
+            if (!Application.isPlaying) return;
+
+            Transform zoneTr = transform.parent != null ? transform.parent.Find("DynamicJoystickLeftZone") : null;
+            if (!dynamicJoystick)
+            {
+                if (zoneTr != null) zoneTr.gameObject.SetActive(false);
+                return;
+            }
+
+            GameObject zoneObj;
+            if (zoneTr == null)
+            {
+                zoneObj = new GameObject("DynamicJoystickLeftZone", typeof(RectTransform), typeof(Image), typeof(DynamicJoystickZoneProxy));
+                zoneObj.transform.SetParent(transform.parent, false);
+            }
+            else
+            {
+                zoneObj = zoneTr.gameObject;
+            }
+
+            // 确保位于 TouchLookArea 之上、摇杆及其他 HUD 按钮之下，防止右屏视角区抢占左半区触控
+            Transform lookTr = transform.parent.Find("TouchLookArea");
+            if (lookTr != null && transform.GetSiblingIndex() < lookTr.GetSiblingIndex())
+            {
+                transform.SetSiblingIndex(lookTr.GetSiblingIndex() + 1);
+            }
+            zoneObj.transform.SetSiblingIndex(transform.GetSiblingIndex());
+
+            RectTransform rt = zoneObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 1f); // 覆盖左半侧屏幕
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            Image img = zoneObj.GetComponent<Image>();
+            img.color = Color.clear;
+            img.raycastTarget = true;
+
+            var proxy = zoneObj.GetComponent<DynamicJoystickZoneProxy>();
+            if (proxy == null) proxy = zoneObj.AddComponent<DynamicJoystickZoneProxy>();
+            proxy.joystick = this;
+
+            zoneObj.SetActive(true);
+            _dynamicTouchZone = rt;
+        }
+
+        public void HandleDynamicPointerDown(PointerEventData eventData)
+        {
+            if (_activePointerId != int.MinValue && _activePointerId != eventData.pointerId) return;
+            _activePointerId = eventData.pointerId;
+
+            if (background != null)
+            {
+                MoveBackgroundToScreenPosition(eventData.position, eventData.pressEventCamera);
+            }
+            OnDrag(eventData);
+        }
+
+        private void MoveBackgroundToScreenPosition(Vector2 screenPosition, Camera pressCamera)
+        {
+            if (background == null) return;
+            Camera cam = _canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceCamera ? _canvas.worldCamera : pressCamera;
+            if (_canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceOverlay) cam = null;
+
+            if (RectTransformUtility.ScreenPointToWorldPointInRectangle(background, screenPosition, cam, out Vector3 worldPos))
+            {
+                background.position = worldPos;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 动态摇杆左屏触控转发代理
+    /// </summary>
+    public class DynamicJoystickZoneProxy : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+    {
+        public VirtualJoystick joystick;
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (joystick != null) joystick.HandleDynamicPointerDown(eventData);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (joystick != null) joystick.OnDrag(eventData);
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (joystick != null) joystick.OnPointerUp(eventData);
         }
     }
 }

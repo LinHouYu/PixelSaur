@@ -73,6 +73,20 @@ namespace PixelSaur.Grass
             _isInitialized = false;
         }
 
+        public int GrassCount
+        {
+            get => grassCount;
+            set
+            {
+                int clamped = Mathf.Clamp(value, 50, 10000);
+                if (grassCount != clamped)
+                {
+                    grassCount = clamped;
+                    RebuildGrass();
+                }
+            }
+        }
+
         [ContextMenu("强制重新生成草地分布")]
         public void RebuildGrass()
         {

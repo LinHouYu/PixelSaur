@@ -78,9 +78,8 @@ namespace PixelSaur.UI
                 if (Instance == null) Instance = this;
                 else if (Instance != this) { Destroy(gameObject); return; }
 
-                // 解除移动端与PC默认锁帧限制，使设备充分发挥真实刷新率（60Hz/90Hz/120Hz）
-                Application.targetFrameRate = 120;
-                QualitySettings.vSyncCount = 0;
+                // 依据已保存设置初始化帧率、垂直同步与渲染分辨率等参数（默认开启垂直同步与 120 FPS）
+                SubSettingsPageHUD.ApplyAllSavedSettingsAtStartup();
             }
 
             LoadDefaultSprites();
