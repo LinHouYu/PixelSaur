@@ -321,12 +321,14 @@ namespace PixelSaur.UI
         {
             Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【画面设置】。</color>");
             onGraphicsSettingsClicked?.Invoke();
+            SubSettingsPageHUD.OpenPage(SettingsCategory.Graphics);
         }
 
         private void HandleControlsClick()
         {
             Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【游戏控制】。</color>");
             onControlsClicked?.Invoke();
+            SubSettingsPageHUD.OpenPage(SettingsCategory.Controls);
         }
 
         /// <summary>
