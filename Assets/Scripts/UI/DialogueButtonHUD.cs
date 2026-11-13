@@ -24,10 +24,10 @@ namespace PixelSaur.UI
 
         [Header("位置与尺寸 (可在 Inspector 中自由微调)")]
         [Tooltip("左下角锚点偏移位置 (X, Y)")]
-        [SerializeField] private Vector2 buttonPosition = new Vector2(75f, 75f);
+        [SerializeField] private Vector2 buttonPosition = new Vector2(76f, 76f);
 
         [Tooltip("按钮尺寸（宽, 高）")]
-        [SerializeField] private Vector2 buttonSize = new Vector2(68f, 68f);
+        [SerializeField] private Vector2 buttonSize = new Vector2(96f, 96f);
 
         [Header("交互事件")]
         [Tooltip("点击对话按钮时触发的 Unity 事件")]

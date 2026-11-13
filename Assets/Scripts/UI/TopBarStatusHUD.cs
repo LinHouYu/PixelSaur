@@ -45,8 +45,8 @@ namespace PixelSaur.UI
         [SerializeField] private bool isFoggyActive = false;
 
         [Header("面板尺寸与位置")]
-        [SerializeField] private Vector2 panelPosition = new Vector2(20f, -16f);
-        [SerializeField] private Vector2 panelSize = new Vector2(230f, 44f);
+        [SerializeField] private Vector2 panelPosition = new Vector2(24f, -20f);
+        [SerializeField] private Vector2 panelSize = new Vector2(360f, 68f);
 
         [Header("事件")]
         public UnityEvent onSettingsClicked = new UnityEvent();
@@ -59,6 +59,7 @@ namespace PixelSaur.UI
         [SerializeField] private Button gearButton;
         [SerializeField] private Image gearIcon;
         [SerializeField] private Image fpsBadgeIcon;
+        [SerializeField] private Text fpsLabelText;
         [SerializeField] private Text fpsValueText;
 
         // FPS 统计与检测变量
@@ -347,8 +348,8 @@ namespace PixelSaur.UI
             playersGroupRT.anchorMin = new Vector2(0f, 0.5f);
             playersGroupRT.anchorMax = new Vector2(0f, 0.5f);
             playersGroupRT.pivot = new Vector2(0f, 0.5f);
-            playersGroupRT.anchoredPosition = new Vector2(10f, 0f);
-            playersGroupRT.sizeDelta = new Vector2(68f, 36f);
+            playersGroupRT.anchoredPosition = new Vector2(14f, 0f);
+            playersGroupRT.sizeDelta = new Vector2(94f, 56f);
 
             // 玩家图标
             Transform pIconTr = playersGroupTr.Find("Icon");
@@ -363,7 +364,7 @@ namespace PixelSaur.UI
             pIconRT.anchorMax = new Vector2(0f, 0.5f);
             pIconRT.pivot = new Vector2(0f, 0.5f);
             pIconRT.anchoredPosition = new Vector2(0f, 0f);
-            pIconRT.sizeDelta = new Vector2(28f, 28f);
+            pIconRT.sizeDelta = new Vector2(38f, 38f);
             playersIcon = pIconTr.GetComponent<Image>();
             playersIcon.sprite = playersIconSprite;
             playersIcon.raycastTarget = false;
@@ -380,12 +381,12 @@ namespace PixelSaur.UI
             pTxtRT.anchorMin = new Vector2(0f, 0.5f);
             pTxtRT.anchorMax = new Vector2(1f, 0.5f);
             pTxtRT.pivot = new Vector2(0f, 0.5f);
-            pTxtRT.anchoredPosition = new Vector2(30f, 0f);
-            pTxtRT.sizeDelta = new Vector2(38f, 34f);
+            pTxtRT.anchoredPosition = new Vector2(44f, 0f);
+            pTxtRT.sizeDelta = new Vector2(48f, 52f);
 
             playersCountText = pTxtTr.GetComponent<Text>();
             playersCountText.font = mainFont;
-            playersCountText.fontSize = 20;
+            playersCountText.fontSize = 28;
             playersCountText.fontStyle = FontStyle.Bold;
             playersCountText.alignment = TextAnchor.MiddleLeft;
             playersCountText.color = Color.white;
@@ -408,8 +409,8 @@ namespace PixelSaur.UI
             gearRT.anchorMin = new Vector2(0f, 0.5f);
             gearRT.anchorMax = new Vector2(0f, 0.5f);
             gearRT.pivot = new Vector2(0.5f, 0.5f);
-            gearRT.anchoredPosition = new Vector2(94f, 0f);
-            gearRT.sizeDelta = new Vector2(24f, 24f);
+            gearRT.anchoredPosition = new Vector2(138f, 0f);
+            gearRT.sizeDelta = new Vector2(52f, 52f);
 
             gearIcon = gearTr.GetComponent<Image>();
             gearIcon.sprite = gearIconSprite;
@@ -430,8 +431,8 @@ namespace PixelSaur.UI
             divRT.anchorMin = new Vector2(0f, 0.5f);
             divRT.anchorMax = new Vector2(0f, 0.5f);
             divRT.pivot = new Vector2(0.5f, 0.5f);
-            divRT.anchoredPosition = new Vector2(113f, 0f);
-            divRT.sizeDelta = new Vector2(1.5f, 20f);
+            divRT.anchoredPosition = new Vector2(176f, 0f);
+            divRT.sizeDelta = new Vector2(2f, 34f);
             Image divImg = divTr.GetComponent<Image>();
             divImg.color = new Color(0.55f, 0.60f, 0.68f, 0.6f);
             divImg.raycastTarget = false;
@@ -448,14 +449,24 @@ namespace PixelSaur.UI
             fpsGroupRT.anchorMin = new Vector2(0f, 0.5f);
             fpsGroupRT.anchorMax = new Vector2(0f, 0.5f);
             fpsGroupRT.pivot = new Vector2(0f, 0.5f);
-            fpsGroupRT.anchoredPosition = new Vector2(122f, 0f);
-            fpsGroupRT.sizeDelta = new Vector2(98f, 36f);
+            fpsGroupRT.anchoredPosition = new Vector2(190f, 0f);
+            fpsGroupRT.sizeDelta = new Vector2(158f, 56f);
 
-            // FPS 徽章图标
+            // FPS 文字标签（替代旧徽章图片，清晰醒目）
             Transform fBadgeTr = fpsGroupTr.Find("BadgeIcon");
-            if (fBadgeTr == null)
+            if (fBadgeTr != null)
             {
-                var fBadgeObj = new GameObject("BadgeIcon", typeof(RectTransform), typeof(Image));
+                Image oldImg = fBadgeTr.GetComponent<Image>();
+                if (oldImg != null)
+                {
+                    if (Application.isPlaying) Destroy(oldImg);
+                    else DestroyImmediate(oldImg);
+                }
+                fpsBadgeIcon = null;
+            }
+            else
+            {
+                var fBadgeObj = new GameObject("BadgeIcon", typeof(RectTransform));
                 fBadgeObj.transform.SetParent(fpsGroupTr, false);
                 fBadgeTr = fBadgeObj.transform;
             }
@@ -464,10 +475,20 @@ namespace PixelSaur.UI
             fBadgeRT.anchorMax = new Vector2(0f, 0.5f);
             fBadgeRT.pivot = new Vector2(0f, 0.5f);
             fBadgeRT.anchoredPosition = new Vector2(0f, 0f);
-            fBadgeRT.sizeDelta = new Vector2(34f, 22f);
-            fpsBadgeIcon = fBadgeTr.GetComponent<Image>();
-            fpsBadgeIcon.sprite = fpsBadgeSprite;
-            fpsBadgeIcon.raycastTarget = false;
+            fBadgeRT.sizeDelta = new Vector2(62f, 52f);
+
+            fpsLabelText = fBadgeTr.GetComponent<Text>() ?? fBadgeTr.gameObject.AddComponent<Text>();
+            fpsLabelText.font = mainFont;
+            fpsLabelText.fontSize = 24;
+            fpsLabelText.fontStyle = FontStyle.Bold;
+            fpsLabelText.alignment = TextAnchor.MiddleLeft;
+            fpsLabelText.color = new Color(0.35f, 0.95f, 0.45f, 1f);
+            fpsLabelText.text = "FPS";
+            fpsLabelText.raycastTarget = false;
+
+            Outline badgeOutline = fBadgeTr.GetComponent<Outline>() ?? fBadgeTr.gameObject.AddComponent<Outline>();
+            badgeOutline.effectColor = new Color(0f, 0f, 0f, 0.90f);
+            badgeOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
             // FPS 数值文本
             Transform fValTr = fpsGroupTr.Find("FPSValueText");
@@ -481,12 +502,12 @@ namespace PixelSaur.UI
             fValRT.anchorMin = new Vector2(0f, 0.5f);
             fValRT.anchorMax = new Vector2(1f, 0.5f);
             fValRT.pivot = new Vector2(0f, 0.5f);
-            fValRT.anchoredPosition = new Vector2(38f, 0f);
-            fValRT.sizeDelta = new Vector2(58f, 34f);
+            fValRT.anchoredPosition = new Vector2(64f, 0f);
+            fValRT.sizeDelta = new Vector2(92f, 52f);
 
             fpsValueText = fValTr.GetComponent<Text>();
             fpsValueText.font = mainFont;
-            fpsValueText.fontSize = 20;
+            fpsValueText.fontSize = 26;
             fpsValueText.fontStyle = FontStyle.Bold;
             fpsValueText.alignment = TextAnchor.MiddleLeft;
             fpsValueText.color = Color.white;

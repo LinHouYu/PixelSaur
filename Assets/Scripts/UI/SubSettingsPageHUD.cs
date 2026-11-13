@@ -75,6 +75,8 @@ namespace PixelSaur.UI
         [Header("动画时长")]
         [SerializeField] private float slideDuration = 0.28f;
 
+        private const float ToggleThumbOffset = 22f;
+
         private RectTransform _rootRect;
         private RectTransform _slideRoot;
         private Image _bgCover;
@@ -711,7 +713,7 @@ namespace PixelSaur.UI
             }
             else
             {
-                view.thumbRT.anchoredPosition = new Vector2(newVal ? 15f : -15f, 0f);
+                view.thumbRT.anchoredPosition = new Vector2(newVal ? ToggleThumbOffset : -ToggleThumbOffset, 0f);
                 view.trackImage.color = newVal ? new Color(0.20f, 0.78f, 0.35f, 1f) : new Color(0.32f, 0.37f, 0.45f, 1f);
             }
         }
@@ -719,7 +721,7 @@ namespace PixelSaur.UI
         private IEnumerator AnimateSwitch(ToggleItemView view, bool on)
         {
             float startX = view.thumbRT.anchoredPosition.x;
-            float targetX = on ? 15f : -15f;
+            float targetX = on ? ToggleThumbOffset : -ToggleThumbOffset;
             Color startColor = view.trackImage.color;
             Color targetColor = on ? new Color(0.20f, 0.78f, 0.35f, 1f) : new Color(0.32f, 0.37f, 0.45f, 1f);
 
@@ -753,14 +755,14 @@ namespace PixelSaur.UI
 
             SettingItemDef[] defs = GetCurrentDefs();
             float currentY = 0f;
-            const float spacing = 12f;
+            const float spacing = 18f;
 
             for (int idx = 0; idx < defs.Length; idx++)
             {
                 var def = defs[idx];
                 int curVal = _draftSettings[def.key];
-                float cardHeight = def.widgetType == ItemWidgetType.GrassResCombo ? 112f :
-                                   def.widgetType == ItemWidgetType.Toggle ? 74f : 84f;
+                float cardHeight = def.widgetType == ItemWidgetType.GrassResCombo ? 162f :
+                                   def.widgetType == ItemWidgetType.Toggle ? 112f : 126f;
 
                 GameObject card = new GameObject("Item_" + def.key, typeof(RectTransform), typeof(Image));
                 card.transform.SetParent(_itemsContainer, false);
@@ -776,7 +778,7 @@ namespace PixelSaur.UI
                 cardImg.type = Image.Type.Sliced;
                 cardImg.color = cardBgColor;
 
-                float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.78f : 0.44f;
+                float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.72f : 0.46f;
                 BuildCardTexts(card.transform, mainFont, def.title, def.desc, leftWidthRatio);
 
                 switch (def.widgetType)
@@ -820,7 +822,7 @@ namespace PixelSaur.UI
             titRT.offsetMax = Vector2.zero;
             Text titText = titleGo.GetComponent<Text>();
             titText.font = font;
-            titText.fontSize = 20;
+            titText.fontSize = 30;
             titText.fontStyle = FontStyle.Bold;
             titText.text = title;
             titText.color = Color.white;
@@ -835,7 +837,8 @@ namespace PixelSaur.UI
             descRT.offsetMax = Vector2.zero;
             Text descText = descGo.GetComponent<Text>();
             descText.font = font;
-            descText.fontSize = 13;
+            descText.fontSize = 21;
+            descText.fontStyle = FontStyle.Bold;
             descText.text = desc;
             descText.color = new Color(0.68f, 0.77f, 0.88f, 0.90f);
             descText.alignment = TextAnchor.MiddleLeft;
@@ -851,8 +854,8 @@ namespace PixelSaur.UI
             swRT.anchorMin = new Vector2(1f, 0.5f);
             swRT.anchorMax = new Vector2(1f, 0.5f);
             swRT.pivot = new Vector2(1f, 0.5f);
-            swRT.anchoredPosition = new Vector2(-22f, 0f);
-            swRT.sizeDelta = new Vector2(64f, 34f);
+            swRT.anchoredPosition = new Vector2(-28f, 0f);
+            swRT.sizeDelta = new Vector2(96f, 50f);
 
             // 使用纯白程序化圆角贴图，保证颜色明快不发暗
             Image trackImg = switchGo.GetComponent<Image>();
@@ -868,8 +871,8 @@ namespace PixelSaur.UI
             thRT.anchorMin = new Vector2(0.5f, 0.5f);
             thRT.anchorMax = new Vector2(0.5f, 0.5f);
             thRT.pivot = new Vector2(0.5f, 0.5f);
-            thRT.sizeDelta = new Vector2(26f, 26f);
-            thRT.anchoredPosition = new Vector2(currentVal ? 15f : -15f, 0f);
+            thRT.sizeDelta = new Vector2(40f, 40f);
+            thRT.anchoredPosition = new Vector2(currentVal ? ToggleThumbOffset : -ToggleThumbOffset, 0f);
 
             Image thumbImg = thumbGo.GetComponent<Image>();
             thumbImg.sprite = _whiteCircleSprite;
@@ -894,7 +897,7 @@ namespace PixelSaur.UI
 
         private void BuildGrassResComboWidget(Transform cardTr, Font font, string key, int currentVal)
         {
-            GameObject area = CreateRightControlArea(cardTr, 0.45f, 0.98f);
+            GameObject area = CreateRightControlArea(cardTr, 0.47f, 0.98f);
 
             // 上半区：下拉菜单 + 可点击数字框
             Dropdown dropdown = BuildStyledDropdown(area.transform, font, GrassPresetLabels, new Vector2(0f, 0.54f), new Vector2(0.62f, 0.94f));
@@ -950,7 +953,7 @@ namespace PixelSaur.UI
 
         private void BuildRenderScaleWidget(Transform cardTr, Font font, string key, int currentVal)
         {
-            GameObject area = CreateRightControlArea(cardTr, 0.45f, 0.98f);
+            GameObject area = CreateRightControlArea(cardTr, 0.47f, 0.98f);
             Slider slider = BuildStyledSlider(area.transform, new Vector2(0f, 0.20f), new Vector2(0.66f, 0.80f), 50, 150, true);
             InputField input = BuildNumericInputField(area.transform, font, new Vector2(0.70f, 0.22f), new Vector2(1f, 0.78f), "%", "100");
 
@@ -985,7 +988,7 @@ namespace PixelSaur.UI
 
         private void BuildFpsLimitWidget(Transform cardTr, Font font, string key, int currentVal)
         {
-            GameObject area = CreateRightControlArea(cardTr, 0.45f, 0.98f);
+            GameObject area = CreateRightControlArea(cardTr, 0.47f, 0.98f);
             // 30~120 为对应帧率，超过 120 (121~130) 自动吸附到 130 代表无限制 (内部存 0)
             Slider slider = BuildStyledSlider(area.transform, new Vector2(0f, 0.20f), new Vector2(0.66f, 0.80f), 30, 130, true);
             InputField input = BuildNumericInputField(area.transform, font, new Vector2(0.70f, 0.22f), new Vector2(1f, 0.78f), "", "无限制");
@@ -1068,7 +1071,7 @@ namespace PixelSaur.UI
             RectTransform bgRT = bgGo.GetComponent<RectTransform>();
             bgRT.anchorMin = new Vector2(0f, 0.5f);
             bgRT.anchorMax = new Vector2(1f, 0.5f);
-            bgRT.sizeDelta = new Vector2(0f, 10f);
+            bgRT.sizeDelta = new Vector2(0f, 16f);
             Image bgImg = bgGo.GetComponent<Image>();
             bgImg.sprite = _whitePillSprite;
             bgImg.type = Image.Type.Sliced;
@@ -1081,7 +1084,7 @@ namespace PixelSaur.UI
             RectTransform faRT = fillArea.GetComponent<RectTransform>();
             faRT.anchorMin = new Vector2(0f, 0.5f);
             faRT.anchorMax = new Vector2(1f, 0.5f);
-            faRT.sizeDelta = new Vector2(-12f, 10f);
+            faRT.sizeDelta = new Vector2(-18f, 16f);
 
             GameObject fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             fillGo.transform.SetParent(fillArea.transform, false);
@@ -1102,13 +1105,13 @@ namespace PixelSaur.UI
             RectTransform haRT = handleArea.GetComponent<RectTransform>();
             haRT.anchorMin = new Vector2(0f, 0.5f);
             haRT.anchorMax = new Vector2(1f, 0.5f);
-            haRT.sizeDelta = new Vector2(-24f, 24f);
+            haRT.sizeDelta = new Vector2(-38f, 38f);
             haRT.anchoredPosition = Vector2.zero;
 
             GameObject handleGo = new GameObject("Handle", typeof(RectTransform), typeof(Image));
             handleGo.transform.SetParent(handleArea.transform, false);
             RectTransform hRT = handleGo.GetComponent<RectTransform>();
-            hRT.sizeDelta = new Vector2(24f, 24f);
+            hRT.sizeDelta = new Vector2(38f, 38f);
             Image handleImg = handleGo.GetComponent<Image>();
             handleImg.sprite = _whiteCircleSprite;
             handleImg.preserveAspect = true;
@@ -1146,11 +1149,11 @@ namespace PixelSaur.UI
             RectTransform phRT = phGo.GetComponent<RectTransform>();
             phRT.anchorMin = Vector2.zero;
             phRT.anchorMax = Vector2.one;
-            phRT.offsetMin = new Vector2(6f, 2f);
-            phRT.offsetMax = new Vector2(string.IsNullOrEmpty(suffix) ? -6f : -22f, -2f);
+            phRT.offsetMin = new Vector2(8f, 2f);
+            phRT.offsetMax = new Vector2(string.IsNullOrEmpty(suffix) ? -8f : -30f, -2f);
             Text phTxt = phGo.GetComponent<Text>();
             phTxt.font = font;
-            phTxt.fontSize = 15;
+            phTxt.fontSize = 22;
             phTxt.fontStyle = FontStyle.Bold;
             phTxt.alignment = TextAnchor.MiddleCenter;
             phTxt.text = placeholderText;
@@ -1161,11 +1164,11 @@ namespace PixelSaur.UI
             RectTransform tRT = txtGo.GetComponent<RectTransform>();
             tRT.anchorMin = Vector2.zero;
             tRT.anchorMax = Vector2.one;
-            tRT.offsetMin = new Vector2(6f, 2f);
-            tRT.offsetMax = new Vector2(string.IsNullOrEmpty(suffix) ? -6f : -22f, -2f);
+            tRT.offsetMin = new Vector2(8f, 2f);
+            tRT.offsetMax = new Vector2(string.IsNullOrEmpty(suffix) ? -8f : -30f, -2f);
             Text txt = txtGo.GetComponent<Text>();
             txt.font = font;
-            txt.fontSize = 16;
+            txt.fontSize = 24;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
@@ -1179,11 +1182,12 @@ namespace PixelSaur.UI
                 sRT.anchorMin = new Vector2(1f, 0f);
                 sRT.anchorMax = new Vector2(1f, 1f);
                 sRT.pivot = new Vector2(1f, 0.5f);
-                sRT.sizeDelta = new Vector2(20f, 0f);
+                sRT.sizeDelta = new Vector2(28f, 0f);
                 sRT.anchoredPosition = new Vector2(-4f, 0f);
                 Text sufTxt = sufGo.GetComponent<Text>();
                 sufTxt.font = font;
-                sufTxt.fontSize = 14;
+                sufTxt.fontSize = 20;
+                sufTxt.fontStyle = FontStyle.Bold;
                 sufTxt.alignment = TextAnchor.MiddleCenter;
                 sufTxt.color = new Color(0.70f, 0.80f, 0.90f, 0.9f);
                 sufTxt.text = suffix;
@@ -1220,11 +1224,11 @@ namespace PixelSaur.UI
             RectTransform capRT = capGo.GetComponent<RectTransform>();
             capRT.anchorMin = Vector2.zero;
             capRT.anchorMax = Vector2.one;
-            capRT.offsetMin = new Vector2(12f, 2f);
-            capRT.offsetMax = new Vector2(-26f, -2f);
+            capRT.offsetMin = new Vector2(16f, 2f);
+            capRT.offsetMax = new Vector2(-36f, -2f);
             Text capTxt = capGo.GetComponent<Text>();
             capTxt.font = font;
-            capTxt.fontSize = 15;
+            capTxt.fontSize = 22;
             capTxt.fontStyle = FontStyle.Bold;
             capTxt.alignment = TextAnchor.MiddleLeft;
             capTxt.color = Color.white;
@@ -1235,11 +1239,12 @@ namespace PixelSaur.UI
             arrRT.anchorMin = new Vector2(1f, 0f);
             arrRT.anchorMax = new Vector2(1f, 1f);
             arrRT.pivot = new Vector2(1f, 0.5f);
-            arrRT.sizeDelta = new Vector2(24f, 0f);
-            arrRT.anchoredPosition = new Vector2(-4f, 0f);
+            arrRT.sizeDelta = new Vector2(32f, 0f);
+            arrRT.anchoredPosition = new Vector2(-6f, 0f);
             Text arrTxt = arrowGo.GetComponent<Text>();
             arrTxt.font = font;
-            arrTxt.fontSize = 12;
+            arrTxt.fontSize = 18;
+            arrTxt.fontStyle = FontStyle.Bold;
             arrTxt.alignment = TextAnchor.MiddleCenter;
             arrTxt.color = new Color(0.75f, 0.85f, 0.95f, 0.9f);
             arrTxt.text = "▼";
@@ -1253,7 +1258,7 @@ namespace PixelSaur.UI
             tplRT.anchorMax = new Vector2(1f, 0f);
             tplRT.pivot = new Vector2(0.5f, 1f);
             tplRT.anchoredPosition = new Vector2(0f, -2f);
-            tplRT.sizeDelta = new Vector2(0f, 204f);
+            tplRT.sizeDelta = new Vector2(0f, 296f);
             Image tplImg = tplGo.GetComponent<Image>();
             tplImg.sprite = _whitePillSprite;
             tplImg.type = Image.Type.Sliced;
@@ -1274,14 +1279,14 @@ namespace PixelSaur.UI
             cRT.anchorMin = new Vector2(0f, 1f);
             cRT.anchorMax = new Vector2(1f, 1f);
             cRT.pivot = new Vector2(0.5f, 1f);
-            cRT.sizeDelta = new Vector2(0f, 34f);
+            cRT.sizeDelta = new Vector2(0f, 50f);
 
             GameObject itemGo = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
             itemGo.transform.SetParent(contentGo.transform, false);
             RectTransform iRT = itemGo.GetComponent<RectTransform>();
             iRT.anchorMin = new Vector2(0f, 0.5f);
             iRT.anchorMax = new Vector2(1f, 0.5f);
-            iRT.sizeDelta = new Vector2(0f, 32f);
+            iRT.sizeDelta = new Vector2(0f, 48f);
 
             GameObject iBgGo = new GameObject("Item Background", typeof(RectTransform), typeof(Image));
             iBgGo.transform.SetParent(itemGo.transform, false);
@@ -1310,11 +1315,12 @@ namespace PixelSaur.UI
             RectTransform ilRT = iLblGo.GetComponent<RectTransform>();
             ilRT.anchorMin = Vector2.zero;
             ilRT.anchorMax = Vector2.one;
-            ilRT.offsetMin = new Vector2(18f, 0f);
-            ilRT.offsetMax = new Vector2(-8f, 0f);
+            ilRT.offsetMin = new Vector2(22f, 0f);
+            ilRT.offsetMax = new Vector2(-10f, 0f);
             Text ilTxt = iLblGo.GetComponent<Text>();
             ilTxt.font = font;
-            ilTxt.fontSize = 15;
+            ilTxt.fontSize = 22;
+            ilTxt.fontStyle = FontStyle.Bold;
             ilTxt.alignment = TextAnchor.MiddleLeft;
             ilTxt.color = Color.white;
 
@@ -1394,7 +1400,7 @@ namespace PixelSaur.UI
             headerRT.anchorMax = new Vector2(1f, 1f);
             headerRT.pivot = new Vector2(0.5f, 1f);
             headerRT.anchoredPosition = Vector2.zero;
-            headerRT.sizeDelta = new Vector2(0f, 82f);
+            headerRT.sizeDelta = new Vector2(0f, 112f);
 
             Transform titleTr = headerObj.transform.Find("TitleText");
             GameObject titleObj = titleTr != null ? titleTr.gameObject : new GameObject("TitleText", typeof(RectTransform), typeof(Text));
@@ -1402,11 +1408,11 @@ namespace PixelSaur.UI
             RectTransform titRT = titleObj.GetComponent<RectTransform>();
             titRT.anchorMin = new Vector2(0f, 0f);
             titRT.anchorMax = new Vector2(0.6f, 1f);
-            titRT.offsetMin = new Vector2(36f, 0f);
+            titRT.offsetMin = new Vector2(44f, 0f);
             titRT.offsetMax = Vector2.zero;
             _titleText = titleObj.GetComponent<Text>();
             _titleText.font = mainFont;
-            _titleText.fontSize = 28;
+            _titleText.fontSize = 40;
             _titleText.fontStyle = FontStyle.Bold;
             _titleText.text = "画 面 设 置";
             _titleText.color = Color.white;
@@ -1424,7 +1430,7 @@ namespace PixelSaur.UI
 
             // 右上角 X 关闭按钮
             _closeButton = EnsureCornerButton(headerObj.transform, "CloseButton", "✕", mainFont, closeBtnColor,
-                new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-28f, 0f), new Vector2(50f, 50f), 24);
+                new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-32f, 0f), new Vector2(78f, 78f), 36);
             _closeButton.onClick.RemoveListener(HandleCloseClick);
             _closeButton.onClick.AddListener(HandleCloseClick);
 
@@ -1436,8 +1442,8 @@ namespace PixelSaur.UI
             GameObject scrollObj = scrollTr != null ? scrollTr.gameObject : new GameObject("ItemsScrollView", typeof(RectTransform), typeof(ScrollRect));
             scrollObj.transform.SetParent(_slideRoot, false);
             RectTransform scrollRT = scrollObj.GetComponent<RectTransform>();
-            scrollRT.anchorMin = new Vector2(0.04f, 0.14f);
-            scrollRT.anchorMax = new Vector2(0.96f, 0.87f);
+            scrollRT.anchorMin = new Vector2(0.035f, 0.16f);
+            scrollRT.anchorMax = new Vector2(0.965f, 0.86f);
             scrollRT.offsetMin = Vector2.zero;
             scrollRT.offsetMax = Vector2.zero;
 
@@ -1470,14 +1476,14 @@ namespace PixelSaur.UI
 
             // 2.3 右下角：SaveButton 在左，ResetButton 在其右边
             _saveButton = EnsureCornerButton(_slideRoot, "SaveButton", "保 存", mainFont, saveBtnNormalColor,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-174f, 24f), new Vector2(140f, 50f), 20);
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-270f, 28f), new Vector2(220f, 78f), 30);
             _saveButtonImage = _saveButton.GetComponent<Image>();
             _saveButtonText = _saveButton.transform.Find("Text").GetComponent<Text>();
             _saveButton.onClick.RemoveListener(HandleSaveClick);
             _saveButton.onClick.AddListener(HandleSaveClick);
 
             _resetButton = EnsureCornerButton(_slideRoot, "ResetButton", "重 置", mainFont, resetBtnColor,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-30f, 24f), new Vector2(130f, 50f), 20);
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-36f, 28f), new Vector2(210f, 78f), 30);
             _resetButton.onClick.RemoveListener(HandleResetClick);
             _resetButton.onClick.AddListener(HandleResetClick);
 
@@ -1534,7 +1540,7 @@ namespace PixelSaur.UI
             toastRT.anchorMin = new Vector2(0.5f, 0.18f);
             toastRT.anchorMax = new Vector2(0.5f, 0.18f);
             toastRT.pivot = new Vector2(0.5f, 0.5f);
-            toastRT.sizeDelta = new Vector2(320f, 44f);
+            toastRT.sizeDelta = new Vector2(460f, 64f);
             toastRT.anchoredPosition = Vector2.zero;
 
             Image toastImg = _toastObj.GetComponent<Image>();
@@ -1549,7 +1555,7 @@ namespace PixelSaur.UI
             StretchFull(tTextObj.GetComponent<RectTransform>());
             _toastText = tTextObj.GetComponent<Text>();
             _toastText.font = mainFont;
-            _toastText.fontSize = 18;
+            _toastText.fontSize = 26;
             _toastText.fontStyle = FontStyle.Bold;
             _toastText.alignment = TextAnchor.MiddleCenter;
             _toastText.color = Color.white;
@@ -1560,17 +1566,17 @@ namespace PixelSaur.UI
         {
             GameObject cardObj = CreateModalBase("UnsavedModalDialog", "提 示", "检测到设置尚未保存，是否保存当前修改？", font, out _modalDialogObj);
 
-            const float btnW = 120f;
-            const float btnH = 42f;
-            _modalSaveAndExitBtn = EnsureModalButton(cardObj.transform, "BtnSaveExit", "保存退出", font, new Color(0.14f, 0.58f, 0.32f, 1f), new Vector2(-130f, 26f), new Vector2(btnW, btnH));
+            const float btnW = 190f;
+            const float btnH = 68f;
+            _modalSaveAndExitBtn = EnsureModalButton(cardObj.transform, "BtnSaveExit", "保存退出", font, new Color(0.14f, 0.58f, 0.32f, 1f), new Vector2(-206f, 32f), new Vector2(btnW, btnH));
             _modalSaveAndExitBtn.onClick.RemoveListener(OnModalSaveAndExit);
             _modalSaveAndExitBtn.onClick.AddListener(OnModalSaveAndExit);
 
-            _modalDiscardBtn = EnsureModalButton(cardObj.transform, "BtnDiscard", "放弃修改", font, new Color(0.68f, 0.22f, 0.22f, 1f), new Vector2(0f, 26f), new Vector2(btnW, btnH));
+            _modalDiscardBtn = EnsureModalButton(cardObj.transform, "BtnDiscard", "放弃修改", font, new Color(0.68f, 0.22f, 0.22f, 1f), new Vector2(0f, 32f), new Vector2(btnW, btnH));
             _modalDiscardBtn.onClick.RemoveListener(OnModalDiscardAndExit);
             _modalDiscardBtn.onClick.AddListener(OnModalDiscardAndExit);
 
-            _modalCancelBtn = EnsureModalButton(cardObj.transform, "BtnCancel", "取 消", font, new Color(0.25f, 0.32f, 0.42f, 1f), new Vector2(130f, 26f), new Vector2(btnW, btnH));
+            _modalCancelBtn = EnsureModalButton(cardObj.transform, "BtnCancel", "取 消", font, new Color(0.25f, 0.32f, 0.42f, 1f), new Vector2(206f, 32f), new Vector2(btnW, btnH));
             _modalCancelBtn.onClick.RemoveListener(OnModalCancel);
             _modalCancelBtn.onClick.AddListener(OnModalCancel);
 
@@ -1581,13 +1587,13 @@ namespace PixelSaur.UI
         {
             GameObject cardObj = CreateModalBase("ResetConfirmDialog", "重置确认", "确定要将当前页面的所有设置恢复为默认出厂值吗？", font, out _resetDialogObj);
 
-            const float btnW = 148f;
-            const float btnH = 44f;
-            _resetConfirmBtn = EnsureModalButton(cardObj.transform, "BtnConfirmReset", "确认重置", font, new Color(0.72f, 0.24f, 0.22f, 1f), new Vector2(-88f, 26f), new Vector2(btnW, btnH));
+            const float btnW = 240f;
+            const float btnH = 70f;
+            _resetConfirmBtn = EnsureModalButton(cardObj.transform, "BtnConfirmReset", "确认重置", font, new Color(0.72f, 0.24f, 0.22f, 1f), new Vector2(-138f, 32f), new Vector2(btnW, btnH));
             _resetConfirmBtn.onClick.RemoveListener(OnResetConfirm);
             _resetConfirmBtn.onClick.AddListener(OnResetConfirm);
 
-            _resetCancelBtn = EnsureModalButton(cardObj.transform, "BtnCancelReset", "取 消", font, new Color(0.25f, 0.32f, 0.42f, 1f), new Vector2(88f, 26f), new Vector2(btnW, btnH));
+            _resetCancelBtn = EnsureModalButton(cardObj.transform, "BtnCancelReset", "取 消", font, new Color(0.25f, 0.32f, 0.42f, 1f), new Vector2(138f, 32f), new Vector2(btnW, btnH));
             _resetCancelBtn.onClick.RemoveListener(OnResetCancel);
             _resetCancelBtn.onClick.AddListener(OnResetCancel);
 
@@ -1613,7 +1619,7 @@ namespace PixelSaur.UI
             cRT.anchorMax = new Vector2(0.5f, 0.5f);
             cRT.pivot = new Vector2(0.5f, 0.5f);
             cRT.anchoredPosition = Vector2.zero;
-            cRT.sizeDelta = new Vector2(450f, 224f);
+            cRT.sizeDelta = new Vector2(680f, 330f);
 
             Image cImg = cardObj.GetComponent<Image>();
             cImg.sprite = roundedPillSprite;
@@ -1630,7 +1636,7 @@ namespace PixelSaur.UI
             mtRT.offsetMax = Vector2.zero;
             Text mTitText = mTitObj.GetComponent<Text>();
             mTitText.font = font;
-            mTitText.fontSize = 22;
+            mTitText.fontSize = 34;
             mTitText.fontStyle = FontStyle.Bold;
             mTitText.alignment = TextAnchor.MiddleCenter;
             mTitText.text = title;
@@ -1646,7 +1652,8 @@ namespace PixelSaur.UI
             mmRT.offsetMax = Vector2.zero;
             Text mMsgText = mMsgObj.GetComponent<Text>();
             mMsgText.font = font;
-            mMsgText.fontSize = 17;
+            mMsgText.fontSize = 25;
+            mMsgText.fontStyle = FontStyle.Bold;
             mMsgText.alignment = TextAnchor.MiddleCenter;
             mMsgText.text = message;
             mMsgText.color = new Color(0.86f, 0.91f, 0.97f, 0.96f);
@@ -1657,7 +1664,7 @@ namespace PixelSaur.UI
         private Button EnsureModalButton(Transform parent, string name, string text, Font font, Color bgColor, Vector2 pos, Vector2 size)
         {
             return EnsureCornerButton(parent, name, text, font, bgColor,
-                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), pos, size, 16);
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), pos, size, 25);
         }
 
         private static void StretchFull(RectTransform rt)

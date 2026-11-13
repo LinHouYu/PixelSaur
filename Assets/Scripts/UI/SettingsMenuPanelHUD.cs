@@ -24,10 +24,10 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite roundedPillSprite;
 
         [Header("尺寸与比例 (占比至少 60% 屏幕)")]
-        [Range(0.6f, 0.9f)]
-        [SerializeField] private float panelWidthRatio = 0.64f;
-        [Range(0.6f, 0.9f)]
-        [SerializeField] private float panelHeightRatio = 0.68f;
+        [Range(0.6f, 0.95f)]
+        [SerializeField] private float panelWidthRatio = 0.68f;
+        [Range(0.6f, 0.95f)]
+        [SerializeField] private float panelHeightRatio = 0.74f;
 
         [Header("颜色配置")]
         [SerializeField] private Color foggyOverlayColor = new Color(0.22f, 0.25f, 0.30f, 0.72f);
@@ -167,12 +167,12 @@ namespace PixelSaur.UI
             titleRT.anchorMin = new Vector2(0f, 1f);
             titleRT.anchorMax = new Vector2(1f, 1f);
             titleRT.pivot = new Vector2(0.5f, 1f);
-            titleRT.anchoredPosition = new Vector2(0f, -32f);
-            titleRT.sizeDelta = new Vector2(0f, 44f);
+            titleRT.anchoredPosition = new Vector2(0f, -34f);
+            titleRT.sizeDelta = new Vector2(0f, 64f);
 
             Text titleText = titleObj.GetComponent<Text>();
             titleText.font = mainFont;
-            titleText.fontSize = 28;
+            titleText.fontSize = 40;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(0.92f, 0.95f, 1.0f, 1f);
@@ -191,7 +191,7 @@ namespace PixelSaur.UI
             divRT.anchorMin = new Vector2(0.1f, 1f);
             divRT.anchorMax = new Vector2(0.9f, 1f);
             divRT.pivot = new Vector2(0.5f, 1f);
-            divRT.anchoredPosition = new Vector2(0f, -86f);
+            divRT.anchoredPosition = new Vector2(0f, -110f);
             divRT.sizeDelta = new Vector2(0f, 2f);
             Image divImg = divObj.GetComponent<Image>();
             divImg.color = new Color(0.40f, 0.46f, 0.58f, 0.45f);
@@ -206,11 +206,11 @@ namespace PixelSaur.UI
             groupRT.anchorMin = new Vector2(0.5f, 0.5f);
             groupRT.anchorMax = new Vector2(0.5f, 0.5f);
             groupRT.pivot = new Vector2(0.5f, 0.5f);
-            groupRT.anchoredPosition = new Vector2(0f, -36f);
-            groupRT.sizeDelta = new Vector2(560f, 320f);
+            groupRT.anchoredPosition = new Vector2(0f, -46f);
+            groupRT.sizeDelta = new Vector2(720f, 440f);
 
             VerticalLayoutGroup vlg = groupObj.GetComponent<VerticalLayoutGroup>();
-            vlg.spacing = 24f;
+            vlg.spacing = 30f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = false;
             vlg.childControlHeight = false;
@@ -238,7 +238,7 @@ namespace PixelSaur.UI
             btnObj.transform.SetParent(parent, false);
 
             RectTransform btnRT = btnObj.GetComponent<RectTransform>();
-            btnRT.sizeDelta = new Vector2(540f, 80f);
+            btnRT.sizeDelta = new Vector2(680f, 114f);
 
             Image img = btnObj.GetComponent<Image>();
             img.sprite = roundedPillSprite;
@@ -270,7 +270,7 @@ namespace PixelSaur.UI
 
             Text txt = txtObj.GetComponent<Text>();
             txt.font = font;
-            txt.fontSize = 26;
+            txt.fontSize = 34;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
