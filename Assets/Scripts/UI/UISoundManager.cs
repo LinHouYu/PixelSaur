@@ -20,6 +20,11 @@ namespace PixelSaur.UI
         [SerializeField] private AudioClip saveClip;
         [SerializeField] private AudioClip alertClip;
 
+        [Header("动作按钮音效资源")]
+        [SerializeField] private AudioClip jumpClip;
+        [SerializeField] private AudioClip sneakOnClip;
+        [SerializeField] private AudioClip sneakOffClip;
+
         [Header("音量与节流配置")]
         [Range(0f, 1f)]
         [SerializeField] private float masterVolume = 0.75f;
@@ -61,6 +66,9 @@ namespace PixelSaur.UI
             if (toggleOffClip == null) toggleOffClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_toggle_off.wav");
             if (saveClip == null) saveClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_save_success.wav");
             if (alertClip == null) alertClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_popup_alert.wav");
+            if (jumpClip == null) jumpClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_jump.wav");
+            if (sneakOnClip == null) sneakOnClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_sneak_on.wav");
+            if (sneakOffClip == null) sneakOffClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/UI/ui_sneak_off.wav");
 #endif
         }
 
@@ -181,6 +189,20 @@ namespace PixelSaur.UI
             if (now - mgr._lastSliderTickTime < mgr.sliderTickInterval) return;
             mgr._lastSliderTickTime = now;
             mgr.PlayClip(mgr.clickClip, 0.45f, 980f, 640f, 0.03f);
+        }
+
+        public static void PlayJump()
+        {
+            var mgr = EnsureInstance();
+            mgr?.PlayClip(mgr.jumpClip, 0.90f, 320f, 920f, 0.13f);
+        }
+
+        public static void PlaySneak(bool isSneaking)
+        {
+            var mgr = EnsureInstance();
+            if (mgr == null) return;
+            if (isSneaking) mgr.PlayClip(mgr.sneakOnClip, 0.90f, 280f, 130f, 0.11f);
+            else mgr.PlayClip(mgr.sneakOffClip, 0.85f, 165f, 330f, 0.10f);
         }
     }
 }

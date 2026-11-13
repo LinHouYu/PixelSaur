@@ -37,6 +37,27 @@ namespace PixelSaur.Player
         [Range(0.5f, 3f)]
         [SerializeField] private float gravityMultiplier = 1.5f;
 
+        [Header("蹲下潜行配置")]
+        [Tooltip("蹲下时垂直缩放比例")]
+        [Range(0.4f, 0.9f)]
+        [SerializeField] private float sneakHeightMultiplier = 0.62f;
+
+        [Tooltip("蹲下时水平宽度缩放比例")]
+        [Range(0.9f, 1.3f)]
+        [SerializeField] private float sneakWidthMultiplier = 1.08f;
+
+        [Tooltip("蹲下潜行移动速度倍率")]
+        [Range(0.3f, 0.9f)]
+        [SerializeField] private float sneakSpeedMultiplier = 0.52f;
+
+        [Tooltip("蹲下时跳跃高度倍率")]
+        [Range(0.5f, 1.0f)]
+        [SerializeField] private float sneakJumpHeightMultiplier = 0.78f;
+
+        [Tooltip("站立与蹲下体型切换平滑速度")]
+        [Range(4f, 25f)]
+        [SerializeField] private float sneakTransitionSpeed = 12f;
+
         [Header("摄像机参考")]
         [Tooltip("主相机 Transform（用于计算摄像机视口相对移动），为空时自动查找主相机")]
         [SerializeField] private Transform cameraTransform;
@@ -45,6 +66,7 @@ namespace PixelSaur.Player
         private float _verticalVelocity;
         private readonly float _baseGravity = -9.81f;
         private float _sprintThirstTimer = 0f;
+        private Vector3 _baseLocalScale = new Vector3(0.55f, 0.55f, 0.55f);
 
         // 冲击技能瞬时位移
         private Vector3 _dashVelocity = Vector3.zero;
@@ -59,6 +81,7 @@ namespace PixelSaur.Player
 
         public CharacterController Controller => _characterController;
         public bool IsGrounded => _characterController != null && _characterController.isGrounded;
+        public bool IsSneaking => !MovementLocked && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSneaking;
 
         /// <summary>
         /// 触发冲击技能向前冲撞位移
@@ -72,6 +95,7 @@ namespace PixelSaur.Player
         private void Awake()
         {
             Instance = this;
+            _baseLocalScale = transform.localScale;
             _characterController = GetComponent<CharacterController>();
             if (_characterController != null)
             {
@@ -95,7 +119,32 @@ namespace PixelSaur.Player
                 cameraTransform = UnityEngine.Camera.main.transform;
             }
 
+            UpdateSneakPosture();
             HandleMovement();
+        }
+
+        private void UpdateSneakPosture()
+        {
+            bool sneaking = IsSneaking;
+            Vector3 targetScale = sneaking
+                ? new Vector3(_baseLocalScale.x * sneakWidthMultiplier, _baseLocalScale.y * sneakHeightMultiplier, _baseLocalScale.z * sneakWidthMultiplier)
+                : _baseLocalScale;
+
+            float prevScaleY = transform.localScale.y;
+            Vector3 nextScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * sneakTransitionSpeed);
+            if (Vector3.SqrMagnitude(nextScale - targetScale) < 0.00001f)
+            {
+                nextScale = targetScale;
+            }
+
+            transform.localScale = nextScale;
+
+            // 站立恢复身高时同步上抬微距，防止胶囊体底部嵌入地面
+            float deltaY = nextScale.y - prevScaleY;
+            if (deltaY > 0.0001f)
+            {
+                transform.position += Vector3.up * (deltaY * 1.02f);
+            }
         }
 
         private void HandleMovement()
@@ -129,14 +178,15 @@ namespace PixelSaur.Player
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
 
-            // 3. 奔跑判定与每0.5秒扣2点口渴度
-            bool isSprinting = PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSprinting && !MovementLocked;
+            // 3. 奔跑/潜行判定与每0.5秒扣2点口渴度
+            bool isSneaking = IsSneaking;
+            bool isSprinting = !isSneaking && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSprinting && !MovementLocked;
             if (isSprinting && PixelSaur.UI.PlayerStatusUI.Instance != null && PixelSaur.UI.PlayerStatusUI.Instance.Thirst <= 0.01f)
             {
                 isSprinting = false; // 缺水无法奔跑
             }
 
-            float currentSpeed = isSprinting ? runSpeed : walkSpeed;
+            float currentSpeed = isSneaking ? (walkSpeed * sneakSpeedMultiplier) : (isSprinting ? runSpeed : walkSpeed);
 
             if (isSprinting && input.sqrMagnitude > 0.01f)
             {
@@ -162,7 +212,8 @@ namespace PixelSaur.Player
 
                 if (!MovementLocked && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.JumpRequested)
                 {
-                    _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * (_baseGravity * gravityMultiplier));
+                    float effectiveJumpHeight = isSneaking ? jumpHeight * sneakJumpHeightMultiplier : jumpHeight;
+                    _verticalVelocity = Mathf.Sqrt(effectiveJumpHeight * -2f * (_baseGravity * gravityMultiplier));
                 }
             }
             else

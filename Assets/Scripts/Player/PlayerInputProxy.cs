@@ -9,6 +9,7 @@ namespace PixelSaur.Player
     /// 统一输入代理层：负责汇聚并分发移动端虚拟摇杆、触控视角以及 PC 键盘/鼠标输入。
     /// 严格遵循 AGENTS.md 规范，对外输出标准归一化方向向量。
     /// </summary>
+    [DefaultExecutionOrder(-50)]
     public class PlayerInputProxy : MonoBehaviour
     {
         public static PlayerInputProxy Instance { get; private set; }
@@ -32,6 +33,7 @@ namespace PixelSaur.Player
         public Vector2 LookInput { get; private set; }
         public bool JumpRequested { get; private set; }
         public bool IsSprinting { get; private set; }
+        public bool IsSneaking { get; private set; }
 
         private Vector2 _joystickInput;
         private Vector2 _touchLookDelta;
@@ -42,6 +44,24 @@ namespace PixelSaur.Player
         public void SetSprint(bool sprinting)
         {
             _joystickSprint = sprinting;
+            if (sprinting) IsSneaking = false;
+        }
+
+        /// <summary>
+        /// 设置蹲下/潜行状态
+        /// </summary>
+        public void SetSneak(bool sneaking)
+        {
+            IsSneaking = sneaking;
+        }
+
+        /// <summary>
+        /// 切换蹲下/潜行状态并返回切换后的结果
+        /// </summary>
+        public bool ToggleSneak()
+        {
+            IsSneaking = !IsSneaking;
+            return IsSneaking;
         }
 
         private void Awake()
@@ -110,6 +130,11 @@ namespace PixelSaur.Player
                 {
                     _jumpFlag = true;
                 }
+                if (Keyboard.current.cKey.wasPressedThisFrame || Keyboard.current.leftCtrlKey.wasPressedThisFrame)
+                {
+                    ToggleSneak();
+                    PixelSaur.UI.UISoundManager.PlaySneak(IsSneaking);
+                }
             }
 #else
             rawKeyboard.x = Input.GetAxisRaw("Horizontal");
@@ -117,6 +142,11 @@ namespace PixelSaur.Player
             if (Input.GetButtonDown("Jump"))
             {
                 _jumpFlag = true;
+            }
+            if (Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftControl))
+            {
+                ToggleSneak();
+                PixelSaur.UI.UISoundManager.PlaySneak(IsSneaking);
             }
 #endif
 
@@ -136,7 +166,11 @@ namespace PixelSaur.Player
 #else
             if (Input.GetKey(KeyCode.LeftShift)) pcSprint = true;
 #endif
-            IsSprinting = _joystickSprint || pcSprint;
+            if (pcSprint && IsSneaking)
+            {
+                IsSneaking = false;
+            }
+            IsSprinting = !IsSneaking && (_joystickSprint || pcSprint);
         }
 
         private void UpdateLookInput()
