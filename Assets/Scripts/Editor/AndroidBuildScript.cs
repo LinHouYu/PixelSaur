@@ -12,8 +12,8 @@ namespace PixelSaur.Editor
     /// </summary>
     public static class AndroidBuildScript
     {
-        public const string CurrentVersion = "0.1.3";
-        public const string OutputApkPath = "Builds/Android/PixelSaur_v0.1.3.apk";
+        public const string CurrentVersion = "0.1.4";
+        public const string OutputApkPath = "Builds/Android/PixelSaur_v0.1.4.apk";
 
         [MenuItem("PixelSaur/构建 Android APK")]
         public static bool BuildAndroidApk()
@@ -32,7 +32,7 @@ namespace PixelSaur.Editor
             PlayerSettings.companyName = "LinHouYu";
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.LinHouYu.PixelSaur");
             PlayerSettings.bundleVersion = CurrentVersion;
-            PlayerSettings.Android.bundleVersionCode = 4;
+            PlayerSettings.Android.bundleVersionCode = 5;
 
             // 确保生成独立安装的 APK（非 AAB）
             EditorUserBuildSettings.buildAppBundle = false;
