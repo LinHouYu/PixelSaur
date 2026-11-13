@@ -234,6 +234,11 @@ namespace PixelSaur.UI
             }
 
             SetGearActive(isFoggyActive);
+            if (Application.isPlaying)
+            {
+                if (isFoggyActive) UISoundManager.PlayOpen();
+                else UISoundManager.PlayClose();
+            }
 
             Debug.Log($"<color=#66CCFF>[TopBarStatusHUD] 齿轮点击：画面贴上雾蒙蒙灰色状态 = {isFoggyActive}</color>");
             onSettingsClicked?.Invoke();

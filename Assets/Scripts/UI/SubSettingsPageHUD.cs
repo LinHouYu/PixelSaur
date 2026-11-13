@@ -176,7 +176,7 @@ namespace PixelSaur.UI
             new SettingItemDef
             {
                 key = KeyDynamicJoystick,
-                title = "动态虚拟摇杆 (元气骑士模式)",
+                title = "动态虚拟摇杆",
                 desc = "开启后在屏幕左侧任意位置按下，摇杆自动移动至手指处进行移动",
                 defaultValue = 0,
                 widgetType = ItemWidgetType.Toggle
@@ -547,6 +547,7 @@ namespace PixelSaur.UI
 
         private void HandleSaveClick()
         {
+            UISoundManager.PlaySave();
             foreach (var kvp in _draftSettings)
             {
                 _committedSettings[kvp.Key] = kvp.Value;
@@ -561,6 +562,7 @@ namespace PixelSaur.UI
 
         private void HandleResetClick()
         {
+            UISoundManager.PlayAlert();
             if (_resetDialogObj != null)
             {
                 _resetDialogObj.SetActive(true);
@@ -570,6 +572,7 @@ namespace PixelSaur.UI
 
         private void OnResetConfirm()
         {
+            UISoundManager.PlaySave();
             foreach (var def in GetCurrentDefs())
             {
                 _draftSettings[def.key] = def.defaultValue;
@@ -588,6 +591,7 @@ namespace PixelSaur.UI
 
         private void OnResetCancel()
         {
+            UISoundManager.PlayClick();
             if (_resetDialogObj != null) _resetDialogObj.SetActive(false);
         }
 
@@ -614,6 +618,7 @@ namespace PixelSaur.UI
         {
             if (IsDirty())
             {
+                UISoundManager.PlayAlert();
                 if (_modalDialogObj != null)
                 {
                     _modalDialogObj.SetActive(true);
@@ -622,6 +627,7 @@ namespace PixelSaur.UI
             }
             else
             {
+                UISoundManager.PlayClose();
                 CloseDirectly();
             }
         }
@@ -635,6 +641,7 @@ namespace PixelSaur.UI
 
         private void OnModalDiscardAndExit()
         {
+            UISoundManager.PlayClose();
             foreach (var kvp in _committedSettings) _draftSettings[kvp.Key] = kvp.Value;
             if (_modalDialogObj != null) _modalDialogObj.SetActive(false);
             CloseDirectly();
@@ -642,6 +649,7 @@ namespace PixelSaur.UI
 
         private void OnModalCancel()
         {
+            UISoundManager.PlayClick();
             if (_modalDialogObj != null) _modalDialogObj.SetActive(false);
         }
 
@@ -692,6 +700,7 @@ namespace PixelSaur.UI
         private void OnToggleClicked(ToggleItemView view)
         {
             bool newVal = !view.currentVal;
+            UISoundManager.PlayToggle(newVal);
             view.currentVal = newVal;
             SetDraftValue(view.key, newVal ? 1 : 0);
 
@@ -913,6 +922,7 @@ namespace PixelSaur.UI
                 if (_isUpdatingControls) return;
                 if (idx >= 0 && idx < GrassPresets.Length)
                 {
+                    UISoundManager.PlayClick();
                     int val = GrassPresets[idx];
                     SetDraftValue(key, val);
                     SyncUI(val);
@@ -922,6 +932,7 @@ namespace PixelSaur.UI
             slider.onValueChanged.AddListener(v =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlaySliderTick();
                 int val = Mathf.RoundToInt(v);
                 SetDraftValue(key, val);
                 SyncUI(val);
@@ -930,6 +941,7 @@ namespace PixelSaur.UI
             input.onEndEdit.AddListener(raw =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlayClick();
                 int val = int.TryParse(raw, out int parsed) ? Mathf.Clamp(parsed, 50, 10000) : _draftSettings[key];
                 SetDraftValue(key, val);
                 SyncUI(val);
@@ -955,6 +967,7 @@ namespace PixelSaur.UI
             slider.onValueChanged.AddListener(v =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlaySliderTick();
                 int val = Mathf.RoundToInt(v);
                 SetDraftValue(key, val);
                 SyncUI(val);
@@ -963,6 +976,7 @@ namespace PixelSaur.UI
             input.onEndEdit.AddListener(raw =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlayClick();
                 int val = int.TryParse(raw, out int parsed) ? Mathf.Clamp(parsed, 25, 200) : _draftSettings[key];
                 SetDraftValue(key, val);
                 SyncUI(val);
@@ -996,6 +1010,7 @@ namespace PixelSaur.UI
             slider.onValueChanged.AddListener(v =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlaySliderTick();
                 int raw = Mathf.RoundToInt(v);
                 int stored = raw > 120 ? 0 : Mathf.Clamp(raw, 30, 120);
                 SetDraftValue(key, stored);
@@ -1005,6 +1020,7 @@ namespace PixelSaur.UI
             input.onEndEdit.AddListener(raw =>
             {
                 if (_isUpdatingControls) return;
+                UISoundManager.PlayClick();
                 int stored;
                 if (string.IsNullOrWhiteSpace(raw))
                 {

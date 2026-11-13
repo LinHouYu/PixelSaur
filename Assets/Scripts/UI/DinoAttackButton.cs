@@ -22,8 +22,8 @@ namespace PixelSaur.UI
 
         [Header("按压反馈效果")]
         [SerializeField] private float pressScale = 0.92f;
-        [SerializeField] private Color normalColor = new Color(0.12f, 0.16f, 0.22f, 0.75f);
-        [SerializeField] private Color pressColor = new Color(0.22f, 0.28f, 0.36f, 0.92f);
+        [SerializeField] private Color normalColor = Color.white;
+        [SerializeField] private Color pressColor = new Color(0.76f, 0.76f, 0.76f, 1f);
 
         [Header("图标资产")]
         [SerializeField] private Sprite biteIconSprite;
@@ -68,11 +68,15 @@ namespace PixelSaur.UI
             _bgImage = GetComponent<Image>();
             if (_bgImage != null)
             {
-                if (_cachedCircleSprite == null)
+                if (biteIconSprite != null)
                 {
-                    _cachedCircleSprite = CreateAntiAliasedCircleSprite(256, true);
+                    _bgImage.sprite = biteIconSprite;
                 }
-                _bgImage.sprite = _cachedCircleSprite;
+                else
+                {
+                    if (_cachedCircleSprite == null) _cachedCircleSprite = CreateAntiAliasedCircleSprite(256, true);
+                    _bgImage.sprite = _cachedCircleSprite;
+                }
                 _bgImage.type = Image.Type.Simple;
                 _bgImage.preserveAspect = true;
                 _bgImage.color = normalColor;
@@ -84,8 +88,8 @@ namespace PixelSaur.UI
                 _iconImage = iconTr.GetComponent<Image>();
                 if (_iconImage != null)
                 {
-                    if (biteIconSprite != null) _iconImage.sprite = biteIconSprite;
-                    _iconImage.preserveAspect = true;
+                    // 图标本身已是完整圆形按钮贴图，隐藏旧的叠加子节点避免重影
+                    _iconImage.enabled = false;
                     _iconImage.raycastTarget = false;
                 }
             }

@@ -319,6 +319,7 @@ namespace PixelSaur.UI
 
         private void HandleGraphicsClick()
         {
+            UISoundManager.PlayOpen();
             Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【画面设置】。</color>");
             onGraphicsSettingsClicked?.Invoke();
             SubSettingsPageHUD.OpenPage(SettingsCategory.Graphics);
@@ -326,6 +327,7 @@ namespace PixelSaur.UI
 
         private void HandleControlsClick()
         {
+            UISoundManager.PlayOpen();
             Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【游戏控制】。</color>");
             onControlsClicked?.Invoke();
             SubSettingsPageHUD.OpenPage(SettingsCategory.Controls);
@@ -360,6 +362,7 @@ namespace PixelSaur.UI
             gameObject.SetActive(true);
             if (Application.isPlaying)
             {
+                UISoundManager.PlayOpen();
                 _animCoroutine = StartCoroutine(AnimateOpen());
             }
             else
@@ -381,6 +384,7 @@ namespace PixelSaur.UI
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
             if (Application.isPlaying)
             {
+                UISoundManager.PlayClose();
                 _animCoroutine = StartCoroutine(AnimateClose());
             }
             else
