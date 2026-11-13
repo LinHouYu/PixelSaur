@@ -413,8 +413,36 @@ namespace PixelSaur.UI
             }
         }
 
+        private void OnDisable()
+        {
+            CleanupStrayDropdownArtifacts();
+        }
+
+        private void CleanupStrayDropdownArtifacts()
+        {
+            foreach (var dd in GetComponentsInChildren<Dropdown>(true))
+            {
+                dd.Hide();
+                Transform listTr = dd.transform.Find("Dropdown List");
+                if (listTr != null && !Application.isPlaying) DestroyImmediate(listTr.gameObject);
+            }
+            if (transform.parent != null)
+            {
+                for (int i = transform.parent.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = transform.parent.GetChild(i);
+                    if (child.name == "Blocker")
+                    {
+                        if (Application.isPlaying) Destroy(child.gameObject);
+                        else DestroyImmediate(child.gameObject);
+                    }
+                }
+            }
+        }
+
         public void CloseDirectly()
         {
+            CleanupStrayDropdownArtifacts();
             if (_modalDialogObj != null) _modalDialogObj.SetActive(false);
             if (_resetDialogObj != null) _resetDialogObj.SetActive(false);
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
