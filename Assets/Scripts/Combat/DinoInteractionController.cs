@@ -53,6 +53,9 @@ namespace PixelSaur.Combat
 
         public InteractionType CurrentInteraction => currentInteraction;
         public bool IsInteracting => currentInteraction != InteractionType.None;
+        public float CurrentActionDuration { get; private set; }
+        public float CurrentActionElapsed => actionTimer;
+        public float CurrentActionRemaining => Mathf.Max(0f, CurrentActionDuration - actionTimer);
 
         private bool _mobileButtonPressed = false;
         private float _holdTimer = 0f;
@@ -75,6 +78,15 @@ namespace PixelSaur.Combat
             Instance = this;
             _playerController = GetComponent<PlayerController>();
             _indicator = GetComponentInChildren<DinoAttackIndicator>();
+
+            Screen.autorotateToPortrait = false;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = true;
+            Screen.autorotateToLandscapeRight = true;
+            if (Screen.orientation == ScreenOrientation.Portrait || Screen.orientation == ScreenOrientation.PortraitUpsideDown)
+            {
+                Screen.orientation = ScreenOrientation.LandscapeLeft;
+            }
         }
 
         private void Update()
@@ -238,6 +250,7 @@ namespace PixelSaur.Combat
                     }
 
                     actionTimer += Time.deltaTime;
+                    CurrentActionDuration = drinkInterval;
                     if (actionTimer >= drinkInterval)
                     {
                         actionTimer = 0f;
@@ -254,6 +267,7 @@ namespace PixelSaur.Combat
                     }
 
                     actionTimer += Time.deltaTime;
+                    CurrentActionDuration = ediblePrey.FeedBiteDuration;
                     if (actionTimer >= ediblePrey.FeedBiteDuration)
                     {
                         actionTimer = 0f;
@@ -289,6 +303,7 @@ namespace PixelSaur.Combat
                 currentInteraction = InteractionType.None;
                 actionTimer = 0f;
                 stayTimer = 0f;
+                CurrentActionDuration = 0f;
 
                 if (_playerController != null)
                 {

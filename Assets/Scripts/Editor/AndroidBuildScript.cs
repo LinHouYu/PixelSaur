@@ -41,6 +41,13 @@ namespace PixelSaur.Editor
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
 
+            // 锁定横屏，禁止竖屏打开或旋转
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
+            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
+
             string activeScenePath = File.Exists("Assets/Scenes/Game.unity") ? "Assets/Scenes/Game.unity" : "Assets/Scenes/SampleScene.unity";
             string[] scenes = new string[] { activeScenePath };
 
