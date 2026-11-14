@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using PixelSaur.Combat;
@@ -6,31 +6,25 @@ using PixelSaur.Combat;
 namespace PixelSaur.UI
 {
     /// <summary>
-    /// 移动端恐龙攻击与冲击技能按钮：
-    /// 1. 保持正圆形外观（同虚拟摇杆采用平滑抗锯齿正圆形半透明磨砂底盘）；
-    /// 2. 短按单击：触发 0.8s 间隔的基础撕咬攻击；
-    /// 3. 短按双击（0.35s 内连击）：触发恐龙冲击猛冲技能（MOBA大范围直接锁定撞击，消耗 25 饱食度并震屏）；
-    /// 4. 处于水域或猎物尸体时长按 0.4 秒：开始喝水或进食，角色锁定移动，松手（松开）立即打断退出。
+    /// 绉诲姩绔亹榫欐敾鍑讳笌鍐插嚮鎶€鑳芥寜閽細
+    /// 1. 淇濇寔姝ｅ渾褰㈠瑙傦紙鍚岃櫄鎷熸憞鏉嗛噰鐢ㄥ钩婊戞姉閿娇姝ｅ渾褰㈠崐閫忔槑纾ㄧ爞搴曠洏锛夛紱
+    /// 2. 鐭寜鍗曞嚮锛氳Е鍙?0.8s 闂撮殧鐨勫熀纭€鎾曞挰鏀诲嚮锛?
+    /// 3. 鐭寜鍙屽嚮锛?.35s 鍐呰繛鍑伙級锛氳Е鍙戞亹榫欏啿鍑荤寷鍐叉妧鑳斤紙MOBA澶ц寖鍥寸洿鎺ラ攣瀹氭挒鍑伙紝娑堣€?25 楗遍搴﹀苟闇囧睆锛夛紱
+    /// 4. 澶勪簬姘村煙鎴栫寧鐗╁案浣撴椂闀挎寜 0.4 绉掞細寮€濮嬪枬姘存垨杩涢锛岃鑹查攣瀹氱Щ鍔紝鏉炬墜锛堟澗寮€锛夌珛鍗虫墦鏂€€鍑恒€?
     /// </summary>
     [ExecuteAlways]
     public class DinoAttackButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
     {
-        [Header("双击阈值配置")]
-        [Tooltip("判定双击技能的最大时间间隔（秒）")]
-        [Range(0.2f, 0.5f)]
-        [SerializeField] private float doubleClickThreshold = 0.35f;
-
-        [Header("按压反馈效果")]
+        [Header("鎸夊帇鍙嶉鏁堟灉")]
         [SerializeField] private float pressScale = 0.92f;
         [SerializeField] private Color normalColor = Color.white;
         [SerializeField] private Color pressColor = new Color(0.76f, 0.76f, 0.76f, 1f);
 
-        [Header("图标资产")]
+        [Header("鍥炬爣璧勪骇")]
         [SerializeField] private Sprite biteIconSprite;
 
         private Image _bgImage;
         private Image _iconImage;
-        private float _lastClickTime = -999f;
         private float _pointerDownTime = -999f;
         private bool _isPointerDown = false;
         private Vector3 _originalScale = Vector3.one;
@@ -88,7 +82,7 @@ namespace PixelSaur.UI
                 _iconImage = iconTr.GetComponent<Image>();
                 if (_iconImage != null)
                 {
-                    // 图标本身已是完整圆形按钮贴图，隐藏旧的叠加子节点避免重影
+                    // 鍥炬爣鏈韩宸叉槸瀹屾暣鍦嗗舰鎸夐挳璐村浘锛岄殣钘忔棫鐨勫彔鍔犲瓙鑺傜偣閬垮厤閲嶅奖
                     _iconImage.enabled = false;
                     _iconImage.raycastTarget = false;
                 }
@@ -123,7 +117,7 @@ namespace PixelSaur.UI
                     }
                     else if (withOuterRing)
                     {
-                        // 外圈带高亮描边环，内部半透明磨砂圆盘（同虚拟摇杆）
+                        // 澶栧湀甯﹂珮浜弿杈圭幆锛屽唴閮ㄥ崐閫忔槑纾ㄧ爞鍦嗙洏锛堝悓铏氭嫙鎽囨潌锛?
                         float ringInner = maxRadius - (size * 0.045f);
                         float ringFactor = Mathf.Clamp01((dist - ringInner) / aaWidth);
                         float brightness = Mathf.Lerp(0.25f, 0.95f, ringFactor);
@@ -155,7 +149,7 @@ namespace PixelSaur.UI
             transform.localScale = _originalScale * pressScale;
             if (_bgImage != null) _bgImage.color = pressColor;
 
-            // 通知交互系统：按键已按下（长按0.4秒触发喝水或进食）
+            // 閫氱煡浜や簰绯荤粺锛氭寜閿凡鎸変笅锛堥暱鎸?.4绉掕Е鍙戝枬姘存垨杩涢锛?
             if (DinoInteractionController.Instance != null)
             {
                 DinoInteractionController.Instance.SetButtonPressed(true);
@@ -177,37 +171,21 @@ namespace PixelSaur.UI
             transform.localScale = _originalScale;
             if (_bgImage != null) _bgImage.color = normalColor;
 
-            // 若本次按压是长按且正在喝水或进食，松手仅作为打断退出，不触发撕咬攻击
+            // 鑻ユ湰娆℃寜鍘嬫槸闀挎寜涓旀鍦ㄥ枬姘存垨杩涢锛屾澗鎵嬩粎浣滀负鎵撴柇閫€鍑猴紝涓嶈Е鍙戞挄鍜敾鍑?
             if (wasHoldingAction || pressDuration >= 0.4f)
             {
                 return;
             }
 
-            // 短按：判定单发咬击还是双击猛冲
+            // 鐭寜锛氬垽瀹氬崟鍙戝挰鍑昏繕鏄弻鍑荤寷鍐?
             HandleTapClick();
         }
 
         private void HandleTapClick()
         {
-            float timeSinceLastClick = Time.time - _lastClickTime;
-            _lastClickTime = Time.time;
-
-            if (timeSinceLastClick <= doubleClickThreshold)
+            if (DinoCombatController.Instance != null)
             {
-                // 双击判定：触发 MOBA 锁定冲刺技能！
-                if (DinoCombatController.Instance != null)
-                {
-                    DinoCombatController.Instance.TryChargeDashSkill();
-                }
-                _lastClickTime = -999f;
-            }
-            else
-            {
-                // 单击判定：触发基础咬击攻击
-                if (DinoCombatController.Instance != null)
-                {
-                    DinoCombatController.Instance.TryBiteAttack();
-                }
+                DinoCombatController.Instance.TryBiteAttack();
             }
         }
     }
