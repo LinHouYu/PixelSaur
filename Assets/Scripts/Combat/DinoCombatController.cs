@@ -62,6 +62,8 @@ namespace PixelSaur.Combat
 
         private float _lastAttackTime = -999f;
         private float _lastDashTime = -999f;
+        private float _lastRoarTime = -999f;
+        [SerializeField] private float roarCooldown = 3.0f;
         private PlayerController _playerController;
         private DinoAttackIndicator _indicator;
 
@@ -114,6 +116,7 @@ namespace PixelSaur.Combat
             }
 
             _lastAttackTime = Time.time;
+            DinoAnimatorController.Instance?.TriggerAttack();
 
             float radius = _indicator != null ? _indicator.AttackRadius : 1.85f;
             Vector3 center = transform.position;
@@ -277,6 +280,27 @@ namespace PixelSaur.Combat
             }
 
             return bestTarget;
+        }
+
+        /// <summary>
+        /// 尝试释放恐龙吼叫技能（第二个技能按钮触发）
+        /// </summary>
+        public bool TryRoarSkill()
+        {
+            if (Time.time - _lastRoarTime < roarCooldown)
+            {
+                return false;
+            }
+
+            _lastRoarTime = Time.time;
+            DinoAnimatorController.Instance?.TriggerRoar();
+            UISoundManager.PlayRoar();
+
+            ThirdPersonOrbitCamera cam = Camera.main != null ? Camera.main.GetComponent<ThirdPersonOrbitCamera>() : null;
+            cam?.TriggerShake(0.14f, 0.45f);
+
+            Debug.Log("<color=#FFCC33>[DinoCombat] 释放恐龙吼叫动画技能 (animation.roar)！</color>");
+            return true;
         }
     }
 }

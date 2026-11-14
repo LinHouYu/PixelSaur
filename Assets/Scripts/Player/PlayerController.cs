@@ -82,6 +82,7 @@ namespace PixelSaur.Player
         public CharacterController Controller => _characterController;
         public bool IsGrounded => _characterController != null && _characterController.isGrounded;
         public bool IsSneaking => !MovementLocked && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSneaking;
+        public bool IsDashing => _dashTimeRemaining > 0f;
 
         /// <summary>
         /// 触发冲击技能向前冲撞位移
@@ -125,6 +126,18 @@ namespace PixelSaur.Player
 
         private void UpdateSneakPosture()
         {
+            // 若已挂载骨骼动画控制器（如霸王龙），由潜行骨骼动画表现蹲姿，不再压扁整体 Scale
+            if (DinoAnimatorController.Instance != null)
+            {
+                if (_characterController != null)
+                {
+                    float targetHeight = IsSneaking ? 1.35f : 2.0f;
+                    _characterController.height = Mathf.Lerp(_characterController.height, targetHeight, Time.deltaTime * sneakTransitionSpeed);
+                    _characterController.center = new Vector3(0f, (_characterController.height - 2.0f) * 0.5f, 0f);
+                }
+                return;
+            }
+
             bool sneaking = IsSneaking;
             Vector3 targetScale = sneaking
                 ? new Vector3(_baseLocalScale.x * sneakWidthMultiplier, _baseLocalScale.y * sneakHeightMultiplier, _baseLocalScale.z * sneakWidthMultiplier)
@@ -214,6 +227,7 @@ namespace PixelSaur.Player
                 {
                     float effectiveJumpHeight = isSneaking ? jumpHeight * sneakJumpHeightMultiplier : jumpHeight;
                     _verticalVelocity = Mathf.Sqrt(effectiveJumpHeight * -2f * (_baseGravity * gravityMultiplier));
+                    DinoAnimatorController.Instance?.TriggerJump();
                 }
             }
             else

@@ -293,6 +293,7 @@ namespace PixelSaur.Combat
                 _playerController.MovementLocked = true;
             }
 
+            PixelSaur.Player.DinoAnimatorController.Instance?.BeginInteraction(type);
             Debug.Log($"<color=#FFFF33>[DinoInteraction] 开始执行动作: {type}，角色位移已锁定。</color>");
         }
 
@@ -300,6 +301,7 @@ namespace PixelSaur.Combat
         {
             if (currentInteraction != InteractionType.None)
             {
+                InteractionType endedType = currentInteraction;
                 currentInteraction = InteractionType.None;
                 actionTimer = 0f;
                 stayTimer = 0f;
@@ -310,6 +312,7 @@ namespace PixelSaur.Combat
                     _playerController.MovementLocked = false;
                 }
 
+                PixelSaur.Player.DinoAnimatorController.Instance?.EndInteraction(endedType);
                 Debug.Log($"[DinoInteraction] 退出动作 ({reason})，角色位移已解锁。");
             }
         }

@@ -204,5 +204,11 @@ namespace PixelSaur.UI
             if (isSneaking) mgr.PlayClip(mgr.sneakOnClip, 0.90f, 280f, 130f, 0.11f);
             else mgr.PlayClip(mgr.sneakOffClip, 0.85f, 165f, 330f, 0.10f);
         }
+
+        public static void PlayRoar()
+        {
+            var mgr = EnsureInstance();
+            mgr?.PlayClip(null, 0.95f, 180f, 75f, 0.55f);
+        }
     }
 }
