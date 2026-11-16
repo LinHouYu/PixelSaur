@@ -149,6 +149,7 @@ namespace PixelSaur.Combat
             {
                 ThirdPersonOrbitCamera cam = Camera.main != null ? Camera.main.GetComponent<ThirdPersonOrbitCamera>() : null;
                 cam?.TriggerShake(0.08f, 0.12f);
+                QuestManager.ReportProgress("bite", 1);
             }
 
             return true;
@@ -173,6 +174,7 @@ namespace PixelSaur.Combat
             }
 
             _lastDashTime = Time.time;
+            QuestManager.ReportProgress("dash", 1);
 
             // 2. 扣除 25 饱食度
             if (PlayerStatusUI.Instance != null)
@@ -295,6 +297,7 @@ namespace PixelSaur.Combat
             _lastRoarTime = Time.time;
             DinoAnimatorController.Instance?.TriggerRoar();
             UISoundManager.PlayRoar();
+            QuestManager.ReportProgress("roar", 1);
 
             ThirdPersonOrbitCamera cam = Camera.main != null ? Camera.main.GetComponent<ThirdPersonOrbitCamera>() : null;
             cam?.TriggerShake(0.14f, 0.45f);

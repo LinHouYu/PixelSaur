@@ -255,6 +255,7 @@ namespace PixelSaur.Combat
                     {
                         actionTimer = 0f;
                         PlayerStatusUI.Instance?.ModifyThirst(drinkRecoveryAmount);
+                        PixelSaur.UI.QuestManager.ReportProgress("drink", 1);
                         Debug.Log($"<color=#33CCFF>[DinoInteraction] 长按喝水中... 恢复 {drinkRecoveryAmount} 点水量。</color>");
                     }
                 }

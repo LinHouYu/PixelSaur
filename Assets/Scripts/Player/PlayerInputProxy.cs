@@ -66,6 +66,7 @@ namespace PixelSaur.Player
         public bool ToggleSneak()
         {
             IsSneaking = !IsSneaking;
+            if (IsSneaking) PixelSaur.UI.QuestManager.ReportProgress("sneak", 1);
             return IsSneaking;
         }
 

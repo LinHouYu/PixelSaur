@@ -352,6 +352,10 @@ namespace PixelSaur.Editor
                 new Color(0.16f, 0.24f, 0.34f, 0.94f), 26,
                 new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-714f, 74f), new Vector2(190f, 84f));
 
+            Button questBtn = CreateTextPillButton(safeRT, "QuestButton", pillSprite, font, "每日任务",
+                new Color(0.20f, 0.34f, 0.50f, 0.96f), 26,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-928f, 74f), new Vector2(190f, 84f));
+
             // 4. 面板管理器测试弹窗：占位信息窗口 (初始隐藏)
             GameObject modalGo = CreatePillCard(safeRT, "InfoModalPanel", pillSprite, new Color(0.08f, 0.12f, 0.18f, 0.98f));
             RectTransform modalRT = modalGo.GetComponent<RectTransform>();
@@ -369,6 +373,13 @@ namespace PixelSaur.Editor
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(220f, 68f));
             modalGo.SetActive(false);
 
+            // 4.5 任务系统弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            GameObject questObj = new GameObject("QuestPanel", typeof(RectTransform), typeof(QuestPanelHUD));
+            questObj.transform.SetParent(safeRT, false);
+            QuestPanelHUD questHud = questObj.GetComponent<QuestPanelHUD>();
+            questHud.EnsureUI();
+            questObj.SetActive(false);
+
             // 5. 挂载共享设置体系 (SettingsMenuPanel + SubSettingsPage，初始隐藏)
             GameObject settingsMenuObj = new GameObject("SettingsMenuPanel", typeof(RectTransform), typeof(SettingsMenuPanelHUD));
             settingsMenuObj.transform.SetParent(canvasGo.transform, false);
@@ -385,6 +396,7 @@ namespace PixelSaur.Editor
             // 6. 绑定 StartMenuController 与 UIPanelManager 序列化引用
             UIPanelManager panelMgr = canvasGo.GetComponent<UIPanelManager>();
             panelMgr.RegisterPanel("InfoModal", modalGo, true);
+            panelMgr.RegisterPanel("QuestPanel", questObj, true);
             EditorUtility.SetDirty(panelMgr);
 
             StartMenuController ctrl = canvasGo.GetComponent<StartMenuController>();
@@ -396,6 +408,10 @@ namespace PixelSaur.Editor
             so.FindProperty("amberAddButton").objectReferenceValue = amberAddBtn;
             so.FindProperty("codexButton").objectReferenceValue = codexBtn;
             so.FindProperty("noticeButton").objectReferenceValue = noticeBtn;
+            so.FindProperty("questButton").objectReferenceValue = questBtn;
+            so.FindProperty("goldAmountText").objectReferenceValue = goldAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
+            so.FindProperty("amberAmountText").objectReferenceValue = amberAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
+            so.FindProperty("questPanel").objectReferenceValue = questHud;
             so.FindProperty("infoModalPanel").objectReferenceValue = modalGo;
             so.FindProperty("infoModalTitle").objectReferenceValue = modalTitle;
             so.FindProperty("infoModalBody").objectReferenceValue = modalBody;

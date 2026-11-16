@@ -6,7 +6,7 @@ namespace PixelSaur.UI
     /// <summary>
     /// 开始场景大厅主控制器：
     /// 管理顶部状态栏占位（头像/货币/齿轮设置）、【开始游戏】加载跳转至 3D 岛屿场景（Game），
-    /// 并通过 UIPanelManager 控制功能弹窗与设置面板的层级遮挡与开关。
+    /// 并通过 UIPanelManager 控制任务系统、功能弹窗与设置面板的层级遮挡与开关。
     /// </summary>
     public class StartMenuController : MonoBehaviour
     {
@@ -20,8 +20,14 @@ namespace PixelSaur.UI
         [SerializeField] private Button amberAddButton;
         [SerializeField] private Button codexButton;
         [SerializeField] private Button noticeButton;
+        [SerializeField] private Button questButton;
 
-        [Header("占位弹窗面板")]
+        [Header("货币文本引用")]
+        [SerializeField] private Text goldAmountText;
+        [SerializeField] private Text amberAmountText;
+
+        [Header("任务系统与占位弹窗面板")]
+        [SerializeField] private QuestPanelHUD questPanel;
         [SerializeField] private GameObject infoModalPanel;
         [SerializeField] private Text infoModalTitle;
         [SerializeField] private Text infoModalBody;
@@ -34,17 +40,21 @@ namespace PixelSaur.UI
         {
             SubSettingsPageHUD.ApplyAllSavedSettingsAtStartup();
             UISoundManager.ApplySavedAudioVolumes();
+            QuestManager.EnsureInitialized();
         }
 
         private void OnEnable()
         {
             BindListeners();
             RegisterManagedPanels();
+            QuestManager.OnDataChanged += RefreshCurrencyLabels;
+            RefreshCurrencyLabels();
         }
 
         private void OnDisable()
         {
             UnbindListeners();
+            QuestManager.OnDataChanged -= RefreshCurrencyLabels;
         }
 
         private void RegisterManagedPanels()
@@ -54,6 +64,16 @@ namespace PixelSaur.UI
             {
                 UIPanelManager.Instance.RegisterPanel("InfoModal", infoModalPanel, useModalDimmer: true);
             }
+            if (questPanel != null)
+            {
+                UIPanelManager.Instance.RegisterPanel("QuestPanel", questPanel.gameObject, useModalDimmer: true);
+            }
+        }
+
+        private void RefreshCurrencyLabels()
+        {
+            if (goldAmountText != null) goldAmountText.text = QuestManager.Gold.ToString("N0");
+            if (amberAmountText != null) amberAmountText.text = QuestManager.Amber.ToString("N0");
         }
 
         private void BindListeners()
@@ -93,6 +113,11 @@ namespace PixelSaur.UI
                 noticeButton.onClick.RemoveListener(HandleOpenNotice);
                 noticeButton.onClick.AddListener(HandleOpenNotice);
             }
+            if (questButton != null)
+            {
+                questButton.onClick.RemoveListener(HandleOpenQuests);
+                questButton.onClick.AddListener(HandleOpenQuests);
+            }
             if (infoModalCloseButton != null)
             {
                 infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
@@ -109,6 +134,7 @@ namespace PixelSaur.UI
             if (amberAddButton != null) amberAddButton.onClick.RemoveListener(HandleOpenCurrencyHint);
             if (codexButton != null) codexButton.onClick.RemoveListener(HandleOpenCodex);
             if (noticeButton != null) noticeButton.onClick.RemoveListener(HandleOpenNotice);
+            if (questButton != null) questButton.onClick.RemoveListener(HandleOpenQuests);
             if (infoModalCloseButton != null) infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
         }
 
@@ -132,6 +158,14 @@ namespace PixelSaur.UI
             }
         }
 
+        private void HandleOpenQuests()
+        {
+            if (questPanel != null)
+            {
+                questPanel.OpenDefault();
+            }
+        }
+
         private void HandleOpenProfile()
         {
             ShowInfoModal("驯龙者档案 (占位)", "当前角色：霸王龙 (T-Rex)\n生存等级：Lv.1\n说明：此处为顶部头像状态栏占位弹窗，可接入账号与恐龙成长数据。");
@@ -139,7 +173,7 @@ namespace PixelSaur.UI
 
         private void HandleOpenCurrencyHint()
         {
-            ShowInfoModal("资源货币栏 (占位)", "龙肉金币：1,280\n远古琥珀：60\n说明：此处为货币栏与快捷补给占位界面，后续可接入商店系统。");
+            ShowInfoModal("资源货币栏 (占位)", $"龙肉金币：{QuestManager.Gold:N0}\n远古琥珀：{QuestManager.Amber:N0}\n说明：完成每日/主线任务领取奖励后将实时累加至此货币栏！");
         }
 
         private void HandleOpenCodex()
