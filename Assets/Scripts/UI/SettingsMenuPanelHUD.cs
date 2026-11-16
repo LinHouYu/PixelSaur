@@ -383,6 +383,11 @@ namespace PixelSaur.UI
         public void CloseMenu()
         {
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
+            if (!gameObject.activeInHierarchy)
+            {
+                _isOpen = false;
+                return;
+            }
             if (Application.isPlaying)
             {
                 UISoundManager.PlayClose();

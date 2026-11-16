@@ -48,8 +48,11 @@ namespace PixelSaur.Editor
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
 
-            string activeScenePath = File.Exists("Assets/Scenes/Game.unity") ? "Assets/Scenes/Game.unity" : "Assets/Scenes/SampleScene.unity";
-            string[] scenes = new string[] { activeScenePath };
+            var sceneList = new System.Collections.Generic.List<string>();
+            if (File.Exists("Assets/Scenes/StartMenu.unity")) sceneList.Add("Assets/Scenes/StartMenu.unity");
+            if (File.Exists("Assets/Scenes/Game.unity")) sceneList.Add("Assets/Scenes/Game.unity");
+            if (sceneList.Count == 0 && File.Exists("Assets/Scenes/SampleScene.unity")) sceneList.Add("Assets/Scenes/SampleScene.unity");
+            string[] scenes = sceneList.ToArray();
 
             BuildPlayerOptions buildOptions = new BuildPlayerOptions
             {
