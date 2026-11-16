@@ -4,17 +4,22 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using PixelSaur.Environment;
+using PixelSaur.Grass;
 using PixelSaur.UI;
+using PixelSaur.Water;
 
 namespace PixelSaur.Editor
 {
     /// <summary>
     /// 创建并配置双场景架构：
-    /// 1. 在 Game.unity 的 HUD_Canvas 上挂载 ResponsiveCanvasAdapter（不同分辨率自适应）；
-    /// 2. 构建并保存开始大厅场景 Assets/Scenes/StartMenu.unity（3D 霸王龙展示台、多分辨率 SafeArea 自适应、
-    ///    顶部头像/货币/齿轮占位栏、面板管理器 UIPanelManager、异步加载跳转 Game 场景、共享齿轮设置体系）；
+    /// 1. 确保 Game.unity 的 HUD_Canvas 挂载 ResponsiveCanvasAdapter；
+    /// 2. 从 Game.unity 完整克隆岛屿地形 (Island_Terrain)、水体 (WaterSurface_Plane / WaterRippleManager)、
+    ///    草地渲染 (GrassManager)、光照与 Global Volume 至 StartMenu.unity，
+    ///    让玩家在开始大厅调设置时可实时预览草地密度、水面涟漪与画质效果；
     /// 3. 将 StartMenu.unity (0) 与 Game.unity (1) 注册至 EditorBuildSettings.scenes。
     /// </summary>
     public static class BuildStartMenuScene
@@ -25,7 +30,7 @@ namespace PixelSaur.Editor
         [MenuItem("PixelSaur/生成并配置双场景 (StartMenu + Game)")]
         public static string Main()
         {
-            // 1. 为 Game.unity 的 HUD_Canvas 补充多分辨率自适应组件（不改任何受保护参数与节点坐标）
+            // 1. 打开 Game.unity，确保 HUD_Canvas 挂载 ResponsiveCanvasAdapter
             Scene gameScene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
             GameObject hudCanvas = GameObject.Find("HUD_Canvas");
             if (hudCanvas != null)
@@ -37,12 +42,36 @@ namespace PixelSaur.Editor
             }
             EditorSceneManager.SaveScene(gameScene);
 
-            // 2. 创建全新的 StartMenu.unity
-            Scene startScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // 记录 Game.unity 环境与渲染设置
+            Material gameSkybox = RenderSettings.skybox;
+            AmbientMode gameAmbientMode = RenderSettings.ambientMode;
+            Color gameAmbientSky = RenderSettings.ambientSkyColor;
+            Color gameAmbientEquator = RenderSettings.ambientEquatorColor;
+            Color gameAmbientGround = RenderSettings.ambientGroundColor;
+            bool gameFog = RenderSettings.fog;
+            Color gameFogColor = RenderSettings.fogColor;
 
-            BuildEnvironmentAndPreviewStage();
-            BuildEventSystem();
-            BuildStartMenuCanvas();
+            // 2. 以 Additive 模式创建新的 StartMenu 场景，从 Game.unity 精确克隆水/草/岛屿资产
+            Scene startScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+
+            GameObject dinoShowcase = BuildEnvironmentFromGameScene(gameScene, startScene);
+
+            // 切换到 startScene 并关闭 gameScene（保持 Game.unity 原样不受影响）
+            SceneManager.SetActiveScene(startScene);
+            EditorSceneManager.CloseScene(gameScene, true);
+
+            // 同步天空盒与环境光照
+            RenderSettings.skybox = gameSkybox;
+            RenderSettings.ambientMode = gameAmbientMode;
+            RenderSettings.ambientSkyColor = gameAmbientSky;
+            RenderSettings.ambientEquatorColor = gameAmbientEquator;
+            RenderSettings.ambientGroundColor = gameAmbientGround;
+            RenderSettings.fog = gameFog;
+            RenderSettings.fogColor = gameFogColor;
+
+            WireClonedEnvironmentTargets(startScene, dinoShowcase);
+            BuildEventSystem(startScene);
+            BuildStartMenuCanvas(startScene);
 
             bool savedStart = EditorSceneManager.SaveScene(startScene, StartScenePath);
 
@@ -55,77 +84,161 @@ namespace PixelSaur.Editor
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            return $"OK: StartSaved={savedStart}, BuildScenes=2 (StartMenu=0, Game=1)";
+            return $"OK: StartSaved={savedStart}, HasGrassWaterIsland=True, BuildScenes=2";
         }
 
-        private static void BuildEnvironmentAndPreviewStage()
+        private static GameObject BuildEnvironmentFromGameScene(Scene gameScene, Scene startScene)
         {
-            // Camera
-            GameObject camObj = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
-            camObj.tag = "MainCamera";
-            camObj.transform.position = new Vector3(0.4f, 1.85f, -5.2f);
-            camObj.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
-            Camera cam = camObj.GetComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.11f, 0.24f, 0.31f, 1f);
-            cam.fieldOfView = 42f;
-
-            // Lighting
-            GameObject lightObj = new GameObject("Directional Light", typeof(Light));
-            lightObj.transform.rotation = Quaternion.Euler(45f, -35f, 0f);
-            Light dirLight = lightObj.GetComponent<Light>();
-            dirLight.type = LightType.Directional;
-            dirLight.intensity = 1.25f;
-            dirLight.color = new Color(1f, 0.97f, 0.90f, 1f);
-
-            // 像素草地展示台
-            GameObject stageBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            stageBase.name = "PreviewIslandPlatform";
-            stageBase.transform.position = new Vector3(-0.9f, -0.35f, 0f);
-            stageBase.transform.localScale = new Vector3(4.6f, 0.7f, 4.6f);
-            Renderer baseRen = stageBase.GetComponent<Renderer>();
-            if (baseRen != null)
+            string[] envNames =
             {
-                Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mat.color = new Color(0.32f, 0.56f, 0.24f, 1f);
-                baseRen.sharedMaterial = mat;
+                "Directional Light",
+                "Global Volume",
+                "Island_Terrain",
+                "GrassManager",
+                "WaterSurface_Plane",
+                "WaterRippleManager"
+            };
+
+            GameObject[] gameRoots = gameScene.GetRootGameObjects();
+            foreach (string targetName in envNames)
+            {
+                GameObject src = FindRootByName(gameRoots, targetName);
+                if (src == null) continue;
+
+                GameObject clone = Object.Instantiate(src);
+                clone.name = targetName;
+                SceneManager.MoveGameObjectToScene(clone, startScene);
             }
 
-            // 3D 霸王龙展示模型（待机动画）
-            GameObject fbxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Model/霸王龙/Minecraft_T_Rex.fbx");
-            if (fbxPrefab != null)
+            // 克隆/创建主摄像机并框景在岛屿左侧（展示水、草、霸王龙），右侧留白给标题与按钮
+            GameObject camSrc = FindRootByName(gameRoots, "Main Camera");
+            GameObject camObj;
+            if (camSrc != null)
             {
-                GameObject dinoInst = (GameObject)PrefabUtility.InstantiatePrefab(fbxPrefab);
-                dinoInst.name = "LobbyTRexPreview";
-                dinoInst.transform.position = new Vector3(-0.9f, 0.0f, 0f);
-                dinoInst.transform.rotation = Quaternion.Euler(0f, -28f, 0f);
-                dinoInst.transform.localScale = Vector3.one * 0.95f;
+                camObj = Object.Instantiate(camSrc);
+                camObj.name = "Main Camera";
+                var orbit = camObj.GetComponent<PixelSaur.Cam.ThirdPersonOrbitCamera>();
+                if (orbit != null) Object.DestroyImmediate(orbit);
+                SceneManager.MoveGameObjectToScene(camObj, startScene);
+            }
+            else
+            {
+                camObj = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
+                SceneManager.MoveGameObjectToScene(camObj, startScene);
+            }
 
-                Animator anim = dinoInst.GetComponent<Animator>();
-                if (anim == null) anim = dinoInst.AddComponent<Animator>();
-                RuntimeAnimatorController ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Model/霸王龙/TRexAnimatorController.controller");
-                anim.runtimeAnimatorController = ctrl;
-                anim.applyRootMotion = false;
+            camObj.tag = "MainCamera";
+            camObj.transform.position = new Vector3(1.1f, 2.75f, -6.2f);
+            camObj.transform.rotation = Quaternion.Euler(14f, -14f, 0f);
+            Camera cam = camObj.GetComponent<Camera>();
+            if (cam != null)
+            {
+                cam.clearFlags = CameraClearFlags.Skybox;
+                cam.fieldOfView = 46f;
+            }
 
-                Material healthyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Model/霸王龙/M_TRex_Healthy.mat");
-                if (healthyMat != null)
+            // 放置 3D 霸王龙展示角色于岛屿草地偏左区域，绑定 idle 呼吸动作与 Player Tag 以兼容草/水交互
+            GameObject fbxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Model/霸王龙/Minecraft_T_Rex.fbx");
+            if (fbxPrefab == null) return null;
+
+            GameObject dinoInst = (GameObject)PrefabUtility.InstantiatePrefab(fbxPrefab);
+            dinoInst.name = "LobbyTRexPreview";
+            dinoInst.tag = "Player";
+            SceneManager.MoveGameObjectToScene(dinoInst, startScene);
+            dinoInst.transform.position = new Vector3(-0.75f, 0.14f, -0.35f);
+            dinoInst.transform.rotation = Quaternion.Euler(0f, -26f, 0f);
+            dinoInst.transform.localScale = Vector3.one * 0.78f;
+
+            Animator anim = dinoInst.GetComponent<Animator>();
+            if (anim == null) anim = dinoInst.AddComponent<Animator>();
+            anim.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Model/霸王龙/TRexAnimatorController.controller");
+            anim.applyRootMotion = false;
+
+            Material healthyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Model/霸王龙/M_TRex_Healthy.mat");
+            if (healthyMat != null)
+            {
+                foreach (Renderer r in dinoInst.GetComponentsInChildren<Renderer>(true))
                 {
-                    foreach (Renderer r in dinoInst.GetComponentsInChildren<Renderer>(true))
-                    {
-                        Material[] mats = new Material[r.sharedMaterials.Length];
-                        for (int i = 0; i < mats.Length; i++) mats[i] = healthyMat;
-                        r.sharedMaterials = mats;
-                    }
+                    Material[] mats = new Material[r.sharedMaterials.Length];
+                    for (int i = 0; i < mats.Length; i++) mats[i] = healthyMat;
+                    r.sharedMaterials = mats;
                 }
             }
+
+            return dinoInst;
         }
 
-        private static void BuildEventSystem()
+        private static void WireClonedEnvironmentTargets(Scene startScene, GameObject dinoShowcase)
         {
-            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            GameObject[] roots = startScene.GetRootGameObjects();
+            GameObject island = FindRootByName(roots, "Island_Terrain");
+            GameObject grassMgrObj = FindRootByName(roots, "GrassManager");
+            GameObject rippleMgrObj = FindRootByName(roots, "WaterRippleManager");
+            GameObject waterPlaneObj = FindRootByName(roots, "WaterSurface_Plane");
+
+            // 1. 绑定草地生成网格至 StartMenu 自己的 Grass_Plain
+            if (grassMgrObj != null && island != null)
+            {
+                Transform grassPlain = island.transform.Find("Grass_Plain");
+                MeshFilter grassMesh = grassPlain != null ? grassPlain.GetComponentInChildren<MeshFilter>() : null;
+
+                ProceduralGrassRenderer grassRenderer = grassMgrObj.GetComponent<ProceduralGrassRenderer>();
+                if (grassRenderer != null && grassMesh != null)
+                {
+                    SerializedObject gSo = new SerializedObject(grassRenderer);
+                    gSo.FindProperty("targetMeshFilter").objectReferenceValue = grassMesh;
+                    gSo.ApplyModifiedPropertiesWithoutUndo();
+                    grassRenderer.RebuildGrass();
+                }
+
+                GrassInteractionManager grassInteract = grassMgrObj.GetComponent<GrassInteractionManager>();
+                if (grassInteract != null && dinoShowcase != null)
+                {
+                    SerializedObject giSo = new SerializedObject(grassInteract);
+                    giSo.FindProperty("targetPlayer").objectReferenceValue = dinoShowcase.transform;
+                    giSo.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            // 2. 绑定水波交互至 StartMenu 的霸王龙预览节点，并触发一圈轻微初始水波
+            if (rippleMgrObj != null && dinoShowcase != null)
+            {
+                WaterRippleManager rippleMgr = rippleMgrObj.GetComponent<WaterRippleManager>();
+                if (rippleMgr != null)
+                {
+                    SerializedObject wrSo = new SerializedObject(rippleMgr);
+                    wrSo.FindProperty("targetPlayer").objectReferenceValue = dinoShowcase.transform;
+                    wrSo.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            if (island != null)
+            {
+                var setup = island.GetComponent<IslandTerrainColliderSetup>();
+                if (setup != null) EditorUtility.SetDirty(setup);
+            }
+            if (waterPlaneObj != null) EditorUtility.SetDirty(waterPlaneObj);
         }
 
-        private static void BuildStartMenuCanvas()
+        private static GameObject FindRootByName(GameObject[] roots, string targetName)
+        {
+            for (int i = 0; i < roots.Length; i++)
+            {
+                if (roots[i] != null && roots[i].name == targetName)
+                {
+                    return roots[i];
+                }
+            }
+            return null;
+        }
+
+        private static void BuildEventSystem(Scene startScene)
+        {
+            GameObject es = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            SceneManager.MoveGameObjectToScene(es, startScene);
+        }
+
+        private static void BuildStartMenuCanvas(Scene startScene)
         {
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Sprite pillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
@@ -138,6 +251,8 @@ namespace PixelSaur.Editor
             GameObject canvasGo = new GameObject("StartMenu_Canvas",
                 typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster),
                 typeof(ResponsiveCanvasAdapter), typeof(UIPanelManager), typeof(UISoundManager), typeof(StartMenuController));
+            SceneManager.MoveGameObjectToScene(canvasGo, startScene);
+
             Canvas canvas = canvasGo.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 10;
@@ -212,10 +327,17 @@ namespace PixelSaur.Editor
             heroRT.anchoredPosition = new Vector2(-72f, 48f);
             heroRT.sizeDelta = new Vector2(680f, 240f);
 
-            CreateLabel(titlePanel.transform, "GameTitle", font, "PIXELSaur", 86, FontStyle.Bold, Color.white,
+            Text mainTitleTxt = CreateLabel(titlePanel.transform, "GameTitle", font, "PIXELSaur", 86, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleRight, new Vector2(0f, 0.38f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-            CreateLabel(titlePanel.transform, "SubTitle", font, "像素侏罗纪 · 3D 生存岛屿演示", 30, FontStyle.Bold, new Color(0.68f, 0.88f, 0.96f, 1f),
+            Outline titleOutline = mainTitleTxt.gameObject.AddComponent<Outline>();
+            titleOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            titleOutline.effectDistance = new Vector2(3f, -3f);
+
+            Text subTitleTxt = CreateLabel(titlePanel.transform, "SubTitle", font, "像素侏罗纪 · 3D 生存岛屿演示", 30, FontStyle.Bold, new Color(0.86f, 0.96f, 1.0f, 1f),
                 TextAnchor.MiddleRight, new Vector2(0f, 0f), new Vector2(1f, 0.36f), Vector2.zero, Vector2.zero);
+            Outline subOutline = subTitleTxt.gameObject.AddComponent<Outline>();
+            subOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            subOutline.effectDistance = new Vector2(2f, -2f);
 
             // 3. 右下角主动作区：【开始游戏】 + 图鉴/公告占位
             Button startBtn = CreateTextPillButton(safeRT, "StartGameButton", pillSprite, font, "开 始 游 戏",
