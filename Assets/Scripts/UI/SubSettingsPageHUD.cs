@@ -465,6 +465,7 @@ namespace PixelSaur.UI
         public void Open(SettingsCategory category)
         {
             _currentCategory = category;
+            if (!gameObject.activeSelf) gameObject.SetActive(true);
             LoadDefaultSprites();
             EnsureUIHierarchy();
             transform.SetAsLastSibling();
@@ -478,7 +479,6 @@ namespace PixelSaur.UI
             if (_toastObj != null) _toastObj.SetActive(false);
 
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
-            gameObject.SetActive(true);
             _isOpen = true;
 
             if (Application.isPlaying)
@@ -905,6 +905,14 @@ namespace PixelSaur.UI
             }
 
             _itemsContainer.sizeDelta = new Vector2(0f, Mathf.Max(currentY, 100f));
+            _itemsContainer.anchoredPosition = Vector2.zero;
+            Canvas.ForceUpdateCanvases();
+            ScrollRect parentSr = _itemsContainer.GetComponentInParent<ScrollRect>();
+            if (parentSr != null)
+            {
+                parentSr.velocity = Vector2.zero;
+                parentSr.verticalNormalizedPosition = 1f;
+            }
         }
 
         private void BuildCardTexts(Transform cardTr, Font font, string title, string desc, float maxAnchorX)
@@ -1689,14 +1697,19 @@ namespace PixelSaur.UI
             _itemsContainer.anchorMin = new Vector2(0f, 1f);
             _itemsContainer.anchorMax = new Vector2(1f, 1f);
             _itemsContainer.pivot = new Vector2(0.5f, 1f);
-            _itemsContainer.anchoredPosition = Vector2.zero;
-            _itemsContainer.sizeDelta = new Vector2(0f, 400f);
+            if (contTr == null)
+            {
+                _itemsContainer.anchoredPosition = Vector2.zero;
+                _itemsContainer.sizeDelta = new Vector2(0f, 400f);
+            }
 
             ScrollRect sr = scrollObj.GetComponent<ScrollRect>();
             sr.viewport = vpRT;
             sr.content = _itemsContainer;
             sr.horizontal = false;
             sr.vertical = true;
+            sr.inertia = true;
+            sr.decelerationRate = 0.135f;
             sr.scrollSensitivity = 25f;
             sr.movementType = ScrollRect.MovementType.Clamped;
 
