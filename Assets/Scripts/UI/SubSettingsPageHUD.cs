@@ -123,6 +123,7 @@ namespace PixelSaur.UI
         private readonly Dictionary<string, int> _committedSettings = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _draftSettings = new Dictionary<string, int>();
         private readonly List<ToggleItemView> _activeToggleViews = new List<ToggleItemView>();
+        private readonly Dictionary<string, Action<int>> _widgetSyncCallbacks = new Dictionary<string, Action<int>>();
 
         private static Sprite _whitePillSprite;
         private static Sprite _whiteCircleSprite;
@@ -827,6 +828,7 @@ namespace PixelSaur.UI
         private void RebuildItemsList()
         {
             _activeToggleViews.Clear();
+            _widgetSyncCallbacks.Clear();
             EnsureWhiteProceduralSprites();
 
             for (int i = _itemsContainer.childCount - 1; i >= 0; i--)
@@ -995,6 +997,14 @@ namespace PixelSaur.UI
             };
             swBtn.onClick.AddListener(() => OnToggleClicked(view));
             _activeToggleViews.Add(view);
+            _widgetSyncCallbacks[key] = val =>
+            {
+                bool on = val == 1;
+                view.currentVal = on;
+                if (view.anim != null) { StopCoroutine(view.anim); view.anim = null; }
+                view.thumbRT.anchoredPosition = new Vector2(on ? ToggleThumbOffset : -ToggleThumbOffset, 0f);
+                view.trackImage.color = on ? new Color(0.20f, 0.78f, 0.35f, 1f) : new Color(0.32f, 0.37f, 0.45f, 1f);
+            };
         }
 
         private void BuildGrassResComboWidget(Transform cardTr, Font font, string key, int currentVal)
@@ -1021,6 +1031,7 @@ namespace PixelSaur.UI
             }
 
             SyncUI(currentVal);
+            _widgetSyncCallbacks[key] = SyncUI;
 
             dropdown.onValueChanged.AddListener(idx =>
             {
@@ -1068,6 +1079,7 @@ namespace PixelSaur.UI
             }
 
             SyncUI(currentVal);
+            _widgetSyncCallbacks[key] = SyncUI;
 
             slider.onValueChanged.AddListener(v =>
             {
@@ -1092,8 +1104,15 @@ namespace PixelSaur.UI
         {
             GameObject area = CreateRightControlArea(cardTr, 0.50f, 0.98f);
             Dropdown dropdown = BuildStyledDropdown(area.transform, font, QualityPresetLabels, new Vector2(0.18f, 0.16f), new Vector2(1f, 0.84f));
-            dropdown.SetValueWithoutNotify(Mathf.Clamp(currentVal, 0, QualityPresetLabels.Length - 1));
-            dropdown.RefreshShownValue();
+            void SyncUI(int val)
+            {
+                _isUpdatingControls = true;
+                dropdown.SetValueWithoutNotify(Mathf.Clamp(val, 0, QualityPresetLabels.Length - 1));
+                dropdown.RefreshShownValue();
+                _isUpdatingControls = false;
+            }
+            SyncUI(currentVal);
+            _widgetSyncCallbacks[key] = SyncUI;
 
             dropdown.onValueChanged.AddListener(idx =>
             {
@@ -1142,8 +1161,15 @@ namespace PixelSaur.UI
             _draftSettings[KeyFpsLimit] = fpsLimit;
             _draftSettings[KeyWaterRipple] = waterRipple;
 
+            // 原位同步已有控件，避免在 Dropdown.OnSelectItem 回调内销毁自身引发 MissingReferenceException
+            if (_widgetSyncCallbacks.TryGetValue(KeyDisableGrass, out var syncDg)) syncDg?.Invoke(disableGrass);
+            if (_widgetSyncCallbacks.TryGetValue(KeyGrassRes, out var syncGr)) syncGr?.Invoke(grassRes);
+            if (_widgetSyncCallbacks.TryGetValue(KeyRenderScale, out var syncRs)) syncRs?.Invoke(renderScale);
+            if (_widgetSyncCallbacks.TryGetValue(KeyVSync, out var syncVs)) syncVs?.Invoke(vsync);
+            if (_widgetSyncCallbacks.TryGetValue(KeyFpsLimit, out var syncFps)) syncFps?.Invoke(fpsLimit);
+            if (_widgetSyncCallbacks.TryGetValue(KeyWaterRipple, out var syncWr)) syncWr?.Invoke(waterRipple);
+
             ApplyGraphicsValues(preset, disableGrass, grassRes, renderScale, vsync, fpsLimit, waterRipple);
-            RebuildItemsList();
             UpdateSaveButtonState();
             ShowToast($"已一键应用【{QualityPresetLabels[preset]}】，请点击保存确认！");
         }
@@ -1208,6 +1234,7 @@ namespace PixelSaur.UI
             }
 
             SyncUI(currentVal);
+            _widgetSyncCallbacks[key] = SyncUI;
 
             slider.onValueChanged.AddListener(v =>
             {
