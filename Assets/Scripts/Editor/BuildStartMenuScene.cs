@@ -238,10 +238,38 @@ namespace PixelSaur.Editor
             SceneManager.MoveGameObjectToScene(es, startScene);
         }
 
+        private static void EnsureUiAssetImports()
+        {
+            var pillImporter = AssetImporter.GetAtPath("Assets/Textures/UI/ui_white_pill_64x64.png") as TextureImporter;
+            if (pillImporter != null)
+            {
+                pillImporter.textureType = TextureImporterType.Sprite;
+                pillImporter.spriteImportMode = SpriteImportMode.Single;
+                pillImporter.alphaIsTransparency = true;
+                pillImporter.mipmapEnabled = false;
+                pillImporter.filterMode = FilterMode.Bilinear;
+                pillImporter.spriteBorder = new Vector4(14f, 14f, 14f, 14f);
+                pillImporter.textureCompression = TextureImporterCompression.Uncompressed;
+                pillImporter.SaveAndReimport();
+            }
+
+            var qqImporter = AssetImporter.GetAtPath("Assets/Textures/UI/qq_group_card.jpg") as TextureImporter;
+            if (qqImporter != null)
+            {
+                qqImporter.textureType = TextureImporterType.Sprite;
+                qqImporter.spriteImportMode = SpriteImportMode.Single;
+                qqImporter.mipmapEnabled = false;
+                qqImporter.filterMode = FilterMode.Bilinear;
+                qqImporter.SaveAndReimport();
+            }
+        }
+
         private static void BuildStartMenuCanvas(Scene startScene)
         {
+            EnsureUiAssetImports();
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Sprite pillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
+            Sprite pillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_white_pill_64x64.png");
+            Sprite qqCardSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/qq_group_card.jpg");
             Sprite gearSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_gear_32x32.png");
             Sprite dinoSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
             Sprite foodSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
@@ -380,6 +408,17 @@ namespace PixelSaur.Editor
             questHud.EnsureUI();
             questObj.SetActive(false);
 
+            // 4.6 可互动公告与 QQ 反馈群弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            GameObject noticeObj = new GameObject("NoticePanel", typeof(RectTransform), typeof(NoticePanelHUD));
+            noticeObj.transform.SetParent(safeRT, false);
+            NoticePanelHUD noticeHud = noticeObj.GetComponent<NoticePanelHUD>();
+            SerializedObject nSo = new SerializedObject(noticeHud);
+            nSo.FindProperty("whitePillSprite").objectReferenceValue = pillSprite;
+            nSo.FindProperty("qqCardSprite").objectReferenceValue = qqCardSprite;
+            nSo.ApplyModifiedPropertiesWithoutUndo();
+            noticeHud.EnsureUI();
+            noticeObj.SetActive(false);
+
             // 5. 挂载共享设置体系 (SettingsMenuPanel + SubSettingsPage，初始隐藏)
             GameObject settingsMenuObj = new GameObject("SettingsMenuPanel", typeof(RectTransform), typeof(SettingsMenuPanelHUD));
             settingsMenuObj.transform.SetParent(canvasGo.transform, false);
@@ -397,6 +436,7 @@ namespace PixelSaur.Editor
             UIPanelManager panelMgr = canvasGo.GetComponent<UIPanelManager>();
             panelMgr.RegisterPanel("InfoModal", modalGo, true);
             panelMgr.RegisterPanel("QuestPanel", questObj, true);
+            panelMgr.RegisterPanel("NoticePanel", noticeObj, true);
             EditorUtility.SetDirty(panelMgr);
 
             StartMenuController ctrl = canvasGo.GetComponent<StartMenuController>();
@@ -412,6 +452,7 @@ namespace PixelSaur.Editor
             so.FindProperty("goldAmountText").objectReferenceValue = goldAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("amberAmountText").objectReferenceValue = amberAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("questPanel").objectReferenceValue = questHud;
+            so.FindProperty("noticePanel").objectReferenceValue = noticeHud;
             so.FindProperty("infoModalPanel").objectReferenceValue = modalGo;
             so.FindProperty("infoModalTitle").objectReferenceValue = modalTitle;
             so.FindProperty("infoModalBody").objectReferenceValue = modalBody;

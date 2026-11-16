@@ -103,14 +103,8 @@ namespace PixelSaur.UI
             _openStack.Remove(panelId);
             _openStack.Add(panelId);
 
-            if (modalDimmerImage != null && entry.useModalDimmer)
-            {
-                modalDimmerImage.gameObject.SetActive(true);
-                modalDimmerImage.transform.SetAsLastSibling();
-            }
-
             entry.panelObject.SetActive(true);
-            entry.panelObject.transform.SetAsLastSibling();
+            RefreshDimmerAndOrder();
 
             UISoundManager.PlayOpen();
         }
@@ -210,9 +204,15 @@ namespace PixelSaur.UI
             }
             else
             {
+                GameObject topPanel = _panelMap[topModalId].panelObject;
+                // 关键修复：将模态遮罩置于与顶层弹窗相同的父节点之下，避免父级跨层级遮挡弹窗本身导致点击直接关闭
+                if (topPanel.transform.parent != null && modalDimmerImage.transform.parent != topPanel.transform.parent)
+                {
+                    modalDimmerImage.transform.SetParent(topPanel.transform.parent, false);
+                }
                 modalDimmerImage.gameObject.SetActive(true);
                 modalDimmerImage.transform.SetAsLastSibling();
-                _panelMap[topModalId].panelObject.transform.SetAsLastSibling();
+                topPanel.transform.SetAsLastSibling();
             }
         }
     }

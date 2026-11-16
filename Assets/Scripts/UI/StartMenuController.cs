@@ -26,8 +26,9 @@ namespace PixelSaur.UI
         [SerializeField] private Text goldAmountText;
         [SerializeField] private Text amberAmountText;
 
-        [Header("任务系统与占位弹窗面板")]
+        [Header("任务、公告与占位弹窗面板")]
         [SerializeField] private QuestPanelHUD questPanel;
+        [SerializeField] private NoticePanelHUD noticePanel;
         [SerializeField] private GameObject infoModalPanel;
         [SerializeField] private Text infoModalTitle;
         [SerializeField] private Text infoModalBody;
@@ -67,6 +68,10 @@ namespace PixelSaur.UI
             if (questPanel != null)
             {
                 UIPanelManager.Instance.RegisterPanel("QuestPanel", questPanel.gameObject, useModalDimmer: true);
+            }
+            if (noticePanel != null)
+            {
+                UIPanelManager.Instance.RegisterPanel("NoticePanel", noticePanel.gameObject, useModalDimmer: true);
             }
         }
 
@@ -183,7 +188,14 @@ namespace PixelSaur.UI
 
         private void HandleOpenNotice()
         {
-            ShowInfoModal("岛屿生存公告", "• 在此处齿轮设置修改的画质、帧率、草地密度、音量与镜头灵敏度均会自动保存，进入 3D 岛屿后立即同步生效！\n• 按 ESC 或点击空白遮罩可按层级依次关闭弹窗。");
+            if (noticePanel != null)
+            {
+                noticePanel.OpenPanel();
+            }
+            else
+            {
+                ShowInfoModal("岛屿生存公告", "• 在此处齿轮设置修改的画质、帧率、草地密度、音量与镜头灵敏度均会自动保存，进入 3D 岛屿后立即同步生效！");
+            }
         }
 
         private void ShowInfoModal(string title, string body)
