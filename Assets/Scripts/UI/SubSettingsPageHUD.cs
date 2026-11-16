@@ -728,6 +728,7 @@ namespace PixelSaur.UI
         {
             UISoundManager.PlayClose();
             foreach (var kvp in _committedSettings) _draftSettings[kvp.Key] = kvp.Value;
+            ApplyActiveSettings();
             if (_modalDialogObj != null) _modalDialogObj.SetActive(false);
             CloseDirectly();
         }
@@ -1098,8 +1099,53 @@ namespace PixelSaur.UI
             {
                 if (_isUpdatingControls) return;
                 UISoundManager.PlayClick();
-                SetDraftValue(key, Mathf.Clamp(idx, 0, QualityPresetLabels.Length - 1));
+                int preset = Mathf.Clamp(idx, 0, QualityPresetLabels.Length - 1);
+                ApplyQualityPresetToDraft(preset);
             });
+        }
+
+        private void ApplyQualityPresetToDraft(int preset)
+        {
+            int disableGrass = 0;
+            int grassRes = 1400;
+            int renderScale = 100;
+            int vsync = 1;
+            int fpsLimit = 120;
+            int waterRipple = 1;
+
+            if (preset == 0)
+            {
+                // 流畅画质 (低)
+                disableGrass = 0;
+                grassRes = 400;
+                renderScale = 75;
+                vsync = 0;
+                fpsLimit = 60;
+                waterRipple = 0;
+            }
+            else if (preset == 2)
+            {
+                // 极致画质 (高)
+                disableGrass = 0;
+                grassRes = 2800;
+                renderScale = 125;
+                vsync = 1;
+                fpsLimit = 0;
+                waterRipple = 1;
+            }
+
+            _draftSettings[KeyQualityPreset] = preset;
+            _draftSettings[KeyDisableGrass] = disableGrass;
+            _draftSettings[KeyGrassRes] = grassRes;
+            _draftSettings[KeyRenderScale] = renderScale;
+            _draftSettings[KeyVSync] = vsync;
+            _draftSettings[KeyFpsLimit] = fpsLimit;
+            _draftSettings[KeyWaterRipple] = waterRipple;
+
+            ApplyGraphicsValues(preset, disableGrass, grassRes, renderScale, vsync, fpsLimit, waterRipple);
+            RebuildItemsList();
+            UpdateSaveButtonState();
+            ShowToast($"已一键应用【{QualityPresetLabels[preset]}】，请点击保存确认！");
         }
 
         private void BuildKeyGuidePlaceholderWidget(Transform cardTr, Font font, string title)

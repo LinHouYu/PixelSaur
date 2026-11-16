@@ -291,6 +291,14 @@ namespace PixelSaur.Editor
 
             if (skill1 != null) EditorUtility.SetDirty(skill1);
             if (skill2 != null) EditorUtility.SetDirty(skill2);
+
+            // 确保 SettingsMenuPanel 与 SubSettingsPage 永远在技能按钮等 HUD 之上
+            Transform settingsMenu = canvas.transform.Find("SettingsMenuPanel");
+            if (settingsMenu != null) settingsMenu.SetAsLastSibling();
+            Transform topBar = canvas.transform.Find("TopBarStatusHUD");
+            if (topBar != null) topBar.SetAsLastSibling();
+            Transform subPage = canvas.transform.Find("SubSettingsPage");
+            if (subPage != null) subPage.SetAsLastSibling();
         }
 
         private static GameObject EnsureSceneSkillButton(

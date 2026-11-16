@@ -360,6 +360,7 @@ namespace PixelSaur.UI
 
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
             gameObject.SetActive(true);
+            transform.SetAsLastSibling();
             if (Application.isPlaying)
             {
                 UISoundManager.PlayOpen();
