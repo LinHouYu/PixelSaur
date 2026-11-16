@@ -28,6 +28,11 @@ namespace PixelSaur.Player
         [Range(0.01f, 2f)]
         [SerializeField] private float touchLookSensitivity = 0.2f;
 
+        /// <summary>
+        /// 运行时镜头灵敏度倍率（由设置页面调节，范围 0.2 ~ 2.5）
+        /// </summary>
+        public float LookSensitivityMultiplier { get; set; } = 1.0f;
+
         // 对外暴露的输入属性
         public Vector2 MoveInput { get; private set; }
         public Vector2 LookInput { get; private set; }
@@ -102,7 +107,7 @@ namespace PixelSaur.Player
         /// </summary>
         public void SetTouchLookDelta(Vector2 delta)
         {
-            _touchLookDelta += delta * touchLookSensitivity;
+            _touchLookDelta += delta * touchLookSensitivity * Mathf.Clamp(LookSensitivityMultiplier, 0.2f, 2.5f);
         }
 
         /// <summary>
@@ -205,6 +210,10 @@ namespace PixelSaur.Player
             }
 
             LookInput = finalLook;
+            if (_touchLookDelta.sqrMagnitude <= 0.0001f)
+            {
+                LookInput *= Mathf.Clamp(LookSensitivityMultiplier, 0.2f, 2.5f);
+            }
         }
     }
 }

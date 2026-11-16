@@ -25,13 +25,22 @@ namespace PixelSaur.UI
         [SerializeField] private AudioClip sneakOnClip;
         [SerializeField] private AudioClip sneakOffClip;
 
+        [Header("背景音乐资源")]
+        [SerializeField] private AudioClip bgmClip;
+
         [Header("音量与节流配置")]
         [Range(0f, 1f)]
-        [SerializeField] private float masterVolume = 0.75f;
+        [SerializeField] private float masterVolume = 0.80f;
+        [Range(0f, 1f)]
+        [SerializeField] private float bgmVolume = 0.75f;
         [SerializeField] private float sliderTickInterval = 0.06f;
 
         private AudioSource _audioSource;
+        private AudioSource _bgmSource;
         private float _lastSliderTickTime = -999f;
+
+        public float SfxVolume => masterVolume;
+        public float BgmVolume => bgmVolume;
 
         private void Awake()
         {
@@ -47,6 +56,10 @@ namespace PixelSaur.UI
 
             LoadDefaultClips();
             EnsureAudioSource();
+            if (Application.isPlaying)
+            {
+                ApplySavedAudioVolumes();
+            }
         }
 
         private void OnEnable()
@@ -54,6 +67,10 @@ namespace PixelSaur.UI
             if (Instance == null) Instance = this;
             LoadDefaultClips();
             EnsureAudioSource();
+            if (Application.isPlaying)
+            {
+                ApplySavedAudioVolumes();
+            }
         }
 
         public void LoadDefaultClips()
@@ -86,6 +103,69 @@ namespace PixelSaur.UI
             _audioSource.loop = false;
             _audioSource.spatialBlend = 0f;
             _audioSource.ignoreListenerPause = true;
+        }
+
+        private void EnsureBgmSource()
+        {
+            if (_bgmSource == null)
+            {
+                Transform bgmChild = transform.Find("BGM_AudioSource");
+                if (bgmChild != null)
+                {
+                    _bgmSource = bgmChild.GetComponent<AudioSource>();
+                }
+                if (_bgmSource == null)
+                {
+                    GameObject go = new GameObject("BGM_AudioSource", typeof(AudioSource));
+                    go.transform.SetParent(transform, false);
+                    _bgmSource = go.GetComponent<AudioSource>();
+                }
+            }
+
+            _bgmSource.playOnAwake = false;
+            _bgmSource.loop = true;
+            _bgmSource.spatialBlend = 0f;
+            _bgmSource.ignoreListenerPause = true;
+            _bgmSource.volume = bgmVolume;
+
+            if (bgmClip != null && _bgmSource.clip != bgmClip)
+            {
+                _bgmSource.clip = bgmClip;
+                if (Application.isPlaying && !_bgmSource.isPlaying)
+                {
+                    _bgmSource.Play();
+                }
+            }
+        }
+
+        public static void ApplySavedAudioVolumes()
+        {
+            int savedSfx = PlayerPrefs.GetInt("SETTING_AUDIO_SFX_VOLUME", 80);
+            int savedBgm = PlayerPrefs.GetInt("SETTING_AUDIO_BGM_VOLUME", 75);
+            SetSfxVolume(savedSfx / 100f);
+            SetBgmVolume(savedBgm / 100f);
+        }
+
+        public static void SetSfxVolume(float volume01)
+        {
+            var mgr = EnsureInstance();
+            if (mgr == null) return;
+            mgr.masterVolume = Mathf.Clamp01(volume01);
+        }
+
+        public static void SetBgmVolume(float volume01)
+        {
+            var mgr = EnsureInstance();
+            if (mgr == null) return;
+            mgr.bgmVolume = Mathf.Clamp01(volume01);
+            if (Application.isPlaying)
+            {
+                mgr.EnsureBgmSource();
+                if (mgr._bgmSource != null)
+                {
+                    mgr._bgmSource.volume = mgr.bgmVolume;
+                }
+            }
         }
 
         private static UISoundManager EnsureInstance()

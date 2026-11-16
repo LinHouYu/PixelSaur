@@ -26,22 +26,32 @@ namespace PixelSaur.UI
         public static SubSettingsPageHUD Instance { get; private set; }
 
         public const string KeyDisableGrass = "SETTING_GRAPHICS_GRASS_WIND";
+        public const string KeyQualityPreset = "SETTING_GRAPHICS_QUALITY_PRESET";
         public const string KeyGrassRes = "SETTING_GRAPHICS_GRASS_RES";
         public const string KeyRenderScale = "SETTING_GRAPHICS_RENDER_SCALE";
         public const string KeyVSync = "SETTING_GRAPHICS_VSYNC";
         public const string KeyFpsLimit = "SETTING_GRAPHICS_FPS_LIMIT";
         public const string KeyWaterRipple = "SETTING_GRAPHICS_WATER_RIPPLE";
 
+        public const string KeyBgmVolume = "SETTING_AUDIO_BGM_VOLUME";
+        public const string KeySfxVolume = "SETTING_AUDIO_SFX_VOLUME";
+        public const string KeyLookSensitivity = "SETTING_CTRL_LOOK_SENSITIVITY";
         public const string KeyDynamicJoystick = "SETTING_CTRL_DYNAMIC_JOYSTICK";
         public const string KeyHaptics = "SETTING_CTRL_HAPTICS";
         public const string KeyAttackLock = "SETTING_CTRL_ATTACK_LOCK";
+        public const string KeyControlGuide = "SETTING_CTRL_KEY_GUIDE";
 
         private enum ItemWidgetType
         {
             Toggle,
+            QualityPresetDropdown,
             GrassResCombo,
             RenderScaleSlider,
-            FpsLimitSlider
+            FpsLimitSlider,
+            BgmVolumeSlider,
+            SfxVolumeSlider,
+            LookSensitivitySlider,
+            KeyGuidePlaceholder
         }
 
         private class SettingItemDef
@@ -120,9 +130,18 @@ namespace PixelSaur.UI
 
         private static readonly int[] GrassPresets = { 400, 800, 1400, 2800, 5000 };
         private static readonly string[] GrassPresetLabels = { "极低 (400)", "低 (800)", "默认 (1400)", "高 (2800)", "极高 (5000)", "自定义" };
+        private static readonly string[] QualityPresetLabels = { "流畅画质 (低)", "均衡画质 (默认)", "极致画质 (高)" };
 
         private static readonly SettingItemDef[] GraphicsDefs =
         {
+            new SettingItemDef
+            {
+                key = KeyQualityPreset,
+                title = "整体画质预设",
+                desc = "切换全局画质档位，平衡移动设备流畅度与阴影渲染精度",
+                defaultValue = 1,
+                widgetType = ItemWidgetType.QualityPresetDropdown
+            },
             new SettingItemDef
             {
                 key = KeyDisableGrass,
@@ -177,6 +196,30 @@ namespace PixelSaur.UI
         {
             new SettingItemDef
             {
+                key = KeyBgmVolume,
+                title = "BGM 背景音乐音量",
+                desc = "调节背景音乐音量大小 (0%~100%)，点击数字可精准输入",
+                defaultValue = 75,
+                widgetType = ItemWidgetType.BgmVolumeSlider
+            },
+            new SettingItemDef
+            {
+                key = KeySfxVolume,
+                title = "音效音量 (SFX)",
+                desc = "调节 UI 与角色技能音效音量 (0%~100%)，重启后自动保留",
+                defaultValue = 80,
+                widgetType = ItemWidgetType.SfxVolumeSlider
+            },
+            new SettingItemDef
+            {
+                key = KeyLookSensitivity,
+                title = "镜头旋转灵敏度",
+                desc = "调节右屏触控与鼠标旋转视角灵敏度 (20%~250%，默认 100%)",
+                defaultValue = 100,
+                widgetType = ItemWidgetType.LookSensitivitySlider
+            },
+            new SettingItemDef
+            {
                 key = KeyDynamicJoystick,
                 title = "动态虚拟摇杆",
                 desc = "开启后在屏幕左侧任意位置按下，摇杆自动移动至手指处进行移动",
@@ -198,6 +241,14 @@ namespace PixelSaur.UI
                 desc = "防止误触退出锁定长按连续攻击状态",
                 defaultValue = 1,
                 widgetType = ItemWidgetType.Toggle
+            },
+            new SettingItemDef
+            {
+                key = KeyControlGuide,
+                title = "基础按键说明 (移动端 / PC)",
+                desc = "",
+                defaultValue = 0,
+                widgetType = ItemWidgetType.KeyGuidePlaceholder
             }
         };
 
@@ -329,16 +380,20 @@ namespace PixelSaur.UI
         /// </summary>
         public static void ApplyAllSavedSettingsAtStartup()
         {
+            int qualityPreset = PlayerPrefs.GetInt(KeyQualityPreset, 1);
             int disableGrass = PlayerPrefs.GetInt(KeyDisableGrass, 0);
             int grassRes = PlayerPrefs.GetInt(KeyGrassRes, 1400);
             int renderScale = PlayerPrefs.GetInt(KeyRenderScale, 100);
             int vsync = PlayerPrefs.GetInt(KeyVSync, 1);
             int fpsLimit = PlayerPrefs.GetInt(KeyFpsLimit, 120);
             int waterRipple = PlayerPrefs.GetInt(KeyWaterRipple, 1);
+            int bgmVolume = PlayerPrefs.GetInt(KeyBgmVolume, 75);
+            int sfxVolume = PlayerPrefs.GetInt(KeySfxVolume, 80);
+            int lookSens = PlayerPrefs.GetInt(KeyLookSensitivity, 100);
             int dynJoy = PlayerPrefs.GetInt(KeyDynamicJoystick, 0);
 
-            ApplyGraphicsValues(disableGrass, grassRes, renderScale, vsync, fpsLimit, waterRipple);
-            ApplyControlsValues(dynJoy);
+            ApplyGraphicsValues(qualityPreset, disableGrass, grassRes, renderScale, vsync, fpsLimit, waterRipple);
+            ApplyControlsValues(dynJoy, bgmVolume, sfxVolume, lookSens);
         }
 
         private static UniversalRenderPipelineAsset GetActiveURPAsset()
@@ -346,8 +401,19 @@ namespace PixelSaur.UI
             return (QualitySettings.renderPipeline ?? GraphicsSettings.currentRenderPipeline) as UniversalRenderPipelineAsset;
         }
 
-        private static void ApplyGraphicsValues(int disableGrass, int grassRes, int renderScalePercent, int vsync, int fpsLimit, int waterRipple)
+        private static void ApplyGraphicsValues(int qualityPreset, int disableGrass, int grassRes, int renderScalePercent, int vsync, int fpsLimit, int waterRipple)
         {
+            int clampedQuality = Mathf.Clamp(qualityPreset, 0, 2);
+            if (QualitySettings.names != null && QualitySettings.names.Length > 0)
+            {
+                int targetLevel = clampedQuality == 0 ? 0 : Mathf.Min(1, QualitySettings.names.Length - 1);
+                if (QualitySettings.GetQualityLevel() != targetLevel)
+                {
+                    QualitySettings.SetQualityLevel(targetLevel, true);
+                }
+            }
+            QualitySettings.shadows = clampedQuality == 0 ? UnityEngine.ShadowQuality.Disable : (clampedQuality == 1 ? UnityEngine.ShadowQuality.HardOnly : UnityEngine.ShadowQuality.All);
+            QualitySettings.antiAliasing = clampedQuality == 0 ? 0 : (clampedQuality == 1 ? 2 : 4);
             QualitySettings.vSyncCount = vsync == 1 ? 1 : 0;
             Application.targetFrameRate = (fpsLimit <= 0 || fpsLimit > 120) ? -1 : Mathf.Clamp(fpsLimit, 30, 120);
 
@@ -374,7 +440,7 @@ namespace PixelSaur.UI
             }
         }
 
-        private static void ApplyControlsValues(int dynamicJoystick)
+        private static void ApplyControlsValues(int dynamicJoystick, int bgmVolume, int sfxVolume, int lookSensitivityPercent)
         {
             if (Application.isPlaying)
             {
@@ -383,6 +449,15 @@ namespace PixelSaur.UI
                 {
                     joystick.DynamicJoystick = dynamicJoystick == 1;
                 }
+
+                var inputProxy = FindAnyObjectByType<PixelSaur.Player.PlayerInputProxy>(FindObjectsInactive.Include);
+                if (inputProxy != null)
+                {
+                    inputProxy.LookSensitivityMultiplier = Mathf.Clamp(lookSensitivityPercent, 20, 250) / 100f;
+                }
+
+                UISoundManager.SetBgmVolume(Mathf.Clamp(bgmVolume, 0, 100) / 100f);
+                UISoundManager.SetSfxVolume(Mathf.Clamp(sfxVolume, 0, 100) / 100f);
             }
         }
 
@@ -509,6 +584,7 @@ namespace PixelSaur.UI
 
             foreach (var def in GetCurrentDefs())
             {
+                if (def.widgetType == ItemWidgetType.KeyGuidePlaceholder) continue;
                 int val = PlayerPrefs.GetInt(def.key, def.defaultValue);
                 _committedSettings[def.key] = val;
                 _draftSettings[def.key] = val;
@@ -577,6 +653,7 @@ namespace PixelSaur.UI
             UISoundManager.PlaySave();
             foreach (var def in GetCurrentDefs())
             {
+                if (def.widgetType == ItemWidgetType.KeyGuidePlaceholder) continue;
                 _draftSettings[def.key] = def.defaultValue;
                 _committedSettings[def.key] = def.defaultValue;
                 PlayerPrefs.SetInt(def.key, def.defaultValue);
@@ -602,6 +679,7 @@ namespace PixelSaur.UI
             if (_currentCategory == SettingsCategory.Graphics)
             {
                 ApplyGraphicsValues(
+                    _committedSettings.TryGetValue(KeyQualityPreset, out int qp) ? qp : 1,
                     _committedSettings.TryGetValue(KeyDisableGrass, out int dg) ? dg : 0,
                     _committedSettings.TryGetValue(KeyGrassRes, out int gr) ? gr : 1400,
                     _committedSettings.TryGetValue(KeyRenderScale, out int rs) ? rs : 100,
@@ -612,7 +690,12 @@ namespace PixelSaur.UI
             }
             else
             {
-                ApplyControlsValues(_committedSettings.TryGetValue(KeyDynamicJoystick, out int dj) ? dj : 0);
+                ApplyControlsValues(
+                    _committedSettings.TryGetValue(KeyDynamicJoystick, out int dj) ? dj : 0,
+                    _committedSettings.TryGetValue(KeyBgmVolume, out int bgm) ? bgm : 75,
+                    _committedSettings.TryGetValue(KeySfxVolume, out int sfx) ? sfx : 80,
+                    _committedSettings.TryGetValue(KeyLookSensitivity, out int sens) ? sens : 100
+                );
             }
         }
 
@@ -760,8 +843,9 @@ namespace PixelSaur.UI
             for (int idx = 0; idx < defs.Length; idx++)
             {
                 var def = defs[idx];
-                int curVal = _draftSettings[def.key];
-                float cardHeight = def.widgetType == ItemWidgetType.GrassResCombo ? 162f :
+                int curVal = _draftSettings.TryGetValue(def.key, out int v) ? v : def.defaultValue;
+                float cardHeight = def.widgetType == ItemWidgetType.KeyGuidePlaceholder ? 210f :
+                                   def.widgetType == ItemWidgetType.GrassResCombo ? 162f :
                                    def.widgetType == ItemWidgetType.Toggle ? 112f : 126f;
 
                 GameObject card = new GameObject("Item_" + def.key, typeof(RectTransform), typeof(Image));
@@ -778,23 +862,40 @@ namespace PixelSaur.UI
                 cardImg.type = Image.Type.Sliced;
                 cardImg.color = cardBgColor;
 
-                float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.72f : 0.46f;
-                BuildCardTexts(card.transform, mainFont, def.title, def.desc, leftWidthRatio);
-
-                switch (def.widgetType)
+                if (def.widgetType == ItemWidgetType.KeyGuidePlaceholder)
                 {
-                    case ItemWidgetType.Toggle:
-                        BuildToggleWidget(card.transform, def.key, curVal == 1);
-                        break;
-                    case ItemWidgetType.GrassResCombo:
-                        BuildGrassResComboWidget(card.transform, mainFont, def.key, curVal);
-                        break;
-                    case ItemWidgetType.RenderScaleSlider:
-                        BuildRenderScaleWidget(card.transform, mainFont, def.key, curVal);
-                        break;
-                    case ItemWidgetType.FpsLimitSlider:
-                        BuildFpsLimitWidget(card.transform, mainFont, def.key, curVal);
-                        break;
+                    BuildKeyGuidePlaceholderWidget(card.transform, mainFont, def.title);
+                }
+                else
+                {
+                    float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.72f : 0.46f;
+                    BuildCardTexts(card.transform, mainFont, def.title, def.desc, leftWidthRatio);
+
+                    switch (def.widgetType)
+                    {
+                        case ItemWidgetType.Toggle:
+                            BuildToggleWidget(card.transform, def.key, curVal == 1);
+                            break;
+                        case ItemWidgetType.QualityPresetDropdown:
+                            BuildQualityPresetWidget(card.transform, mainFont, def.key, curVal);
+                            break;
+                        case ItemWidgetType.GrassResCombo:
+                            BuildGrassResComboWidget(card.transform, mainFont, def.key, curVal);
+                            break;
+                        case ItemWidgetType.RenderScaleSlider:
+                            BuildSliderWithNumericWidget(card.transform, mainFont, def.key, curVal, 50, 150, 25, 200, "%");
+                            break;
+                        case ItemWidgetType.FpsLimitSlider:
+                            BuildFpsLimitWidget(card.transform, mainFont, def.key, curVal);
+                            break;
+                        case ItemWidgetType.BgmVolumeSlider:
+                        case ItemWidgetType.SfxVolumeSlider:
+                            BuildSliderWithNumericWidget(card.transform, mainFont, def.key, curVal, 0, 100, 0, 100, "%");
+                            break;
+                        case ItemWidgetType.LookSensitivitySlider:
+                            BuildSliderWithNumericWidget(card.transform, mainFont, def.key, curVal, 20, 250, 20, 250, "%");
+                            break;
+                    }
                 }
 
                 currentY += cardHeight + spacing;
@@ -951,16 +1052,16 @@ namespace PixelSaur.UI
             });
         }
 
-        private void BuildRenderScaleWidget(Transform cardTr, Font font, string key, int currentVal)
+        private void BuildSliderWithNumericWidget(Transform cardTr, Font font, string key, int currentVal, int minSlider, int maxSlider, int minInput, int maxInput, string suffix)
         {
             GameObject area = CreateRightControlArea(cardTr, 0.47f, 0.98f);
-            Slider slider = BuildStyledSlider(area.transform, new Vector2(0f, 0.20f), new Vector2(0.66f, 0.80f), 50, 150, true);
-            InputField input = BuildNumericInputField(area.transform, font, new Vector2(0.70f, 0.22f), new Vector2(1f, 0.78f), "%", "100");
+            Slider slider = BuildStyledSlider(area.transform, new Vector2(0f, 0.20f), new Vector2(0.66f, 0.80f), minSlider, maxSlider, true);
+            InputField input = BuildNumericInputField(area.transform, font, new Vector2(0.70f, 0.22f), new Vector2(1f, 0.78f), suffix, currentVal.ToString());
 
             void SyncUI(int val)
             {
                 _isUpdatingControls = true;
-                slider.SetValueWithoutNotify(Mathf.Clamp(val, 50, 150));
+                slider.SetValueWithoutNotify(Mathf.Clamp(val, minSlider, maxSlider));
                 input.SetTextWithoutNotify(val.ToString());
                 _isUpdatingControls = false;
             }
@@ -980,10 +1081,62 @@ namespace PixelSaur.UI
             {
                 if (_isUpdatingControls) return;
                 UISoundManager.PlayClick();
-                int val = int.TryParse(raw, out int parsed) ? Mathf.Clamp(parsed, 25, 200) : _draftSettings[key];
+                int val = int.TryParse(raw, out int parsed) ? Mathf.Clamp(parsed, minInput, maxInput) : _draftSettings[key];
                 SetDraftValue(key, val);
                 SyncUI(val);
             });
+        }
+
+        private void BuildQualityPresetWidget(Transform cardTr, Font font, string key, int currentVal)
+        {
+            GameObject area = CreateRightControlArea(cardTr, 0.50f, 0.98f);
+            Dropdown dropdown = BuildStyledDropdown(area.transform, font, QualityPresetLabels, new Vector2(0.18f, 0.16f), new Vector2(1f, 0.84f));
+            dropdown.SetValueWithoutNotify(Mathf.Clamp(currentVal, 0, QualityPresetLabels.Length - 1));
+            dropdown.RefreshShownValue();
+
+            dropdown.onValueChanged.AddListener(idx =>
+            {
+                if (_isUpdatingControls) return;
+                UISoundManager.PlayClick();
+                SetDraftValue(key, Mathf.Clamp(idx, 0, QualityPresetLabels.Length - 1));
+            });
+        }
+
+        private void BuildKeyGuidePlaceholderWidget(Transform cardTr, Font font, string title)
+        {
+            GameObject titleGo = new GameObject("Title", typeof(RectTransform), typeof(Text));
+            titleGo.transform.SetParent(cardTr, false);
+            RectTransform titRT = titleGo.GetComponent<RectTransform>();
+            titRT.anchorMin = new Vector2(0f, 0.74f);
+            titRT.anchorMax = new Vector2(1f, 1f);
+            titRT.offsetMin = new Vector2(22f, 0f);
+            titRT.offsetMax = new Vector2(-22f, -8f);
+            Text titTxt = titleGo.GetComponent<Text>();
+            titTxt.font = font;
+            titTxt.fontSize = 30;
+            titTxt.fontStyle = FontStyle.Bold;
+            titTxt.text = title;
+            titTxt.color = Color.white;
+            titTxt.alignment = TextAnchor.MiddleLeft;
+
+            GameObject guideGo = new GameObject("KeyGuideGrid", typeof(RectTransform), typeof(Text));
+            guideGo.transform.SetParent(cardTr, false);
+            RectTransform gRT = guideGo.GetComponent<RectTransform>();
+            gRT.anchorMin = new Vector2(0f, 0f);
+            gRT.anchorMax = new Vector2(1f, 0.74f);
+            gRT.offsetMin = new Vector2(26f, 12f);
+            gRT.offsetMax = new Vector2(-26f, -4f);
+            Text gTxt = guideGo.GetComponent<Text>();
+            gTxt.font = font;
+            gTxt.fontSize = 22;
+            gTxt.fontStyle = FontStyle.Bold;
+            gTxt.lineSpacing = 1.25f;
+            gTxt.color = new Color(0.78f, 0.86f, 0.96f, 0.95f);
+            gTxt.alignment = TextAnchor.MiddleLeft;
+            gTxt.text =
+                "• 移动与视角：左虚拟摇杆 / WASD 移动   |   右半屏滑动 / 鼠标按住拖动视角\n" +
+                "• 攻击与交互：攻击键 / J 撕咬攻击      |   水边或猎物旁长按攻击键：喝水 / 进食\n" +
+                "• 技能与身法：技能1(冲刺) / K  ·  技能2(吼叫)  ·  跳跃(Space)  ·  潜行(C)";
         }
 
         private void BuildFpsLimitWidget(Transform cardTr, Font font, string key, int currentVal)
@@ -1414,7 +1567,7 @@ namespace PixelSaur.UI
             _titleText.font = mainFont;
             _titleText.fontSize = 40;
             _titleText.fontStyle = FontStyle.Bold;
-            _titleText.text = "画 面 设 置";
+            _titleText.text = _currentCategory == SettingsCategory.Controls ? "游 戏 控 制" : "画 面 设 置";
             _titleText.color = Color.white;
             _titleText.alignment = TextAnchor.MiddleLeft;
 
