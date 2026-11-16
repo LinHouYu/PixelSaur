@@ -253,6 +253,19 @@ namespace PixelSaur.Editor
                 pillImporter.SaveAndReimport();
             }
 
+            var bevelImporter = AssetImporter.GetAtPath("Assets/Textures/UI/ui_bevel_pill_64x64.png") as TextureImporter;
+            if (bevelImporter != null)
+            {
+                bevelImporter.textureType = TextureImporterType.Sprite;
+                bevelImporter.spriteImportMode = SpriteImportMode.Single;
+                bevelImporter.alphaIsTransparency = true;
+                bevelImporter.mipmapEnabled = false;
+                bevelImporter.filterMode = FilterMode.Point;
+                bevelImporter.spriteBorder = new Vector4(15f, 15f, 15f, 15f);
+                bevelImporter.textureCompression = TextureImporterCompression.Uncompressed;
+                bevelImporter.SaveAndReimport();
+            }
+
             var qqImporter = AssetImporter.GetAtPath("Assets/Textures/UI/qq_group_card.jpg") as TextureImporter;
             if (qqImporter != null)
             {
@@ -268,7 +281,8 @@ namespace PixelSaur.Editor
         {
             EnsureUiAssetImports();
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Sprite pillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_white_pill_64x64.png");
+            Sprite pillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_bevel_pill_64x64.png");
+            Sprite panelSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_white_pill_64x64.png");
             Sprite qqCardSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/qq_group_card.jpg");
             Sprite gearSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_gear_32x32.png");
             Sprite dinoSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
@@ -385,7 +399,7 @@ namespace PixelSaur.Editor
                 new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-928f, 74f), new Vector2(190f, 84f));
 
             // 4. 面板管理器测试弹窗：占位信息窗口 (初始隐藏)
-            GameObject modalGo = CreatePillCard(safeRT, "InfoModalPanel", pillSprite, new Color(0.08f, 0.12f, 0.18f, 0.98f));
+            GameObject modalGo = CreatePillCard(safeRT, "InfoModalPanel", panelSprite, new Color(0.08f, 0.12f, 0.18f, 0.98f));
             RectTransform modalRT = modalGo.GetComponent<RectTransform>();
             modalRT.anchorMin = new Vector2(0.5f, 0.5f);
             modalRT.anchorMax = new Vector2(0.5f, 0.5f);
@@ -405,6 +419,9 @@ namespace PixelSaur.Editor
             GameObject questObj = new GameObject("QuestPanel", typeof(RectTransform), typeof(QuestPanelHUD));
             questObj.transform.SetParent(safeRT, false);
             QuestPanelHUD questHud = questObj.GetComponent<QuestPanelHUD>();
+            SerializedObject qSo = new SerializedObject(questHud);
+            qSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
+            qSo.ApplyModifiedPropertiesWithoutUndo();
             questHud.EnsureUI();
             questObj.SetActive(false);
 
@@ -413,7 +430,8 @@ namespace PixelSaur.Editor
             noticeObj.transform.SetParent(safeRT, false);
             NoticePanelHUD noticeHud = noticeObj.GetComponent<NoticePanelHUD>();
             SerializedObject nSo = new SerializedObject(noticeHud);
-            nSo.FindProperty("whitePillSprite").objectReferenceValue = pillSprite;
+            nSo.FindProperty("whitePillSprite").objectReferenceValue = panelSprite;
+            nSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
             nSo.FindProperty("qqCardSprite").objectReferenceValue = qqCardSprite;
             nSo.ApplyModifiedPropertiesWithoutUndo();
             noticeHud.EnsureUI();
@@ -565,8 +583,20 @@ namespace PixelSaur.Editor
             rt.sizeDelta = size;
             Button btn = go.AddComponent<Button>();
 
-            CreateLabel(go.transform, "Text", font, label, fontSize, FontStyle.Bold, Color.white,
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            cb.pressedColor = new Color(0.70f, 0.85f, 1.0f, 1f);
+            cb.selectedColor = Color.white;
+            cb.colorMultiplier = 1f;
+            cb.fadeDuration = 0.1f;
+            btn.colors = cb;
+
+            Text txt = CreateLabel(go.transform, "Text", font, label, fontSize, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Outline outline = txt.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.90f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
             return btn;
         }
 

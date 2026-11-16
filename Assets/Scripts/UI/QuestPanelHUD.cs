@@ -11,6 +11,9 @@ namespace PixelSaur.UI
     /// </summary>
     public class QuestPanelHUD : MonoBehaviour
     {
+        [Header("按钮样式资产")]
+        [SerializeField] private Sprite buttonPillSprite;
+
         private RectTransform _panelRT;
         private Button _dailyTabBtn;
         private Image _dailyTabImg;
@@ -140,6 +143,12 @@ namespace PixelSaur.UI
             }
 
             Sprite pillSprite = GetWhitePillSprite();
+#if UNITY_EDITOR
+            if (buttonPillSprite == null)
+            {
+                buttonPillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_bevel_pill_64x64.png");
+            }
+#endif
 
             _panelRT = GetComponent<RectTransform>();
             if (_panelRT == null) _panelRT = gameObject.AddComponent<RectTransform>();
@@ -348,6 +357,12 @@ namespace PixelSaur.UI
         private void BuildProgressBar(Transform parent, Font font, int cur, int target)
         {
             Sprite pillSprite = GetWhitePillSprite();
+#if UNITY_EDITOR
+            if (buttonPillSprite == null)
+            {
+                buttonPillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_bevel_pill_64x64.png");
+            }
+#endif
 
             GameObject boxGo = new GameObject("ProgressBox", typeof(RectTransform));
             boxGo.transform.SetParent(parent, false);
@@ -425,13 +440,26 @@ namespace PixelSaur.UI
             rt.sizeDelta = size;
 
             Image img = go.GetComponent<Image>();
-            img.sprite = GetWhitePillSprite();
+            img.sprite = buttonPillSprite != null ? buttonPillSprite : GetWhitePillSprite();
             img.type = Image.Type.Sliced;
             img.color = bgColor;
 
-            CreateText(go.transform, "Text", font, text, fontSize, FontStyle.Bold, Color.white,
+            Button btn = go.GetComponent<Button>();
+            ColorBlock cb = btn.colors;
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            cb.pressedColor = new Color(0.70f, 0.85f, 1.0f, 1f);
+            cb.selectedColor = Color.white;
+            cb.colorMultiplier = 1f;
+            cb.fadeDuration = 0.1f;
+            btn.colors = cb;
+
+            Text txt = CreateText(go.transform, "Text", font, text, fontSize, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            return go.GetComponent<Button>();
+            Outline outline = txt.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.90f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            return btn;
         }
 
         private static Text CreateText(Transform parent, string name, Font font, string content, int fontSize, FontStyle style, Color color,
