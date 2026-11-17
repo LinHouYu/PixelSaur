@@ -207,6 +207,26 @@ namespace PixelSaur.UI
             OnDataChanged?.Invoke();
         }
 
+        public static bool TrySpendCurrency(QuestRewardType currencyType, int amount)
+        {
+            if (amount <= 0) return true;
+            EnsureInitialized();
+
+            if (currencyType == QuestRewardType.Gold)
+            {
+                if (Gold < amount) return false;
+                Gold -= amount;
+            }
+            else
+            {
+                if (Amber < amount) return false;
+                Amber -= amount;
+            }
+
+            OnDataChanged?.Invoke();
+            return true;
+        }
+
         public static bool TryClaimReward(string questId, out QuestRewardType rewardType, out int rewardAmount)
         {
             EnsureInitialized();

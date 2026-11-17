@@ -37,6 +37,7 @@ namespace PixelSaur.UI
         public float previewScale;
 
         public int defaultQuantity;
+        public bool defaultUnlocked;
         public bool isStackable;
         public int rewardGold;
         public int rewardAmber;
@@ -188,6 +189,20 @@ namespace PixelSaur.UI
                 "water", new Color(0.20f, 0.68f, 0.82f, 1f), new Color(0.76f, 0.94f, 1.05f, 1f), 0.81f,
                 isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
 
+            AddDef("dino_raptor_swift", InventoryCategory.Dino, InventoryRarity.Epic,
+                "迅猛疾风掠食龙", "商店限定 · S 级高速猎手",
+                "生命 95  |  攻击 28  |  移速 8.8",
+                "商店专属解锁的迅捷掠食龙形态，爆发移速极高，适合岛屿长距离奔袭与闪避反击，购买后永久写入背包。",
+                "dino_jump", new Color(0.24f, 0.86f, 0.64f, 1f), new Color(0.76f, 1.02f, 0.88f, 1f), 0.70f,
+                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+
+            AddDef("dino_obsidian_rex", InventoryCategory.Dino, InventoryRarity.Legendary,
+                "黑曜炎狱霸王龙", "商店限定 · SSS 级深渊霸主",
+                "生命 150  |  攻击 36  |  移速 7.2",
+                "商店专属解锁的传说级黑曜石重甲霸王龙，具备压倒性咬击伤害与暗紫霸主气场，购买后立即解锁出战。",
+                "dino_skill1", new Color(0.68f, 0.44f, 0.98f, 1f), new Color(0.68f, 0.56f, 0.96f, 1f), 0.85f,
+                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+
             // 2. 皮肤（外观穿戴与卸下切换）
             AddDef("skin_default", InventoryCategory.Skin, InventoryRarity.Common,
                 "原生丛林绿涂装", "经典原始像素涂装",
@@ -223,6 +238,20 @@ namespace PixelSaur.UI
                 "取自史前冰川冻土的银白像素护甲，在正午海风下呈现清爽冷冽的浅蓝高光，适合喜欢极简冷色系搭配的驯龙者。",
                 "dino_jump", new Color(0.68f, 0.88f, 1.0f, 1f), new Color(0.96f, 1.10f, 1.22f, 1f), 0.78f,
                 isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+
+            AddDef("skin_emerald", InventoryCategory.Skin, InventoryRarity.Epic,
+                "翡翠晶鳞限定涂装", "商店限定 · 史诗级碧玉鳞甲",
+                "外观加成：流光翡翠绿晶鳞涂装",
+                "在恐龙商店解锁的珍稀晶鳞外观，穿戴后大厅展示的霸王龙将覆盖浓郁的翡翠碧玉光泽，草丛伪装度极佳。",
+                "dino_sneak", new Color(0.18f, 0.86f, 0.50f, 1f), new Color(0.46f, 1.20f, 0.74f, 1f), 0.78f,
+                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+
+            AddDef("skin_neon_storm", InventoryCategory.Skin, InventoryRarity.Legendary,
+                "霓虹雷暴战纹", "商店限定 · 传说级幻紫涂装",
+                "外观加成：深空紫电幻彩战纹",
+                "在琥珀商店购得的传说级幻彩皮肤，披戴后霸王龙周身呈现炫目的紫蓝雷暴质感，战斗威慑十足。",
+                "dino_skill2", new Color(0.62f, 0.52f, 1.0f, 1f), new Color(0.78f, 0.64f, 1.32f, 1f), 0.78f,
+                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
 
             // 3. 道具（可使用消耗并累加货币/即时反馈）
             AddDef("item_meat", InventoryCategory.Item, InventoryRarity.Common,
@@ -271,7 +300,7 @@ namespace PixelSaur.UI
         private static void AddDef(string id, InventoryCategory category, InventoryRarity rarity,
             string name, string subtitle, string statsSummary, string description, string iconKey,
             Color accentColor, Color previewTintColor, float previewScale,
-            bool isStackable, int defaultQty, int rewardGold, int rewardAmber)
+            bool isStackable, int defaultQty, int rewardGold, int rewardAmber, bool defaultUnlocked = true)
         {
             Items.Add(new InventoryItemData
             {
@@ -288,10 +317,11 @@ namespace PixelSaur.UI
                 previewScale = previewScale,
                 isStackable = isStackable,
                 defaultQuantity = defaultQty,
+                defaultUnlocked = defaultUnlocked,
                 rewardGold = rewardGold,
                 rewardAmber = rewardAmber,
                 quantity = defaultQty,
-                unlocked = true
+                unlocked = defaultUnlocked
             });
         }
 
@@ -407,12 +437,43 @@ namespace PixelSaur.UI
             var result = new List<InventoryItemData>();
             for (int i = 0; i < Items.Count; i++)
             {
+                if (!Items[i].unlocked) continue;
                 if (category == InventoryCategory.All || Items[i].category == category)
                 {
                     result.Add(Items[i]);
                 }
             }
             return result;
+        }
+
+        public static bool IsItemUnlocked(string itemId)
+        {
+            EnsureInitialized();
+            InventoryItemData item = FindInternal(itemId);
+            return item != null && item.unlocked;
+        }
+
+        public static void UnlockSpecialItem(string itemId)
+        {
+            EnsureInitialized();
+            InventoryItemData item = FindInternal(itemId);
+            if (item == null) return;
+            item.unlocked = true;
+            if (item.quantity <= 0) item.quantity = 1;
+            SaveToDisk();
+            OnInventoryChanged?.Invoke();
+        }
+
+        public static void GrantItemQuantity(string itemId, int delta)
+        {
+            if (delta <= 0) return;
+            EnsureInitialized();
+            InventoryItemData item = FindInternal(itemId);
+            if (item == null) return;
+            item.unlocked = true;
+            item.quantity += delta;
+            SaveToDisk();
+            OnInventoryChanged?.Invoke();
         }
 
         public static InventoryItemData GetItemById(string itemId)
@@ -553,7 +614,7 @@ namespace PixelSaur.UI
             for (int i = 0; i < Items.Count; i++)
             {
                 Items[i].quantity = Items[i].defaultQuantity;
-                Items[i].unlocked = true;
+                Items[i].unlocked = Items[i].defaultUnlocked;
             }
             SaveToDisk();
             OnInventoryChanged?.Invoke();

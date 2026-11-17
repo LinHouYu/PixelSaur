@@ -22,15 +22,17 @@ namespace PixelSaur.UI
         [SerializeField] private Button noticeButton;
         [SerializeField] private Button questButton;
         [SerializeField] private Button inventoryButton;
+        [SerializeField] private Button shopButton;
 
         [Header("货币文本引用")]
         [SerializeField] private Text goldAmountText;
         [SerializeField] private Text amberAmountText;
 
-        [Header("任务、公告、背包与占位弹窗面板")]
+        [Header("任务、公告、背包、商店与占位弹窗面板")]
         [SerializeField] private QuestPanelHUD questPanel;
         [SerializeField] private NoticePanelHUD noticePanel;
         [SerializeField] private InventoryPanelHUD inventoryPanel;
+        [SerializeField] private ShopPanelHUD shopPanel;
         [SerializeField] private GameObject infoModalPanel;
         [SerializeField] private Text infoModalTitle;
         [SerializeField] private Text infoModalBody;
@@ -45,6 +47,7 @@ namespace PixelSaur.UI
             UISoundManager.ApplySavedAudioVolumes();
             QuestManager.EnsureInitialized();
             InventoryManager.EnsureInitialized();
+            ShopManager.EnsureInitialized();
             InventoryPanelHUD.SyncLobbyDinoPreview();
         }
 
@@ -53,13 +56,16 @@ namespace PixelSaur.UI
             BindListeners();
             RegisterManagedPanels();
             QuestManager.OnDataChanged += RefreshCurrencyLabels;
+            InventoryManager.OnInventoryChanged += InventoryPanelHUD.SyncLobbyDinoPreview;
             RefreshCurrencyLabels();
+            InventoryPanelHUD.SyncLobbyDinoPreview();
         }
 
         private void OnDisable()
         {
             UnbindListeners();
             QuestManager.OnDataChanged -= RefreshCurrencyLabels;
+            InventoryManager.OnInventoryChanged -= InventoryPanelHUD.SyncLobbyDinoPreview;
         }
 
         private void RegisterManagedPanels()
@@ -80,6 +86,10 @@ namespace PixelSaur.UI
             if (inventoryPanel != null)
             {
                 UIPanelManager.Instance.RegisterPanel("InventoryPanel", inventoryPanel.gameObject, useModalDimmer: true);
+            }
+            if (shopPanel != null)
+            {
+                UIPanelManager.Instance.RegisterPanel("ShopPanel", shopPanel.gameObject, useModalDimmer: true);
             }
         }
 
@@ -108,13 +118,13 @@ namespace PixelSaur.UI
             }
             if (goldAddButton != null)
             {
-                goldAddButton.onClick.RemoveListener(HandleOpenCurrencyHint);
-                goldAddButton.onClick.AddListener(HandleOpenCurrencyHint);
+                goldAddButton.onClick.RemoveListener(HandleOpenShop);
+                goldAddButton.onClick.AddListener(HandleOpenShop);
             }
             if (amberAddButton != null)
             {
-                amberAddButton.onClick.RemoveListener(HandleOpenCurrencyHint);
-                amberAddButton.onClick.AddListener(HandleOpenCurrencyHint);
+                amberAddButton.onClick.RemoveListener(HandleOpenAmberRecharge);
+                amberAddButton.onClick.AddListener(HandleOpenAmberRecharge);
             }
             if (codexButton != null)
             {
@@ -136,6 +146,11 @@ namespace PixelSaur.UI
                 inventoryButton.onClick.RemoveListener(HandleOpenInventory);
                 inventoryButton.onClick.AddListener(HandleOpenInventory);
             }
+            if (shopButton != null)
+            {
+                shopButton.onClick.RemoveListener(HandleOpenShop);
+                shopButton.onClick.AddListener(HandleOpenShop);
+            }
             if (infoModalCloseButton != null)
             {
                 infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
@@ -148,12 +163,13 @@ namespace PixelSaur.UI
             if (startGameButton != null) startGameButton.onClick.RemoveListener(HandleStartGame);
             if (gearSettingsButton != null) gearSettingsButton.onClick.RemoveListener(HandleOpenSettings);
             if (profileButton != null) profileButton.onClick.RemoveListener(HandleOpenProfile);
-            if (goldAddButton != null) goldAddButton.onClick.RemoveListener(HandleOpenCurrencyHint);
-            if (amberAddButton != null) amberAddButton.onClick.RemoveListener(HandleOpenCurrencyHint);
+            if (goldAddButton != null) goldAddButton.onClick.RemoveListener(HandleOpenShop);
+            if (amberAddButton != null) amberAddButton.onClick.RemoveListener(HandleOpenAmberRecharge);
             if (codexButton != null) codexButton.onClick.RemoveListener(HandleOpenCodex);
             if (noticeButton != null) noticeButton.onClick.RemoveListener(HandleOpenNotice);
             if (questButton != null) questButton.onClick.RemoveListener(HandleOpenQuests);
             if (inventoryButton != null) inventoryButton.onClick.RemoveListener(HandleOpenInventory);
+            if (shopButton != null) shopButton.onClick.RemoveListener(HandleOpenShop);
             if (infoModalCloseButton != null) infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
         }
 
@@ -193,6 +209,30 @@ namespace PixelSaur.UI
             }
         }
 
+        private void HandleOpenShop()
+        {
+            if (shopPanel != null)
+            {
+                shopPanel.OpenDefault();
+            }
+            else
+            {
+                HandleOpenCurrencyHint();
+            }
+        }
+
+        private void HandleOpenAmberRecharge()
+        {
+            if (shopPanel != null)
+            {
+                shopPanel.OpenRechargeTab();
+            }
+            else
+            {
+                HandleOpenCurrencyHint();
+            }
+        }
+
         private void HandleOpenProfile()
         {
             ShowInfoModal("驯龙者档案 (占位)", "当前角色：霸王龙 (T-Rex)\n生存等级：Lv.1\n说明：此处为顶部头像状态栏占位弹窗，可接入账号与恐龙成长数据。");
@@ -200,7 +240,7 @@ namespace PixelSaur.UI
 
         private void HandleOpenCurrencyHint()
         {
-            ShowInfoModal("资源货币栏 (占位)", $"龙肉金币：{QuestManager.Gold:N0}\n远古琥珀：{QuestManager.Amber:N0}\n说明：完成每日/主线任务领取奖励后将实时累加至此货币栏！");
+            ShowInfoModal("资源货币栏", $"恐龙化石：{QuestManager.Gold:N0}\n远古琥珀：{QuestManager.Amber:N0}\n说明：可在【恐龙商店】消费购买道具、恐龙与皮肤并写入背包，也可点击【琥珀充值】进行测试加钱。");
         }
 
         private void HandleOpenCodex()

@@ -381,26 +381,30 @@ namespace PixelSaur.Editor
             subOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
             subOutline.effectDistance = new Vector2(2f, -2f);
 
-            // 3. 右下角主动作区：【开始游戏】 + 图鉴/公告占位
+            // 3. 右下角主动作区：【开始游戏】 + 图鉴/公告/任务/背包/商店
             Button startBtn = CreateTextPillButton(safeRT, "StartGameButton", pillSprite, font, "开 始 游 戏",
                 new Color(0.18f, 0.68f, 0.34f, 0.98f), 38,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-72f, 64f), new Vector2(400f, 108f));
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-64f, 64f), new Vector2(380f, 108f));
 
             Button codexBtn = CreateTextPillButton(safeRT, "CodexButton", pillSprite, font, "恐龙图鉴",
-                new Color(0.16f, 0.24f, 0.34f, 0.94f), 26,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-500f, 74f), new Vector2(190f, 84f));
+                new Color(0.16f, 0.24f, 0.34f, 0.94f), 25,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-466f, 74f), new Vector2(168f, 84f));
 
             Button noticeBtn = CreateTextPillButton(safeRT, "NoticeButton", pillSprite, font, "岛屿公告",
-                new Color(0.16f, 0.24f, 0.34f, 0.94f), 26,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-714f, 74f), new Vector2(190f, 84f));
+                new Color(0.16f, 0.24f, 0.34f, 0.94f), 25,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-652f, 74f), new Vector2(168f, 84f));
 
             Button questBtn = CreateTextPillButton(safeRT, "QuestButton", pillSprite, font, "每日任务",
-                new Color(0.20f, 0.34f, 0.50f, 0.96f), 26,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-928f, 74f), new Vector2(190f, 84f));
+                new Color(0.20f, 0.34f, 0.50f, 0.96f), 25,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-838f, 74f), new Vector2(168f, 84f));
 
             Button inventoryBtn = CreateTextPillButton(safeRT, "InventoryButton", pillSprite, font, "恐龙背包",
-                new Color(0.18f, 0.44f, 0.48f, 0.96f), 26,
-                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-1142f, 74f), new Vector2(190f, 84f));
+                new Color(0.18f, 0.44f, 0.48f, 0.96f), 25,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-1024f, 74f), new Vector2(168f, 84f));
+
+            Button shopBtn = CreateTextPillButton(safeRT, "ShopButton", pillSprite, font, "恐龙商店",
+                new Color(0.54f, 0.36f, 0.16f, 0.96f), 25,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-1210f, 74f), new Vector2(168f, 84f));
 
             // 4. 面板管理器测试弹窗：占位信息窗口 (初始隐藏)
             GameObject modalGo = CreatePillCard(safeRT, "InfoModalPanel", panelSprite, new Color(0.08f, 0.12f, 0.18f, 0.98f));
@@ -461,6 +465,26 @@ namespace PixelSaur.Editor
             inventoryHud.EnsureUI();
             inventoryObj.SetActive(false);
 
+            // 4.8 恐龙商店与琥珀充值弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            GameObject shopObj = new GameObject("ShopPanel", typeof(RectTransform), typeof(ShopPanelHUD));
+            shopObj.transform.SetParent(safeRT, false);
+            ShopPanelHUD shopHud = shopObj.GetComponent<ShopPanelHUD>();
+            SerializedObject sSo = new SerializedObject(shopHud);
+            sSo.FindProperty("whitePillSprite").objectReferenceValue = panelSprite;
+            sSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
+            sSo.FindProperty("iconDinoSneak").objectReferenceValue = dinoSprite;
+            sSo.FindProperty("iconDinoBite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
+            sSo.FindProperty("iconDinoJump").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
+            sSo.FindProperty("iconDinoSkill1").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill1.png");
+            sSo.FindProperty("iconDinoSkill2").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill2.png");
+            sSo.FindProperty("iconPterosaurRun").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
+            sSo.FindProperty("iconFood").objectReferenceValue = foodSprite;
+            sSo.FindProperty("iconWater").objectReferenceValue = waterSprite;
+            sSo.FindProperty("iconHeart").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
+            sSo.ApplyModifiedPropertiesWithoutUndo();
+            shopHud.EnsureUI();
+            shopObj.SetActive(false);
+
             // 5. 挂载共享设置体系 (SettingsMenuPanel + SubSettingsPage，初始隐藏)
             GameObject settingsMenuObj = new GameObject("SettingsMenuPanel", typeof(RectTransform), typeof(SettingsMenuPanelHUD));
             settingsMenuObj.transform.SetParent(canvasGo.transform, false);
@@ -480,6 +504,7 @@ namespace PixelSaur.Editor
             panelMgr.RegisterPanel("QuestPanel", questObj, true);
             panelMgr.RegisterPanel("NoticePanel", noticeObj, true);
             panelMgr.RegisterPanel("InventoryPanel", inventoryObj, true);
+            panelMgr.RegisterPanel("ShopPanel", shopObj, true);
             EditorUtility.SetDirty(panelMgr);
 
             StartMenuController ctrl = canvasGo.GetComponent<StartMenuController>();
@@ -493,11 +518,13 @@ namespace PixelSaur.Editor
             so.FindProperty("noticeButton").objectReferenceValue = noticeBtn;
             so.FindProperty("questButton").objectReferenceValue = questBtn;
             so.FindProperty("inventoryButton").objectReferenceValue = inventoryBtn;
+            so.FindProperty("shopButton").objectReferenceValue = shopBtn;
             so.FindProperty("goldAmountText").objectReferenceValue = goldAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("amberAmountText").objectReferenceValue = amberAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("questPanel").objectReferenceValue = questHud;
             so.FindProperty("noticePanel").objectReferenceValue = noticeHud;
             so.FindProperty("inventoryPanel").objectReferenceValue = inventoryHud;
+            so.FindProperty("shopPanel").objectReferenceValue = shopHud;
             so.FindProperty("infoModalPanel").objectReferenceValue = modalGo;
             so.FindProperty("infoModalTitle").objectReferenceValue = modalTitle;
             so.FindProperty("infoModalBody").objectReferenceValue = modalBody;
