@@ -286,6 +286,7 @@ namespace PixelSaur.Editor
             Sprite qqCardSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/qq_group_card.jpg");
             Sprite gearSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_gear_32x32.png");
             Sprite dinoSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
+            Sprite playersSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_players_32x32.png");
             Sprite foodSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
             Sprite waterSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
 
@@ -348,6 +349,28 @@ namespace PixelSaur.Editor
 
             CreateLabel(profileGo.transform, "PlayerName", font, "驯龙者 #001  |  Lv.1", 25, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleLeft, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(84f, 4f), new Vector2(-16f, -4f));
+
+            // 1.15 左上角查找好友入口按钮（紧邻头像栏）
+            Button friendsBtn = CreateTextPillButton(topBar.transform, "FriendsButton", pillSprite, font, "查找好友",
+                new Color(0.18f, 0.30f, 0.46f, 0.94f), 22,
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(378f, 0f), new Vector2(228f, 76f));
+            Text friendsBtnTxt = friendsBtn.transform.Find("Text").GetComponent<Text>();
+            RectTransform fbTxtRT = friendsBtnTxt.GetComponent<RectTransform>();
+            fbTxtRT.offsetMin = new Vector2(54f, 0f);
+            fbTxtRT.offsetMax = new Vector2(-10f, 0f);
+
+            GameObject fbIconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            fbIconGo.transform.SetParent(friendsBtn.transform, false);
+            RectTransform fbIconRT = fbIconGo.GetComponent<RectTransform>();
+            fbIconRT.anchorMin = new Vector2(0f, 0.5f);
+            fbIconRT.anchorMax = new Vector2(0f, 0.5f);
+            fbIconRT.pivot = new Vector2(0f, 0.5f);
+            fbIconRT.anchoredPosition = new Vector2(14f, 0f);
+            fbIconRT.sizeDelta = new Vector2(38f, 38f);
+            Image fbIconImg = fbIconGo.GetComponent<Image>();
+            fbIconImg.sprite = playersSprite;
+            fbIconImg.preserveAspect = true;
+            fbIconImg.raycastTarget = false;
 
             // 1.2 右上角货币栏占位 + 齿轮设置按钮
             Button gearBtn = CreateIconPillButton(topBar.transform, "GearSettingsButton", pillSprite, gearSprite,
@@ -485,6 +508,19 @@ namespace PixelSaur.Editor
             shopHud.EnsureUI();
             shopObj.SetActive(false);
 
+            // 4.9 查找朋友与好友列表弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            GameObject friendObj = new GameObject("FriendPanel", typeof(RectTransform), typeof(FriendPanelHUD));
+            friendObj.transform.SetParent(safeRT, false);
+            FriendPanelHUD friendHud = friendObj.GetComponent<FriendPanelHUD>();
+            SerializedObject fSo = new SerializedObject(friendHud);
+            fSo.FindProperty("whitePillSprite").objectReferenceValue = panelSprite;
+            fSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
+            fSo.FindProperty("iconPlayers").objectReferenceValue = playersSprite;
+            fSo.FindProperty("iconDinoSneak").objectReferenceValue = dinoSprite;
+            fSo.ApplyModifiedPropertiesWithoutUndo();
+            friendHud.EnsureUI();
+            friendObj.SetActive(false);
+
             // 5. 挂载共享设置体系 (SettingsMenuPanel + SubSettingsPage，初始隐藏)
             GameObject settingsMenuObj = new GameObject("SettingsMenuPanel", typeof(RectTransform), typeof(SettingsMenuPanelHUD));
             settingsMenuObj.transform.SetParent(canvasGo.transform, false);
@@ -505,6 +541,7 @@ namespace PixelSaur.Editor
             panelMgr.RegisterPanel("NoticePanel", noticeObj, true);
             panelMgr.RegisterPanel("InventoryPanel", inventoryObj, true);
             panelMgr.RegisterPanel("ShopPanel", shopObj, true);
+            panelMgr.RegisterPanel("FriendPanel", friendObj, true);
             EditorUtility.SetDirty(panelMgr);
 
             StartMenuController ctrl = canvasGo.GetComponent<StartMenuController>();
@@ -519,12 +556,15 @@ namespace PixelSaur.Editor
             so.FindProperty("questButton").objectReferenceValue = questBtn;
             so.FindProperty("inventoryButton").objectReferenceValue = inventoryBtn;
             so.FindProperty("shopButton").objectReferenceValue = shopBtn;
+            so.FindProperty("friendsButton").objectReferenceValue = friendsBtn;
+            so.FindProperty("friendsButtonLabel").objectReferenceValue = friendsBtnTxt;
             so.FindProperty("goldAmountText").objectReferenceValue = goldAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("amberAmountText").objectReferenceValue = amberAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("questPanel").objectReferenceValue = questHud;
             so.FindProperty("noticePanel").objectReferenceValue = noticeHud;
             so.FindProperty("inventoryPanel").objectReferenceValue = inventoryHud;
             so.FindProperty("shopPanel").objectReferenceValue = shopHud;
+            so.FindProperty("friendPanel").objectReferenceValue = friendHud;
             so.FindProperty("infoModalPanel").objectReferenceValue = modalGo;
             so.FindProperty("infoModalTitle").objectReferenceValue = modalTitle;
             so.FindProperty("infoModalBody").objectReferenceValue = modalBody;

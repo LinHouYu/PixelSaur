@@ -23,16 +23,19 @@ namespace PixelSaur.UI
         [SerializeField] private Button questButton;
         [SerializeField] private Button inventoryButton;
         [SerializeField] private Button shopButton;
+        [SerializeField] private Button friendsButton;
+        [SerializeField] private Text friendsButtonLabel;
 
         [Header("货币文本引用")]
         [SerializeField] private Text goldAmountText;
         [SerializeField] private Text amberAmountText;
 
-        [Header("任务、公告、背包、商店与占位弹窗面板")]
+        [Header("任务、公告、背包、商店、好友与占位弹窗面板")]
         [SerializeField] private QuestPanelHUD questPanel;
         [SerializeField] private NoticePanelHUD noticePanel;
         [SerializeField] private InventoryPanelHUD inventoryPanel;
         [SerializeField] private ShopPanelHUD shopPanel;
+        [SerializeField] private FriendPanelHUD friendPanel;
         [SerializeField] private GameObject infoModalPanel;
         [SerializeField] private Text infoModalTitle;
         [SerializeField] private Text infoModalBody;
@@ -48,6 +51,7 @@ namespace PixelSaur.UI
             QuestManager.EnsureInitialized();
             InventoryManager.EnsureInitialized();
             ShopManager.EnsureInitialized();
+            FriendManager.EnsureInitialized();
             InventoryPanelHUD.SyncLobbyDinoPreview();
         }
 
@@ -57,7 +61,9 @@ namespace PixelSaur.UI
             RegisterManagedPanels();
             QuestManager.OnDataChanged += RefreshCurrencyLabels;
             InventoryManager.OnInventoryChanged += InventoryPanelHUD.SyncLobbyDinoPreview;
+            FriendManager.OnFriendsChanged += RefreshFriendBadge;
             RefreshCurrencyLabels();
+            RefreshFriendBadge();
             InventoryPanelHUD.SyncLobbyDinoPreview();
         }
 
@@ -66,6 +72,7 @@ namespace PixelSaur.UI
             UnbindListeners();
             QuestManager.OnDataChanged -= RefreshCurrencyLabels;
             InventoryManager.OnInventoryChanged -= InventoryPanelHUD.SyncLobbyDinoPreview;
+            FriendManager.OnFriendsChanged -= RefreshFriendBadge;
         }
 
         private void RegisterManagedPanels()
@@ -91,12 +98,23 @@ namespace PixelSaur.UI
             {
                 UIPanelManager.Instance.RegisterPanel("ShopPanel", shopPanel.gameObject, useModalDimmer: true);
             }
+            if (friendPanel != null)
+            {
+                UIPanelManager.Instance.RegisterPanel("FriendPanel", friendPanel.gameObject, useModalDimmer: true);
+            }
         }
 
         private void RefreshCurrencyLabels()
         {
             if (goldAmountText != null) goldAmountText.text = QuestManager.Gold.ToString("N0");
             if (amberAmountText != null) amberAmountText.text = QuestManager.Amber.ToString("N0");
+        }
+
+        private void RefreshFriendBadge()
+        {
+            if (friendsButtonLabel == null) return;
+            int pending = FriendManager.GetPendingRequestCount();
+            friendsButtonLabel.text = pending > 0 ? $"查找好友 ({pending})" : "查找好友";
         }
 
         private void BindListeners()
@@ -151,6 +169,11 @@ namespace PixelSaur.UI
                 shopButton.onClick.RemoveListener(HandleOpenShop);
                 shopButton.onClick.AddListener(HandleOpenShop);
             }
+            if (friendsButton != null)
+            {
+                friendsButton.onClick.RemoveListener(HandleOpenFriends);
+                friendsButton.onClick.AddListener(HandleOpenFriends);
+            }
             if (infoModalCloseButton != null)
             {
                 infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
@@ -170,6 +193,7 @@ namespace PixelSaur.UI
             if (questButton != null) questButton.onClick.RemoveListener(HandleOpenQuests);
             if (inventoryButton != null) inventoryButton.onClick.RemoveListener(HandleOpenInventory);
             if (shopButton != null) shopButton.onClick.RemoveListener(HandleOpenShop);
+            if (friendsButton != null) friendsButton.onClick.RemoveListener(HandleOpenFriends);
             if (infoModalCloseButton != null) infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
         }
 
@@ -218,6 +242,14 @@ namespace PixelSaur.UI
             else
             {
                 HandleOpenCurrencyHint();
+            }
+        }
+
+        private void HandleOpenFriends()
+        {
+            if (friendPanel != null)
+            {
+                friendPanel.OpenDefault();
             }
         }
 
