@@ -21,14 +21,16 @@ namespace PixelSaur.UI
         [SerializeField] private Button codexButton;
         [SerializeField] private Button noticeButton;
         [SerializeField] private Button questButton;
+        [SerializeField] private Button inventoryButton;
 
         [Header("货币文本引用")]
         [SerializeField] private Text goldAmountText;
         [SerializeField] private Text amberAmountText;
 
-        [Header("任务、公告与占位弹窗面板")]
+        [Header("任务、公告、背包与占位弹窗面板")]
         [SerializeField] private QuestPanelHUD questPanel;
         [SerializeField] private NoticePanelHUD noticePanel;
+        [SerializeField] private InventoryPanelHUD inventoryPanel;
         [SerializeField] private GameObject infoModalPanel;
         [SerializeField] private Text infoModalTitle;
         [SerializeField] private Text infoModalBody;
@@ -42,6 +44,8 @@ namespace PixelSaur.UI
             SubSettingsPageHUD.ApplyAllSavedSettingsAtStartup();
             UISoundManager.ApplySavedAudioVolumes();
             QuestManager.EnsureInitialized();
+            InventoryManager.EnsureInitialized();
+            InventoryPanelHUD.SyncLobbyDinoPreview();
         }
 
         private void OnEnable()
@@ -72,6 +76,10 @@ namespace PixelSaur.UI
             if (noticePanel != null)
             {
                 UIPanelManager.Instance.RegisterPanel("NoticePanel", noticePanel.gameObject, useModalDimmer: true);
+            }
+            if (inventoryPanel != null)
+            {
+                UIPanelManager.Instance.RegisterPanel("InventoryPanel", inventoryPanel.gameObject, useModalDimmer: true);
             }
         }
 
@@ -123,6 +131,11 @@ namespace PixelSaur.UI
                 questButton.onClick.RemoveListener(HandleOpenQuests);
                 questButton.onClick.AddListener(HandleOpenQuests);
             }
+            if (inventoryButton != null)
+            {
+                inventoryButton.onClick.RemoveListener(HandleOpenInventory);
+                inventoryButton.onClick.AddListener(HandleOpenInventory);
+            }
             if (infoModalCloseButton != null)
             {
                 infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
@@ -140,6 +153,7 @@ namespace PixelSaur.UI
             if (codexButton != null) codexButton.onClick.RemoveListener(HandleOpenCodex);
             if (noticeButton != null) noticeButton.onClick.RemoveListener(HandleOpenNotice);
             if (questButton != null) questButton.onClick.RemoveListener(HandleOpenQuests);
+            if (inventoryButton != null) inventoryButton.onClick.RemoveListener(HandleOpenInventory);
             if (infoModalCloseButton != null) infoModalCloseButton.onClick.RemoveListener(HandleCloseInfoModal);
         }
 
@@ -168,6 +182,14 @@ namespace PixelSaur.UI
             if (questPanel != null)
             {
                 questPanel.OpenDefault();
+            }
+        }
+
+        private void HandleOpenInventory()
+        {
+            if (inventoryPanel != null)
+            {
+                inventoryPanel.OpenDefault();
             }
         }
 

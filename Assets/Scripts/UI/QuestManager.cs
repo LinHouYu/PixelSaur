@@ -198,6 +198,15 @@ namespace PixelSaur.UI
             }
         }
 
+        public static void AddCurrency(int goldDelta, int amberDelta)
+        {
+            if (goldDelta == 0 && amberDelta == 0) return;
+            EnsureInitialized();
+            if (goldDelta != 0) Gold += goldDelta;
+            if (amberDelta != 0) Amber += amberDelta;
+            OnDataChanged?.Invoke();
+        }
+
         public static bool TryClaimReward(string questId, out QuestRewardType rewardType, out int rewardAmount)
         {
             EnsureInitialized();

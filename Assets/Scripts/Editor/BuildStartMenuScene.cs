@@ -398,6 +398,10 @@ namespace PixelSaur.Editor
                 new Color(0.20f, 0.34f, 0.50f, 0.96f), 26,
                 new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-928f, 74f), new Vector2(190f, 84f));
 
+            Button inventoryBtn = CreateTextPillButton(safeRT, "InventoryButton", pillSprite, font, "恐龙背包",
+                new Color(0.18f, 0.44f, 0.48f, 0.96f), 26,
+                new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-1142f, 74f), new Vector2(190f, 84f));
+
             // 4. 面板管理器测试弹窗：占位信息窗口 (初始隐藏)
             GameObject modalGo = CreatePillCard(safeRT, "InfoModalPanel", panelSprite, new Color(0.08f, 0.12f, 0.18f, 0.98f));
             RectTransform modalRT = modalGo.GetComponent<RectTransform>();
@@ -437,6 +441,26 @@ namespace PixelSaur.Editor
             noticeHud.EnsureUI();
             noticeObj.SetActive(false);
 
+            // 4.7 恐龙背包与仓库弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            GameObject inventoryObj = new GameObject("InventoryPanel", typeof(RectTransform), typeof(InventoryPanelHUD));
+            inventoryObj.transform.SetParent(safeRT, false);
+            InventoryPanelHUD inventoryHud = inventoryObj.GetComponent<InventoryPanelHUD>();
+            SerializedObject invSo = new SerializedObject(inventoryHud);
+            invSo.FindProperty("whitePillSprite").objectReferenceValue = panelSprite;
+            invSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
+            invSo.FindProperty("iconDinoSneak").objectReferenceValue = dinoSprite;
+            invSo.FindProperty("iconDinoBite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
+            invSo.FindProperty("iconDinoJump").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
+            invSo.FindProperty("iconDinoSkill1").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill1.png");
+            invSo.FindProperty("iconDinoSkill2").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill2.png");
+            invSo.FindProperty("iconPterosaurRun").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
+            invSo.FindProperty("iconFood").objectReferenceValue = foodSprite;
+            invSo.FindProperty("iconWater").objectReferenceValue = waterSprite;
+            invSo.FindProperty("iconHeart").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
+            invSo.ApplyModifiedPropertiesWithoutUndo();
+            inventoryHud.EnsureUI();
+            inventoryObj.SetActive(false);
+
             // 5. 挂载共享设置体系 (SettingsMenuPanel + SubSettingsPage，初始隐藏)
             GameObject settingsMenuObj = new GameObject("SettingsMenuPanel", typeof(RectTransform), typeof(SettingsMenuPanelHUD));
             settingsMenuObj.transform.SetParent(canvasGo.transform, false);
@@ -455,6 +479,7 @@ namespace PixelSaur.Editor
             panelMgr.RegisterPanel("InfoModal", modalGo, true);
             panelMgr.RegisterPanel("QuestPanel", questObj, true);
             panelMgr.RegisterPanel("NoticePanel", noticeObj, true);
+            panelMgr.RegisterPanel("InventoryPanel", inventoryObj, true);
             EditorUtility.SetDirty(panelMgr);
 
             StartMenuController ctrl = canvasGo.GetComponent<StartMenuController>();
@@ -467,10 +492,12 @@ namespace PixelSaur.Editor
             so.FindProperty("codexButton").objectReferenceValue = codexBtn;
             so.FindProperty("noticeButton").objectReferenceValue = noticeBtn;
             so.FindProperty("questButton").objectReferenceValue = questBtn;
+            so.FindProperty("inventoryButton").objectReferenceValue = inventoryBtn;
             so.FindProperty("goldAmountText").objectReferenceValue = goldAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("amberAmountText").objectReferenceValue = amberAddBtn.transform.parent.Find("Amount").GetComponent<Text>();
             so.FindProperty("questPanel").objectReferenceValue = questHud;
             so.FindProperty("noticePanel").objectReferenceValue = noticeHud;
+            so.FindProperty("inventoryPanel").objectReferenceValue = inventoryHud;
             so.FindProperty("infoModalPanel").objectReferenceValue = modalGo;
             so.FindProperty("infoModalTitle").objectReferenceValue = modalTitle;
             so.FindProperty("infoModalBody").objectReferenceValue = modalBody;
