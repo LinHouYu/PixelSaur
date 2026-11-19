@@ -15,6 +15,8 @@ namespace PixelSaur.UI
     public class InventoryPanelHUD : MonoBehaviour
     {
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
+        private static readonly int BaseMapProp = Shader.PropertyToID("_BaseMap");
+        private static readonly int MainTexProp = Shader.PropertyToID("_MainTex");
 
         [Header("基础按钮与面板底图")]
         [SerializeField] private Sprite whitePillSprite;
@@ -186,15 +188,14 @@ namespace PixelSaur.UI
             float scale = InventoryManager.GetEffectivePreviewScale();
             preview.transform.localScale = Vector3.one * scale;
 
-            Color tint = InventoryManager.GetEffectivePreviewTint();
-            bool isDefaultTint = Mathf.Approximately(tint.r, 1f) && Mathf.Approximately(tint.g, 1f) && Mathf.Approximately(tint.b, 1f);
+            Texture2D skinTex = InventoryManager.GetEffectiveSkinTexture();
 
             Renderer[] renderers = preview.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < renderers.Length; i++)
             {
                 Renderer r = renderers[i];
                 if (r == null) continue;
-                if (isDefaultTint)
+                if (skinTex == null)
                 {
                     r.SetPropertyBlock(null);
                 }
@@ -202,7 +203,9 @@ namespace PixelSaur.UI
                 {
                     var mpb = new MaterialPropertyBlock();
                     r.GetPropertyBlock(mpb);
-                    mpb.SetColor(BaseColorProp, tint);
+                    mpb.SetTexture(BaseMapProp, skinTex);
+                    mpb.SetTexture(MainTexProp, skinTex);
+                    mpb.SetColor(BaseColorProp, Color.white);
                     r.SetPropertyBlock(mpb);
                 }
             }

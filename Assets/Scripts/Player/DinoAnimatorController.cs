@@ -93,25 +93,28 @@ namespace PixelSaur.Player
             if (modelAnimator == null) return;
 
             InventoryManager.EnsureInitialized();
-            Color tint = InventoryManager.GetEffectivePreviewTint();
-            bool isDefaultTint = Mathf.Approximately(tint.r, 1f) && Mathf.Approximately(tint.g, 1f) && Mathf.Approximately(tint.b, 1f);
+            CollectRuntimeMaterialsIfEmpty();
+
+            if (!_isCurrentlyInjured)
+            {
+                Texture2D targetTex = InventoryManager.GetEffectiveSkinTexture() ?? healthyTexture;
+                if (targetTex != null)
+                {
+                    for (int i = 0; i < _runtimeMaterials.Count; i++)
+                    {
+                        Material mat = _runtimeMaterials[i];
+                        if (mat == null) continue;
+                        if (mat.HasProperty(BaseMapId)) mat.SetTexture(BaseMapId, targetTex);
+                        if (mat.HasProperty(MainTexId)) mat.SetTexture(MainTexId, targetTex);
+                        if (mat.HasProperty(BaseColorId)) mat.SetColor(BaseColorId, Color.white);
+                    }
+                }
+            }
 
             Renderer[] renderers = modelAnimator.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < renderers.Length; i++)
             {
-                Renderer r = renderers[i];
-                if (r == null) continue;
-                if (isDefaultTint)
-                {
-                    r.SetPropertyBlock(null);
-                }
-                else
-                {
-                    var mpb = new MaterialPropertyBlock();
-                    r.GetPropertyBlock(mpb);
-                    mpb.SetColor(BaseColorId, tint);
-                    r.SetPropertyBlock(mpb);
-                }
+                if (renderers[i] != null) renderers[i].SetPropertyBlock(null);
             }
         }
 
@@ -304,7 +307,7 @@ namespace PixelSaur.Player
             if (!force && injured == _isCurrentlyInjured) return;
             _isCurrentlyInjured = injured;
 
-            Texture2D targetTex = injured ? injuredTexture : healthyTexture;
+            Texture2D targetTex = injured ? injuredTexture : (InventoryManager.GetEffectiveSkinTexture() ?? healthyTexture);
             if (targetTex == null) return;
 
             for (int i = 0; i < _runtimeMaterials.Count; i++)
@@ -313,6 +316,15 @@ namespace PixelSaur.Player
                 if (mat == null) continue;
                 if (mat.HasProperty(BaseMapId)) mat.SetTexture(BaseMapId, targetTex);
                 if (mat.HasProperty(MainTexId)) mat.SetTexture(MainTexId, targetTex);
+                if (mat.HasProperty(BaseColorId)) mat.SetColor(BaseColorId, Color.white);
+            }
+        }
+
+        private void CollectRuntimeMaterialsIfEmpty()
+        {
+            if (_runtimeMaterials.Count == 0)
+            {
+                CollectRuntimeMaterials();
             }
         }
 

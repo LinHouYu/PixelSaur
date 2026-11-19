@@ -290,6 +290,21 @@ namespace PixelSaur.Editor
                 qqImporter.filterMode = FilterMode.Bilinear;
                 qqImporter.SaveAndReimport();
             }
+
+            string[] skinGuids = AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Resources/DinoSkins" });
+            for (int i = 0; i < skinGuids.Length; i++)
+            {
+                string skinPath = AssetDatabase.GUIDToAssetPath(skinGuids[i]);
+                var skinImporter = AssetImporter.GetAtPath(skinPath) as TextureImporter;
+                if (skinImporter != null)
+                {
+                    skinImporter.textureType = TextureImporterType.Default;
+                    skinImporter.mipmapEnabled = false;
+                    skinImporter.filterMode = FilterMode.Point;
+                    skinImporter.textureCompression = TextureImporterCompression.Uncompressed;
+                    skinImporter.SaveAndReimport();
+                }
+            }
         }
 
         private static void BuildStartMenuCanvas(Scene startScene)

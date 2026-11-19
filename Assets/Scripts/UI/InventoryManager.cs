@@ -472,6 +472,41 @@ namespace PixelSaur.UI
             return dino != null && dino.attackMultiplier > 0.1f ? dino.attackMultiplier : 1.0f;
         }
 
+        private static readonly Dictionary<string, Texture2D> SkinTextureCache = new Dictionary<string, Texture2D>();
+
+        public static string GetEffectiveSkinTextureResourcePath()
+        {
+            EnsureInitialized();
+            if (!string.IsNullOrEmpty(_equippedSkinId) && _equippedSkinId != DefaultSkinId)
+            {
+                return "DinoSkins/" + _equippedSkinId;
+            }
+            if (!string.IsNullOrEmpty(_equippedDinoId) && _equippedDinoId != DefaultDinoId)
+            {
+                return "DinoSkins/" + _equippedDinoId;
+            }
+            return null;
+        }
+
+        public static Texture2D GetEffectiveSkinTexture()
+        {
+            string resPath = GetEffectiveSkinTextureResourcePath();
+            if (string.IsNullOrEmpty(resPath)) return null;
+
+            if (SkinTextureCache.TryGetValue(resPath, out Texture2D cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Texture2D tex = Resources.Load<Texture2D>(resPath);
+            if (tex != null)
+            {
+                tex.filterMode = FilterMode.Point;
+                SkinTextureCache[resPath] = tex;
+            }
+            return tex;
+        }
+
         public static bool IsItemEquipped(InventoryItemData item)
         {
             if (item == null) return false;
