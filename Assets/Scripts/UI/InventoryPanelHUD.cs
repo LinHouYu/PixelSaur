@@ -1,19 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace PixelSaur.UI
 {
     /// <summary>
-    /// 开始场景恐龙背包与仓库界面面板：
-    /// 1. 分类筛选页签（全部 / 恐龙 / 皮肤 / 道具）；
-    /// 2. 基于 ScrollRect + GridLayoutGroup 动态生成背包格子；
-    /// 3. 点击任意格子高亮选中并在右侧面板刷新完整详情与属性；
-    /// 4. 支持穿戴/出战、卸下与道具使用消耗状态切换；
-    /// 5. 改动自动经 InventoryManager 写入本地 JSON 存档并在启动时同步大厅霸王龙预览。
+    /// 极简原型恐龙仓库面板：
+    /// 1. 顶部仅保留【恐龙 / 皮肤】页签切换、重置与关闭；
+    /// 2. 中间采用 4×4 = 16 个大尺寸方格展示已拥有马赛克恐龙/皮肤与空槽位；
+    /// 3. 底部配备【进游戏出战恐龙小方格】与【当前皮肤小方格】，支持从上方仓库拖拽马赛克恐龙移入下方方格（或直接点击）完成选角色与换肤。
     /// </summary>
     public class InventoryPanelHUD : MonoBehaviour
     {
+        private const int GridColumns = 4;
+        private const int GridRowsPerPage = 4;
+        private const int SlotsPerPage = GridColumns * GridRowsPerPage; // 4 * 4 = 16
+
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
         private static readonly int BaseMapProp = Shader.PropertyToID("_BaseMap");
         private static readonly int MainTexProp = Shader.PropertyToID("_MainTex");
@@ -22,7 +25,7 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite whitePillSprite;
         [SerializeField] private Sprite buttonPillSprite;
 
-        [Header("物品图标资产")]
+        [Header("兼容保留图标引用")]
         [SerializeField] private Sprite iconDinoSneak;
         [SerializeField] private Sprite iconDinoBite;
         [SerializeField] private Sprite iconDinoJump;
@@ -33,56 +36,46 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite iconWater;
         [SerializeField] private Sprite iconHeart;
 
-        private RectTransform _panelRT;
-        private Text _loadoutSummaryText;
-
         private readonly Dictionary<InventoryCategory, Button> _tabButtons = new Dictionary<InventoryCategory, Button>();
         private readonly Dictionary<InventoryCategory, Image> _tabImages = new Dictionary<InventoryCategory, Image>();
 
-        private ScrollRect _scrollRect;
         private RectTransform _gridContent;
 
-        // 右侧详情说明控件
-        private Image _detailIconBg;
-        private Image _detailIconImg;
-        private Image _detailRarityBadgeImg;
-        private Text _detailRarityText;
-        private Text _detailCategoryText;
-        private Text _detailTitleText;
-        private Text _detailSubtitleText;
-        private Text _detailStatusText;
-        private Text _detailStatsText;
-        private Text _detailDescText;
-        private Text _detailSaveHintText;
-        private Button _actionBtn;
-        private Image _actionBtnImg;
-        private Text _actionBtnText;
+        // 底部出战小方格与皮肤小方格（拖拽目标）
+        private RectTransform _selectedDinoSlotRT;
+        private Image _selectedDinoSlotBg;
+        private Image _selectedDinoIcon;
+        private Text _selectedDinoNameText;
+
+        private RectTransform _selectedSkinSlotRT;
+        private Image _selectedSkinSlotBg;
+        private Image _selectedSkinIcon;
+        private Text _selectedSkinNameText;
+
+        // 拖拽时的悬浮马赛克幽灵图标
+        private RectTransform _dragGhostRT;
+        private Image _dragGhostImg;
+        private Canvas _rootCanvas;
 
         private GameObject _toastObj;
         private Text _toastText;
         private float _toastHideTime;
 
-        private InventoryCategory _activeCategory = InventoryCategory.All;
-        private string _selectedItemId = InventoryManager.DefaultDinoId;
-        private readonly Dictionary<string, GameObject> _slotSelectionFrames = new Dictionary<string, GameObject>();
-
+        private InventoryCategory _activeCategory = InventoryCategory.Dino;
         private bool _built;
         private static Sprite _fallbackWhitePill;
 
-        private static readonly Color PanelBgColor = new Color(0.07f, 0.10f, 0.15f, 0.99f);
-        private static readonly Color SubPanelBgColor = new Color(0.10f, 0.14f, 0.21f, 0.98f);
-        private static readonly Color InsetCardBgColor = new Color(0.07f, 0.10f, 0.16f, 0.98f);
-        private static readonly Color SlotNormalBgColor = new Color(0.15f, 0.21f, 0.31f, 1f);
-        private static readonly Color SlotSelectedBgColor = new Color(0.22f, 0.34f, 0.48f, 1f);
-        private static readonly Color SlotDepletedBgColor = new Color(0.12f, 0.15f, 0.20f, 0.92f);
+        private static readonly Color PanelBgColor = new Color(0.08f, 0.10f, 0.14f, 0.98f);
+        private static readonly Color GridBgColor = new Color(0.11f, 0.14f, 0.20f, 0.96f);
+        private static readonly Color SlotOwnedBgColor = new Color(0.17f, 0.22f, 0.30f, 1f);
+        private static readonly Color SlotEquippedBgColor = new Color(0.16f, 0.42f, 0.28f, 1f);
+        private static readonly Color SlotEmptyBgColor = new Color(0.09f, 0.11f, 0.16f, 0.85f);
+
+        private static readonly Color DockSlotNormalColor = new Color(0.16f, 0.24f, 0.34f, 1f);
+        private static readonly Color DockSlotHighlightColor = new Color(0.20f, 0.68f, 0.40f, 1f);
 
         private static readonly Color TabActiveColor = new Color(0.16f, 0.64f, 0.36f, 1f);
-        private static readonly Color TabNormalColor = new Color(0.18f, 0.24f, 0.33f, 1f);
-
-        private static readonly Color BtnEquipColor = new Color(0.16f, 0.68f, 0.36f, 1f);
-        private static readonly Color BtnUnequipColor = new Color(0.68f, 0.44f, 0.16f, 1f);
-        private static readonly Color BtnUseColor = new Color(0.18f, 0.48f, 0.78f, 1f);
-        private static readonly Color BtnMutedColor = new Color(0.20f, 0.24f, 0.30f, 1f);
+        private static readonly Color TabNormalColor = new Color(0.18f, 0.23f, 0.32f, 1f);
 
         private void Awake()
         {
@@ -97,13 +90,14 @@ namespace PixelSaur.UI
             InventoryManager.EnsureInitialized();
             EnsureUI();
             InventoryManager.OnInventoryChanged += HandleInventoryChanged;
-            RefreshAll(resetScroll: false);
+            RefreshAll();
             SyncLobbyDinoPreview();
         }
 
         private void OnDisable()
         {
             InventoryManager.OnInventoryChanged -= HandleInventoryChanged;
+            EndDragVisual();
         }
 
         private void Update()
@@ -120,14 +114,6 @@ namespace PixelSaur.UI
             if (whitePillSprite == null) whitePillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_white_pill_64x64.png");
             if (buttonPillSprite == null) buttonPillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_bevel_pill_64x64.png");
             if (iconDinoSneak == null) iconDinoSneak = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
-            if (iconDinoBite == null) iconDinoBite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
-            if (iconDinoJump == null) iconDinoJump = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
-            if (iconDinoSkill1 == null) iconDinoSkill1 = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill1.png");
-            if (iconDinoSkill2 == null) iconDinoSkill2 = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill2.png");
-            if (iconPterosaurRun == null) iconPterosaurRun = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
-            if (iconFood == null) iconFood = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
-            if (iconWater == null) iconWater = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
-            if (iconHeart == null) iconHeart = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
 #endif
         }
 
@@ -136,47 +122,28 @@ namespace PixelSaur.UI
             if (whitePillSprite != null) return whitePillSprite;
             if (_fallbackWhitePill != null) return _fallbackWhitePill;
 
-            const int size = 64;
-            const float r = 14f;
+            const int size = 32;
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
-                name = "InventoryPanelFallbackPill",
-                filterMode = FilterMode.Bilinear,
+                name = "WarehouseFallbackRect",
+                filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 hideFlags = HideFlags.HideAndDontSave
             };
-            Color[] pixels = new Color[size * size];
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float dx = x < r ? (r - x) : (x > size - 1 - r ? x - (size - 1 - r) : 0f);
-                    float dy = y < r ? (r - y) : (y > size - 1 - r ? y - (size - 1 - r) : 0f);
-                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
-                    pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(r + 0.5f - dist));
-                }
-            }
-            tex.SetPixels(pixels);
+            Color[] px = new Color[size * size];
+            for (int i = 0; i < px.Length; i++) px[i] = Color.white;
+            tex.SetPixels(px);
             tex.Apply();
-            _fallbackWhitePill = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(r, r, r, r));
+            _fallbackWhitePill = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
             _fallbackWhitePill.hideFlags = HideFlags.HideAndDontSave;
             return _fallbackWhitePill;
         }
 
-        private Sprite ResolveItemSprite(string iconKey)
+        private Sprite ResolveMosaicSprite(InventoryItemData item)
         {
-            switch (iconKey)
-            {
-                case "dino_bite": return iconDinoBite ?? iconDinoSneak;
-                case "dino_jump": return iconDinoJump ?? iconDinoSneak;
-                case "dino_skill1": return iconDinoSkill1 ?? iconDinoBite;
-                case "dino_skill2": return iconDinoSkill2 ?? iconDinoSneak;
-                case "pterosaur": return iconPterosaurRun ?? iconDinoJump;
-                case "food": return iconFood ?? iconHeart;
-                case "water": return iconWater ?? iconHeart;
-                case "heart": return iconHeart ?? iconFood;
-                default: return iconDinoSneak;
-            }
+            if (item == null) return iconDinoSneak;
+            Sprite mosaic = InventoryManager.GetItemMosaicSprite(item.id);
+            return mosaic != null ? mosaic : iconDinoSneak;
         }
 
         public static void SyncLobbyDinoPreview()
@@ -245,12 +212,8 @@ namespace PixelSaur.UI
 
         public void OpenDefault()
         {
-            _activeCategory = InventoryCategory.All;
+            _activeCategory = InventoryCategory.Dino;
             InventoryManager.EnsureInitialized();
-            if (string.IsNullOrEmpty(_selectedItemId) || !InventoryManager.IsItemUnlocked(_selectedItemId))
-            {
-                _selectedItemId = InventoryManager.EquippedDinoId;
-            }
 
             if (UIPanelManager.Instance != null)
             {
@@ -262,7 +225,7 @@ namespace PixelSaur.UI
                 transform.SetAsLastSibling();
             }
 
-            RefreshAll(resetScroll: true);
+            RefreshAll();
         }
 
         private void HandleInventoryChanged()
@@ -270,7 +233,7 @@ namespace PixelSaur.UI
             SyncLobbyDinoPreview();
             if (gameObject.activeInHierarchy)
             {
-                RefreshAll(resetScroll: false);
+                RefreshAll();
             }
         }
 
@@ -279,38 +242,7 @@ namespace PixelSaur.UI
             if (_activeCategory == category) return;
             UISoundManager.PlayClick();
             _activeCategory = category;
-
-            List<InventoryItemData> filtered = InventoryManager.GetItemsByCategory(_activeCategory);
-            if (filtered.Count > 0)
-            {
-                bool stillVisible = false;
-                for (int i = 0; i < filtered.Count; i++)
-                {
-                    if (filtered[i].id == _selectedItemId)
-                    {
-                        stillVisible = true;
-                        break;
-                    }
-                }
-                if (!stillVisible)
-                {
-                    _selectedItemId = filtered[0].id;
-                }
-            }
-
-            RefreshAll(resetScroll: true);
-        }
-
-        public void SelectItem(string itemId)
-        {
-            if (string.IsNullOrEmpty(itemId)) return;
-            if (_selectedItemId != itemId)
-            {
-                UISoundManager.PlayClick();
-                _selectedItemId = itemId;
-                UpdateSlotSelectionVisuals();
-                RefreshDetailPane();
-            }
+            RefreshAll();
         }
 
         public void EnsureUI()
@@ -319,6 +251,7 @@ namespace PixelSaur.UI
             _built = true;
 
             LoadFallbackAssets();
+            _rootCanvas = GetComponentInParent<Canvas>();
 
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -326,17 +259,16 @@ namespace PixelSaur.UI
             }
             _tabButtons.Clear();
             _tabImages.Clear();
-            _slotSelectionFrames.Clear();
 
             Sprite panelSprite = GetPanelSprite();
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            _panelRT = GetComponent<RectTransform>() ?? gameObject.AddComponent<RectTransform>();
-            _panelRT.anchorMin = new Vector2(0.06f, 0.06f);
-            _panelRT.anchorMax = new Vector2(0.94f, 0.94f);
-            _panelRT.offsetMin = Vector2.zero;
-            _panelRT.offsetMax = Vector2.zero;
-            _panelRT.pivot = new Vector2(0.5f, 0.5f);
+            RectTransform panelRT = GetComponent<RectTransform>() ?? gameObject.AddComponent<RectTransform>();
+            panelRT.anchorMin = new Vector2(0.04f, 0.03f);
+            panelRT.anchorMax = new Vector2(0.96f, 0.97f);
+            panelRT.offsetMin = Vector2.zero;
+            panelRT.offsetMax = Vector2.zero;
+            panelRT.pivot = new Vector2(0.5f, 0.5f);
 
             Image bg = GetComponent<Image>() ?? gameObject.AddComponent<Image>();
             bg.sprite = panelSprite;
@@ -344,302 +276,216 @@ namespace PixelSaur.UI
             bg.color = PanelBgColor;
             bg.raycastTarget = true;
 
-            // 1. 顶部标题、当前出战提示与关闭按钮 X
-            CreateText(transform, "Title", font, "恐 龙 仓 库", 36, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleLeft, new Vector2(0f, 0.87f), new Vector2(0.45f, 1f), new Vector2(36f, 0f), new Vector2(0f, -6f));
+            // 1. 极简顶部栏：标题 + 【恐龙 / 皮肤】页签 + 重置 + 关闭
+            CreateText(transform, "Title", font, "恐龙仓库", 34, FontStyle.Bold, Color.white,
+                TextAnchor.MiddleLeft, new Vector2(0f, 0.91f), new Vector2(0.20f, 0.99f), new Vector2(28f, 0f), Vector2.zero);
 
-            _loadoutSummaryText = CreateText(transform, "LoadoutSummary", font, "当前出战：成年霸王龙 · 原生丛林绿涂装", 20, FontStyle.Bold,
-                new Color(0.68f, 0.88f, 1.0f, 1f),
-                TextAnchor.MiddleRight, new Vector2(0.38f, 0.88f), new Vector2(0.91f, 0.99f), Vector2.zero, new Vector2(-12f, -4f));
+            BuildTabButton(font, InventoryCategory.Dino, "TabDinoBtn", "恐 龙", 240f);
+            BuildTabButton(font, InventoryCategory.Skin, "TabSkinBtn", "皮 肤", 420f);
 
-            Button closeBtn = CreateStyledButton(transform, "InventoryCloseBtn", font, "✕", 32, new Color(0.46f, 0.18f, 0.20f, 1f),
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -18f), new Vector2(68f, 68f));
+            Button resetBtn = CreateSimpleButton(transform, "ResetInventoryBtn", font, "重置", 20, TabNormalColor,
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-104f, -16f), new Vector2(110f, 54f));
+            resetBtn.onClick.AddListener(() =>
+            {
+                UISoundManager.PlayClick();
+                InventoryManager.ResetInventoryData();
+                ShowToast("✓ 仓库已重置");
+            });
+
+            Button closeBtn = CreateSimpleButton(transform, "InventoryCloseBtn", font, "✕", 28, new Color(0.46f, 0.18f, 0.20f, 1f),
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-22f, -16f), new Vector2(62f, 54f));
             closeBtn.onClick.AddListener(() =>
             {
                 if (UIPanelManager.Instance != null) UIPanelManager.Instance.ClosePanel("InventoryPanel");
                 else { UISoundManager.PlayClose(); gameObject.SetActive(false); }
             });
 
-            // 2. 分类筛选页签（全部 / 恐龙 / 皮肤）+ 右侧重置按钮
-            BuildTabButton(font, InventoryCategory.All, "TabAllBtn", "全部", 36f);
-            BuildTabButton(font, InventoryCategory.Dino, "TabDinoBtn", "恐龙", 212f);
-            BuildTabButton(font, InventoryCategory.Skin, "TabSkinBtn", "皮肤", 388f);
-
-            Button resetBtn = CreateStyledButton(transform, "ResetInventoryBtn", font, "重置仓库", 21,
-                new Color(0.24f, 0.28f, 0.36f, 1f),
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-36f, -104f), new Vector2(168f, 58f));
-            resetBtn.onClick.AddListener(() =>
-            {
-                UISoundManager.PlayClick();
-                InventoryManager.ResetInventoryData();
-                ShowToast("✓ 已恢复仓库初始默认状态并同步至本地！");
-            });
-
-            // 3. 左侧动态网格背包区（ScrollRect + GridLayoutGroup）
-            GameObject gridSection = CreateCard(transform, "GridSection", panelSprite, SubPanelBgColor);
-            RectTransform gridSecRT = gridSection.GetComponent<RectTransform>();
-            gridSecRT.anchorMin = new Vector2(0.03f, 0.05f);
-            gridSecRT.anchorMax = new Vector2(0.60f, 0.77f);
-            gridSecRT.offsetMin = Vector2.zero;
-            gridSecRT.offsetMax = Vector2.zero;
-
-            GameObject scrollGo = new GameObject("InventoryScrollView", typeof(RectTransform), typeof(ScrollRect));
-            scrollGo.transform.SetParent(gridSection.transform, false);
-            RectTransform scrollRT = scrollGo.GetComponent<RectTransform>();
-            scrollRT.anchorMin = Vector2.zero;
-            scrollRT.anchorMax = Vector2.one;
-            scrollRT.offsetMin = new Vector2(14f, 14f);
-            scrollRT.offsetMax = new Vector2(-14f, -14f);
-
-            GameObject vpGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
-            vpGo.transform.SetParent(scrollGo.transform, false);
-            RectTransform vpRT = vpGo.GetComponent<RectTransform>();
-            vpRT.anchorMin = Vector2.zero;
-            vpRT.anchorMax = Vector2.one;
-            vpRT.offsetMin = Vector2.zero;
-            vpRT.offsetMax = Vector2.zero;
-            Image vpImg = vpGo.GetComponent<Image>();
-            vpImg.color = Color.clear;
-            vpImg.raycastTarget = true;
+            // 2. 中间 4×4 = 16 个大尺寸方格区域
+            GameObject gridBox = CreateCard(transform, "WarehouseGridSection", panelSprite, GridBgColor);
+            RectTransform gridBoxRT = gridBox.GetComponent<RectTransform>();
+            gridBoxRT.anchorMin = new Vector2(0.02f, 0.22f);
+            gridBoxRT.anchorMax = new Vector2(0.98f, 0.90f);
+            gridBoxRT.offsetMin = Vector2.zero;
+            gridBoxRT.offsetMax = Vector2.zero;
 
             GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup));
-            contentGo.transform.SetParent(vpGo.transform, false);
+            contentGo.transform.SetParent(gridBox.transform, false);
             _gridContent = contentGo.GetComponent<RectTransform>();
-            _gridContent.anchorMin = new Vector2(0f, 1f);
-            _gridContent.anchorMax = new Vector2(1f, 1f);
-            _gridContent.pivot = new Vector2(0.5f, 1f);
-            _gridContent.anchoredPosition = Vector2.zero;
-            _gridContent.sizeDelta = new Vector2(0f, 300f);
+            _gridContent.anchorMin = Vector2.zero;
+            _gridContent.anchorMax = Vector2.one;
+            _gridContent.offsetMin = new Vector2(14f, 12f);
+            _gridContent.offsetMax = new Vector2(-14f, -12f);
 
             GridLayoutGroup grid = contentGo.GetComponent<GridLayoutGroup>();
-            grid.padding = new RectOffset(8, 8, 8, 8);
-            grid.cellSize = new Vector2(214f, 206f);
+            grid.cellSize = new Vector2(400f, 154f);
             grid.spacing = new Vector2(12f, 12f);
             grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
             grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-            grid.childAlignment = TextAnchor.UpperLeft;
+            grid.childAlignment = TextAnchor.MiddleCenter;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 4;
+            grid.constraintCount = GridColumns;
 
-            _scrollRect = scrollGo.GetComponent<ScrollRect>();
-            _scrollRect.viewport = vpRT;
-            _scrollRect.content = _gridContent;
-            _scrollRect.horizontal = false;
-            _scrollRect.vertical = true;
-            _scrollRect.inertia = true;
-            _scrollRect.scrollSensitivity = 28f;
-            _scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            // 3. 底部选角区：进游戏出战恐龙小方格 + 当前皮肤小方格 + 简要提示
+            BuildBottomSelectionDock(panelSprite, font);
 
-            // 4. 右侧详情说明区
-            BuildDetailSection(panelSprite, font);
+            // 4. 拖拽悬浮幽灵图标（最上层，不拦截射线）
+            GameObject ghostGo = new GameObject("DragGhostIcon", typeof(RectTransform), typeof(Image));
+            ghostGo.transform.SetParent(transform, false);
+            _dragGhostRT = ghostGo.GetComponent<RectTransform>();
+            _dragGhostRT.sizeDelta = new Vector2(132f, 132f);
+            _dragGhostImg = ghostGo.GetComponent<Image>();
+            _dragGhostImg.preserveAspect = true;
+            _dragGhostImg.raycastTarget = false;
+            ghostGo.SetActive(false);
 
-            // 5. 底部 Toast 反馈横幅
-            _toastObj = CreateCard(transform, "InventoryToast", panelSprite, new Color(0.14f, 0.66f, 0.36f, 0.98f));
+            // 5. 底部轻量 Toast
+            _toastObj = CreateCard(transform, "InventoryToast", panelSprite, new Color(0.14f, 0.66f, 0.36f, 0.96f));
             RectTransform toastRT = _toastObj.GetComponent<RectTransform>();
-            toastRT.anchorMin = new Vector2(0.5f, 0f);
-            toastRT.anchorMax = new Vector2(0.5f, 0f);
-            toastRT.pivot = new Vector2(0.5f, 0f);
-            toastRT.anchoredPosition = new Vector2(0f, 18f);
-            toastRT.sizeDelta = new Vector2(620f, 54f);
-            _toastText = CreateText(_toastObj.transform, "Text", font, "", 22, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(16f, 0f), new Vector2(-16f, 0f));
+            toastRT.anchorMin = new Vector2(0.5f, 1f);
+            toastRT.anchorMax = new Vector2(0.5f, 1f);
+            toastRT.pivot = new Vector2(0.5f, 1f);
+            toastRT.anchoredPosition = new Vector2(0f, -14f);
+            toastRT.sizeDelta = new Vector2(460f, 48f);
+            _toastText = CreateText(_toastObj.transform, "Text", font, "", 20, FontStyle.Bold, Color.white,
+                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             _toastObj.SetActive(false);
         }
 
         private void BuildTabButton(Font font, InventoryCategory category, string name, string label, float posX)
         {
-            Button btn = CreateStyledButton(transform, name, font, label, 24, TabNormalColor,
-                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(posX, -104f), new Vector2(160f, 58f));
-            Image img = btn.GetComponent<Image>();
+            Button btn = CreateSimpleButton(transform, name, font, label, 22, TabNormalColor,
+                new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(posX, -16f), new Vector2(164f, 54f));
             _tabButtons[category] = btn;
-            _tabImages[category] = img;
-
+            _tabImages[category] = btn.GetComponent<Image>();
             InventoryCategory captured = category;
             btn.onClick.AddListener(() => SwitchCategory(captured));
         }
 
-        private void BuildDetailSection(Sprite panelSprite, Font font)
+        private void BuildBottomSelectionDock(Sprite panelSprite, Font font)
         {
-            GameObject detailSection = CreateCard(transform, "DetailSection", panelSprite, SubPanelBgColor);
-            RectTransform dRT = detailSection.GetComponent<RectTransform>();
-            dRT.anchorMin = new Vector2(0.62f, 0.05f);
-            dRT.anchorMax = new Vector2(0.97f, 0.77f);
-            dRT.offsetMin = Vector2.zero;
-            dRT.offsetMax = Vector2.zero;
+            GameObject dock = CreateCard(transform, "BottomSelectionDock", panelSprite, GridBgColor);
+            RectTransform dockRT = dock.GetComponent<RectTransform>();
+            dockRT.anchorMin = new Vector2(0.02f, 0.02f);
+            dockRT.anchorMax = new Vector2(0.98f, 0.20f);
+            dockRT.offsetMin = Vector2.zero;
+            dockRT.offsetMax = Vector2.zero;
 
-            // 4.1 头部图标展示框 + 名称 + 稀有度标签
-            _detailIconBg = CreateCard(detailSection.transform, "DetailIconBox", panelSprite, InsetCardBgColor).GetComponent<Image>();
-            RectTransform iconBoxRT = _detailIconBg.rectTransform;
-            iconBoxRT.anchorMin = new Vector2(0.04f, 0.75f);
-            iconBoxRT.anchorMax = new Vector2(0.27f, 0.96f);
-            iconBoxRT.offsetMin = Vector2.zero;
-            iconBoxRT.offsetMax = Vector2.zero;
+            // 3.1 进游戏出战恐龙小方格（核心选角色方格）
+            GameObject dinoSlot = CreateCard(dock.transform, "SelectedDinoDropSlot", buttonPillSprite != null ? buttonPillSprite : panelSprite, DockSlotNormalColor);
+            _selectedDinoSlotRT = dinoSlot.GetComponent<RectTransform>();
+            _selectedDinoSlotRT.anchorMin = new Vector2(0f, 0.5f);
+            _selectedDinoSlotRT.anchorMax = new Vector2(0f, 0.5f);
+            _selectedDinoSlotRT.pivot = new Vector2(0f, 0.5f);
+            _selectedDinoSlotRT.anchoredPosition = new Vector2(28f, 0f);
+            _selectedDinoSlotRT.sizeDelta = new Vector2(156f, 156f);
+            _selectedDinoSlotBg = dinoSlot.GetComponent<Image>();
 
-            GameObject iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            iconGo.transform.SetParent(_detailIconBg.transform, false);
-            RectTransform iconRT = iconGo.GetComponent<RectTransform>();
-            iconRT.anchorMin = new Vector2(0.14f, 0.14f);
-            iconRT.anchorMax = new Vector2(0.86f, 0.86f);
-            iconRT.offsetMin = Vector2.zero;
-            iconRT.offsetMax = Vector2.zero;
-            _detailIconImg = iconGo.GetComponent<Image>();
-            _detailIconImg.preserveAspect = true;
-            _detailIconImg.raycastTarget = false;
+            CreateText(dinoSlot.transform, "TopTag", font, "进游戏恐龙", 16, FontStyle.Bold, new Color(0.54f, 0.96f, 0.68f, 1f),
+                TextAnchor.MiddleCenter, new Vector2(0f, 0.78f), new Vector2(1f, 0.98f), Vector2.zero, Vector2.zero);
 
-            GameObject rarityGo = CreateCard(detailSection.transform, "RarityBadge", panelSprite, new Color(0.95f, 0.68f, 0.20f, 1f));
-            RectTransform rarRT = rarityGo.GetComponent<RectTransform>();
-            rarRT.anchorMin = new Vector2(0.30f, 0.90f);
-            rarRT.anchorMax = new Vector2(0.47f, 0.96f);
-            rarRT.offsetMin = Vector2.zero;
-            rarRT.offsetMax = Vector2.zero;
-            _detailRarityBadgeImg = rarityGo.GetComponent<Image>();
-            _detailRarityText = CreateText(rarityGo.transform, "Text", font, "传说", 18, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            AddOutline(_detailRarityText, 1f);
+            GameObject dIconGo = new GameObject("MosaicIcon", typeof(RectTransform), typeof(Image));
+            dIconGo.transform.SetParent(dinoSlot.transform, false);
+            RectTransform diRT = dIconGo.GetComponent<RectTransform>();
+            diRT.anchorMin = new Vector2(0.18f, 0.22f);
+            diRT.anchorMax = new Vector2(0.82f, 0.78f);
+            diRT.offsetMin = Vector2.zero;
+            diRT.offsetMax = Vector2.zero;
+            _selectedDinoIcon = dIconGo.GetComponent<Image>();
+            _selectedDinoIcon.preserveAspect = true;
+            _selectedDinoIcon.raycastTarget = false;
 
-            GameObject catGo = CreateCard(detailSection.transform, "CategoryBadge", panelSprite, new Color(0.18f, 0.26f, 0.38f, 1f));
-            RectTransform catRT = catGo.GetComponent<RectTransform>();
-            catRT.anchorMin = new Vector2(0.49f, 0.90f);
-            catRT.anchorMax = new Vector2(0.68f, 0.96f);
-            catRT.offsetMin = Vector2.zero;
-            catRT.offsetMax = Vector2.zero;
-            _detailCategoryText = CreateText(catGo.transform, "Text", font, "恐龙", 18, FontStyle.Bold,
-                new Color(0.82f, 0.92f, 1f, 1f),
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            _selectedDinoNameText = CreateText(dinoSlot.transform, "Name", font, "成年霸王龙", 16, FontStyle.Bold, Color.white,
+                TextAnchor.MiddleCenter, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.22f), Vector2.zero, Vector2.zero);
 
-            _detailTitleText = CreateText(detailSection.transform, "DetailTitle", font, "物品名称", 29, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleLeft, new Vector2(0.30f, 0.80f), new Vector2(0.96f, 0.90f), Vector2.zero, Vector2.zero);
-            AddOutline(_detailTitleText, 1.2f);
+            // 3.2 当前皮肤小方格（可拖入皮肤，点击可卸下恢复默认）
+            GameObject skinSlot = CreateCard(dock.transform, "SelectedSkinDropSlot", buttonPillSprite != null ? buttonPillSprite : panelSprite, DockSlotNormalColor);
+            _selectedSkinSlotRT = skinSlot.GetComponent<RectTransform>();
+            _selectedSkinSlotRT.anchorMin = new Vector2(0f, 0.5f);
+            _selectedSkinSlotRT.anchorMax = new Vector2(0f, 0.5f);
+            _selectedSkinSlotRT.pivot = new Vector2(0f, 0.5f);
+            _selectedSkinSlotRT.anchoredPosition = new Vector2(210f, 0f);
+            _selectedSkinSlotRT.sizeDelta = new Vector2(156f, 156f);
+            _selectedSkinSlotBg = skinSlot.GetComponent<Image>();
+            Button skinSlotBtn = skinSlot.AddComponent<Button>();
+            skinSlotBtn.onClick.AddListener(() =>
+            {
+                if (InventoryManager.EquippedSkinId != InventoryManager.DefaultSkinId)
+                {
+                    if (InventoryManager.EquipOrUseItem(InventoryManager.EquippedSkinId, out string msg))
+                    {
+                        UISoundManager.PlayClick();
+                        ShowToast(msg);
+                    }
+                }
+            });
 
-            _detailSubtitleText = CreateText(detailSection.transform, "DetailSubtitle", font, "副标题", 19, FontStyle.Bold,
-                new Color(0.66f, 0.86f, 1f, 1f),
-                TextAnchor.MiddleLeft, new Vector2(0.30f, 0.74f), new Vector2(0.96f, 0.81f), Vector2.zero, Vector2.zero);
+            CreateText(skinSlot.transform, "TopTag", font, "当前皮肤", 16, FontStyle.Bold, new Color(0.56f, 0.86f, 1f, 1f),
+                TextAnchor.MiddleCenter, new Vector2(0f, 0.78f), new Vector2(1f, 0.98f), Vector2.zero, Vector2.zero);
 
-            // 4.2 属性与状态卡
-            GameObject statsCard = CreateCard(detailSection.transform, "StatsCard", panelSprite, InsetCardBgColor);
-            RectTransform statsRT = statsCard.GetComponent<RectTransform>();
-            statsRT.anchorMin = new Vector2(0.04f, 0.55f);
-            statsRT.anchorMax = new Vector2(0.96f, 0.72f);
-            statsRT.offsetMin = Vector2.zero;
-            statsRT.offsetMax = Vector2.zero;
+            GameObject sIconGo = new GameObject("MosaicIcon", typeof(RectTransform), typeof(Image));
+            sIconGo.transform.SetParent(skinSlot.transform, false);
+            RectTransform siRT = sIconGo.GetComponent<RectTransform>();
+            siRT.anchorMin = new Vector2(0.18f, 0.22f);
+            siRT.anchorMax = new Vector2(0.82f, 0.78f);
+            siRT.offsetMin = Vector2.zero;
+            siRT.offsetMax = Vector2.zero;
+            _selectedSkinIcon = sIconGo.GetComponent<Image>();
+            _selectedSkinIcon.preserveAspect = true;
+            _selectedSkinIcon.raycastTarget = false;
 
-            _detailStatusText = CreateText(statsCard.transform, "StatusText", font, "当前状态：已出战", 20, FontStyle.Bold,
-                new Color(0.42f, 0.96f, 0.56f, 1f),
-                TextAnchor.MiddleLeft, new Vector2(0f, 0.52f), new Vector2(1f, 1f), new Vector2(18f, 0f), new Vector2(-18f, -4f));
+            _selectedSkinNameText = CreateText(skinSlot.transform, "Name", font, "原生丛林绿", 16, FontStyle.Bold, Color.white,
+                TextAnchor.MiddleCenter, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.22f), Vector2.zero, Vector2.zero);
 
-            _detailStatsText = CreateText(statsCard.transform, "StatsText", font, "属性参数", 19, FontStyle.Bold,
-                new Color(0.96f, 0.86f, 0.44f, 1f),
-                TextAnchor.MiddleLeft, new Vector2(0f, 0f), new Vector2(1f, 0.52f), new Vector2(18f, 4f), new Vector2(-18f, 0f));
-
-            // 4.3 详细描述区
-            GameObject descCard = CreateCard(detailSection.transform, "DescCard", panelSprite, InsetCardBgColor);
-            RectTransform descRT = descCard.GetComponent<RectTransform>();
-            descRT.anchorMin = new Vector2(0.04f, 0.19f);
-            descRT.anchorMax = new Vector2(0.96f, 0.53f);
-            descRT.offsetMin = Vector2.zero;
-            descRT.offsetMax = Vector2.zero;
-
-            CreateText(descCard.transform, "DescHeader", font, "详情说明", 20, FontStyle.Bold,
-                new Color(0.66f, 0.84f, 1f, 1f),
-                TextAnchor.MiddleLeft, new Vector2(0f, 0.76f), new Vector2(1f, 1f), new Vector2(18f, 0f), new Vector2(-18f, -4f));
-
-            _detailDescText = CreateText(descCard.transform, "DescBody", font, "请选择左侧背包格子查看详情。", 20, FontStyle.Normal,
-                new Color(0.86f, 0.91f, 0.96f, 1f),
-                TextAnchor.UpperLeft, new Vector2(0f, 0.16f), new Vector2(1f, 0.76f), new Vector2(18f, 4f), new Vector2(-18f, -4f));
-            _detailDescText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _detailDescText.verticalOverflow = VerticalWrapMode.Truncate;
-            _detailDescText.lineSpacing = 1.24f;
-
-            _detailSaveHintText = CreateText(descCard.transform, "SaveHint", font, "本地数据：已同步保存，重启游戏不丢失", 15, FontStyle.Bold,
-                new Color(0.54f, 0.66f, 0.78f, 0.95f),
-                TextAnchor.MiddleLeft, new Vector2(0f, 0f), new Vector2(1f, 0.16f), new Vector2(18f, 2f), new Vector2(-18f, 0f));
-
-            // 4.4 底部穿戴/卸下/使用交互按钮
-            _actionBtn = CreateStyledButton(detailSection.transform, "DetailActionBtn", font, "穿 戴", 28, BtnEquipColor,
-                new Vector2(0.04f, 0.03f), new Vector2(0.96f, 0.16f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            RectTransform actRT = _actionBtn.GetComponent<RectTransform>();
-            actRT.anchorMin = new Vector2(0.04f, 0.03f);
-            actRT.anchorMax = new Vector2(0.96f, 0.16f);
-            actRT.offsetMin = Vector2.zero;
-            actRT.offsetMax = Vector2.zero;
-            _actionBtnImg = _actionBtn.GetComponent<Image>();
-            _actionBtnText = _actionBtn.GetComponentInChildren<Text>();
-            _actionBtn.onClick.AddListener(HandleActionButtonClicked);
+            // 3.3 右侧简明原型交互说明
+            CreateText(dock.transform, "DockHint", font,
+                "【选角色方式】从上方 4×4 仓库拖拽马赛克恐龙移入左下角方格（或直接点击格子），即选定进游戏出战角色与皮肤。",
+                22, FontStyle.Bold, new Color(0.82f, 0.89f, 0.96f, 1f),
+                TextAnchor.MiddleLeft, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(400f, 12f), new Vector2(-28f, -12f));
         }
 
-        private void HandleActionButtonClicked()
-        {
-            if (string.IsNullOrEmpty(_selectedItemId)) return;
-
-            bool ok = InventoryManager.EquipOrUseItem(_selectedItemId, out string msg);
-            if (ok) UISoundManager.PlaySave();
-            else UISoundManager.PlayClick();
-
-            ShowToast(msg);
-        }
-
-        public void RefreshAll(bool resetScroll)
+        public void RefreshAll()
         {
             if (!_built) EnsureUI();
 
-            // 1. 刷新顶部页签颜色与数量统计
-            UpdateTabVisual(InventoryCategory.All, "全部");
             UpdateTabVisual(InventoryCategory.Dino, "恐龙");
             UpdateTabVisual(InventoryCategory.Skin, "皮肤");
 
-            if (_loadoutSummaryText != null)
+            // 刷新底部出战恐龙小方格与皮肤小方格
+            InventoryItemData eqDino = InventoryManager.GetEquippedDino();
+            if (eqDino != null)
             {
-                InventoryItemData eqDino = InventoryManager.GetEquippedDino();
-                InventoryItemData eqSkin = InventoryManager.GetEquippedSkin();
-                string dName = eqDino != null ? eqDino.name : "成年霸王龙";
-                string sName = eqSkin != null ? eqSkin.name : "默认涂装";
-                _loadoutSummaryText.text = $"当前出战：{dName}  ·  皮肤：{sName}";
+                if (_selectedDinoIcon != null) _selectedDinoIcon.sprite = ResolveMosaicSprite(eqDino);
+                if (_selectedDinoNameText != null) _selectedDinoNameText.text = eqDino.name;
             }
 
-            // 2. 动态生成左侧网格格子
+            InventoryItemData eqSkin = InventoryManager.GetEquippedSkin();
+            if (eqSkin != null)
+            {
+                if (_selectedSkinIcon != null) _selectedSkinIcon.sprite = ResolveMosaicSprite(eqSkin);
+                if (_selectedSkinNameText != null) _selectedSkinNameText.text = eqSkin.name;
+            }
+
+            // 动态生成 4×4 = 16 个大格子（已拥有显示马赛克恐龙，其余为空方格）
             for (int i = _gridContent.childCount - 1; i >= 0; i--)
             {
                 Destroy(_gridContent.GetChild(i).gameObject);
             }
-            _slotSelectionFrames.Clear();
 
-            List<InventoryItemData> items = InventoryManager.GetItemsByCategory(_activeCategory);
+            List<InventoryItemData> owned = InventoryManager.GetItemsByCategory(_activeCategory);
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Sprite panelSprite = GetPanelSprite();
 
-            if (items.Count > 0)
+            for (int i = 0; i < SlotsPerPage; i++)
             {
-                bool hasSelected = false;
-                for (int i = 0; i < items.Count; i++)
+                if (i < owned.Count)
                 {
-                    if (items[i].id == _selectedItemId)
-                    {
-                        hasSelected = true;
-                        break;
-                    }
+                    BuildOwnedGridCell(owned[i], font, panelSprite);
                 }
-                if (!hasSelected) _selectedItemId = items[0].id;
+                else
+                {
+                    BuildEmptyGridCell(i, font, panelSprite);
+                }
             }
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                BuildGridSlot(items[i], font, panelSprite);
-            }
-
-            int rows = Mathf.CeilToInt(items.Count / 4f);
-            float contentHeight = 16f + rows * 206f + Mathf.Max(0, rows - 1) * 12f;
-            _gridContent.sizeDelta = new Vector2(0f, Mathf.Max(220f, contentHeight));
-
-            Canvas.ForceUpdateCanvases();
-            if (resetScroll && _scrollRect != null)
-            {
-                _scrollRect.velocity = Vector2.zero;
-                _scrollRect.verticalNormalizedPosition = 1f;
-            }
-
-            // 3. 刷新选中状态与右侧详情面板
-            UpdateSlotSelectionVisuals();
-            RefreshDetailPane();
         }
 
         private void UpdateTabVisual(InventoryCategory cat, string label)
@@ -659,213 +505,124 @@ namespace PixelSaur.UI
             }
         }
 
-        private void BuildGridSlot(InventoryItemData item, Font font, Sprite panelSprite)
+        private void BuildOwnedGridCell(InventoryItemData item, Font font, Sprite panelSprite)
         {
             bool isEquipped = InventoryManager.IsItemEquipped(item);
-            bool isSelected = item.id == _selectedItemId;
 
-            Color bgTint = isSelected ? SlotSelectedBgColor : SlotNormalBgColor;
+            GameObject cellGo = new GameObject("Slot_" + item.id, typeof(RectTransform), typeof(Image), typeof(WarehouseDragSlot));
+            cellGo.transform.SetParent(_gridContent, false);
 
-            GameObject slotGo = new GameObject("Slot_" + item.id, typeof(RectTransform), typeof(Image), typeof(Button));
-            slotGo.transform.SetParent(_gridContent, false);
+            Image bg = cellGo.GetComponent<Image>();
+            bg.sprite = buttonPillSprite != null ? buttonPillSprite : panelSprite;
+            bg.type = Image.Type.Sliced;
+            bg.color = isEquipped ? SlotEquippedBgColor : SlotOwnedBgColor;
+            bg.raycastTarget = true;
 
-            Image slotBg = slotGo.GetComponent<Image>();
-            slotBg.sprite = buttonPillSprite != null ? buttonPillSprite : panelSprite;
-            slotBg.type = Image.Type.Sliced;
-            slotBg.color = bgTint;
+            Sprite mosaic = ResolveMosaicSprite(item);
 
-            Button btn = slotGo.GetComponent<Button>();
-            ColorBlock cb = btn.colors;
-            cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
-            cb.pressedColor = new Color(0.70f, 0.85f, 1.0f, 1f);
-            cb.selectedColor = Color.white;
-            cb.colorMultiplier = 1f;
-            cb.fadeDuration = 0.1f;
-            btn.colors = cb;
-
-            string capturedId = item.id;
-            btn.onClick.AddListener(() => SelectItem(capturedId));
-
-            // 选中高亮边框层
-            GameObject selFrame = CreateCard(slotGo.transform, "SelectedHighlight", panelSprite, new Color(0.32f, 0.92f, 0.56f, 0.26f));
-            RectTransform sfRT = selFrame.GetComponent<RectTransform>();
-            sfRT.anchorMin = Vector2.zero;
-            sfRT.anchorMax = Vector2.one;
-            sfRT.offsetMin = new Vector2(4f, 4f);
-            sfRT.offsetMax = new Vector2(-4f, -4f);
-            selFrame.GetComponent<Image>().raycastTarget = false;
-            selFrame.SetActive(isSelected);
-            _slotSelectionFrames[item.id] = selFrame;
-
-            // 左上角分类/稀有度徽章
-            GameObject catTag = CreateCard(slotGo.transform, "CategoryTag", panelSprite, item.GetRarityColor());
-            RectTransform ctRT = catTag.GetComponent<RectTransform>();
-            ctRT.anchorMin = new Vector2(0.06f, 0.81f);
-            ctRT.anchorMax = new Vector2(0.40f, 0.94f);
-            ctRT.offsetMin = Vector2.zero;
-            ctRT.offsetMax = Vector2.zero;
-            catTag.GetComponent<Image>().raycastTarget = false;
-            Text ctTxt = CreateText(catTag.transform, "Text", font, item.GetRarityLabel(), 15, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            AddOutline(ctTxt, 1f);
-
-            // 右上角状态角标（出战中 / 已穿戴）
-            if (isEquipped)
-            {
-                string eqLabel = item.category == InventoryCategory.Dino ? "出战中" : "已穿戴";
-                GameObject eqTag = CreateCard(slotGo.transform, "EquippedTag", panelSprite, new Color(0.14f, 0.72f, 0.34f, 1f));
-                RectTransform eqRT = eqTag.GetComponent<RectTransform>();
-                eqRT.anchorMin = new Vector2(0.50f, 0.81f);
-                eqRT.anchorMax = new Vector2(0.94f, 0.94f);
-                eqRT.offsetMin = Vector2.zero;
-                eqRT.offsetMax = Vector2.zero;
-                eqTag.GetComponent<Image>().raycastTarget = false;
-                Text eqTxt = CreateText(eqTag.transform, "Text", font, eqLabel, 15, FontStyle.Bold, Color.white,
-                    TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                AddOutline(eqTxt, 1f);
-            }
-
-            // 中央图标底座 + 像素图标
-            Color pedestalTint = new Color(item.accentColor.r * 0.35f, item.accentColor.g * 0.35f, item.accentColor.b * 0.35f, 0.90f);
-            GameObject pedestal = CreateCard(slotGo.transform, "IconPedestal", panelSprite, pedestalTint);
-            RectTransform pedRT = pedestal.GetComponent<RectTransform>();
-            pedRT.anchorMin = new Vector2(0.24f, 0.30f);
-            pedRT.anchorMax = new Vector2(0.76f, 0.76f);
-            pedRT.offsetMin = Vector2.zero;
-            pedRT.offsetMax = Vector2.zero;
-            pedestal.GetComponent<Image>().raycastTarget = false;
-
-            GameObject iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            iconGo.transform.SetParent(pedestal.transform, false);
-            RectTransform iconRT = iconGo.GetComponent<RectTransform>();
-            iconRT.anchorMin = new Vector2(0.14f, 0.14f);
-            iconRT.anchorMax = new Vector2(0.86f, 0.86f);
-            iconRT.offsetMin = Vector2.zero;
-            iconRT.offsetMax = Vector2.zero;
+            // 左侧大尺寸马赛克恐龙图标
+            GameObject iconGo = new GameObject("MosaicIcon", typeof(RectTransform), typeof(Image));
+            iconGo.transform.SetParent(cellGo.transform, false);
+            RectTransform iRT = iconGo.GetComponent<RectTransform>();
+            iRT.anchorMin = new Vector2(0.05f, 0.10f);
+            iRT.anchorMax = new Vector2(0.38f, 0.90f);
+            iRT.offsetMin = Vector2.zero;
+            iRT.offsetMax = Vector2.zero;
             Image iconImg = iconGo.GetComponent<Image>();
-            iconImg.sprite = ResolveItemSprite(item.iconKey);
+            iconImg.sprite = mosaic;
             iconImg.preserveAspect = true;
-            iconImg.color = Color.white;
             iconImg.raycastTarget = false;
 
-            // 底部物品名称
-            Text nameTxt = CreateText(slotGo.transform, "ItemName", font, item.name, 18, FontStyle.Bold, Color.white,
-                TextAnchor.MiddleCenter, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.27f), Vector2.zero, Vector2.zero);
+            // 右侧简明名称与当前状态
+            Text nameTxt = CreateText(cellGo.transform, "Name", font, item.name, 22, FontStyle.Bold, Color.white,
+                TextAnchor.MiddleLeft, new Vector2(0.41f, 0.48f), new Vector2(0.96f, 0.88f), Vector2.zero, Vector2.zero);
             AddOutline(nameTxt, 1.2f);
+
+            string statusStr = isEquipped
+                ? (item.category == InventoryCategory.Dino ? "✓ 已选为出战" : "✓ 当前穿戴")
+                : "拖拽到下方方格 / 点击选角";
+            Color statusCol = isEquipped ? new Color(0.56f, 1f, 0.72f, 1f) : new Color(0.70f, 0.78f, 0.88f, 0.92f);
+            CreateText(cellGo.transform, "Status", font, statusStr, 17, FontStyle.Bold, statusCol,
+                TextAnchor.MiddleLeft, new Vector2(0.41f, 0.14f), new Vector2(0.96f, 0.48f), Vector2.zero, Vector2.zero);
+
+            WarehouseDragSlot dragSlot = cellGo.GetComponent<WarehouseDragSlot>();
+            dragSlot.Init(this, item, mosaic);
         }
 
-        private void UpdateSlotSelectionVisuals()
+        private void BuildEmptyGridCell(int index, Font font, Sprite panelSprite)
         {
-            foreach (var kv in _slotSelectionFrames)
+            GameObject emptyGo = CreateCard(_gridContent, $"EmptySlot_{index + 1}", panelSprite, SlotEmptyBgColor);
+            emptyGo.GetComponent<Image>().raycastTarget = false;
+            CreateText(emptyGo.transform, "EmptyLabel", font, "空槽位", 18, FontStyle.Normal,
+                new Color(0.42f, 0.48f, 0.56f, 0.55f),
+                TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        }
+
+        internal void BeginDragItem(InventoryItemData item, Sprite sprite, PointerEventData eventData)
+        {
+            if (item == null || _dragGhostRT == null) return;
+            _dragGhostImg.sprite = sprite;
+            _dragGhostRT.gameObject.SetActive(true);
+            _dragGhostRT.SetAsLastSibling();
+            UpdateDragPosition(eventData);
+
+            // 高亮下方对应落点方格
+            if (item.category == InventoryCategory.Dino && _selectedDinoSlotBg != null)
             {
-                bool selected = kv.Key == _selectedItemId;
-                if (kv.Value != null)
-                {
-                    kv.Value.SetActive(selected);
-                    Transform slotTransform = kv.Value.transform.parent;
-                    if (slotTransform != null)
-                    {
-                        Image bg = slotTransform.GetComponent<Image>();
-                        if (bg != null)
-                        {
-                            bg.color = selected ? SlotSelectedBgColor : SlotNormalBgColor;
-                        }
-                    }
-                }
+                _selectedDinoSlotBg.color = DockSlotHighlightColor;
+            }
+            else if (item.category == InventoryCategory.Skin && _selectedSkinSlotBg != null)
+            {
+                _selectedSkinSlotBg.color = DockSlotHighlightColor;
             }
         }
 
-        private void RefreshDetailPane()
+        internal void UpdateDragPosition(PointerEventData eventData)
         {
-            InventoryItemData item = InventoryManager.GetItemById(_selectedItemId);
-            if (item == null || !item.unlocked)
+            if (_dragGhostRT == null || !_dragGhostRT.gameObject.activeSelf) return;
+            if (_rootCanvas == null) _rootCanvas = GetComponentInParent<Canvas>();
+
+            Camera cam = _rootCanvas != null && _rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? _rootCanvas.worldCamera : null;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    GetComponent<RectTransform>(), eventData.position, cam, out Vector2 localPt))
             {
-                List<InventoryItemData> items = InventoryManager.GetItemsByCategory(_activeCategory);
-                if (items.Count > 0)
-                {
-                    item = items[0];
-                    _selectedItemId = item.id;
-                }
+                _dragGhostRT.anchoredPosition = localPt;
             }
+        }
+
+        internal void EndDragItem(InventoryItemData item, PointerEventData eventData)
+        {
+            EndDragVisual();
+            if (item == null || eventData == null) return;
+
+            Camera cam = _rootCanvas != null && _rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? _rootCanvas.worldCamera : null;
+            RectTransform targetSlot = item.category == InventoryCategory.Dino ? _selectedDinoSlotRT : _selectedSkinSlotRT;
+
+            if (targetSlot != null && RectTransformUtility.RectangleContainsScreenPoint(targetSlot, eventData.position, cam))
+            {
+                EquipItemWithFeedback(item);
+            }
+        }
+
+        internal void HandleSlotClicked(InventoryItemData item)
+        {
             if (item == null) return;
-
-            bool isEquipped = InventoryManager.IsItemEquipped(item);
-
-            if (_detailIconImg != null)
-            {
-                _detailIconImg.sprite = ResolveItemSprite(item.iconKey);
-                _detailIconImg.color = Color.white;
-            }
-            if (_detailIconBg != null)
-            {
-                _detailIconBg.color = new Color(item.accentColor.r * 0.30f, item.accentColor.g * 0.30f, item.accentColor.b * 0.30f, 0.98f);
-            }
-            if (_detailRarityBadgeImg != null) _detailRarityBadgeImg.color = item.GetRarityColor();
-            if (_detailRarityText != null) _detailRarityText.text = item.GetRarityLabel();
-            if (_detailCategoryText != null) _detailCategoryText.text = item.GetCategoryLabel();
-            if (_detailTitleText != null) _detailTitleText.text = item.name;
-            if (_detailSubtitleText != null)
-            {
-                _detailSubtitleText.text = item.subtitle;
-                _detailSubtitleText.color = Color.Lerp(item.accentColor, Color.white, 0.42f);
-            }
-            if (_detailStatsText != null) _detailStatsText.text = item.statsSummary;
-            if (_detailDescText != null) _detailDescText.text = item.description;
-            if (_detailSaveHintText != null)
-            {
-                _detailSaveHintText.text = "同步说明：大厅与游戏局内随时可切换使用并永久保存";
-            }
-
-            if (item.category == InventoryCategory.Dino)
-            {
-                if (_detailStatusText != null)
-                {
-                    _detailStatusText.text = isEquipped ? "状态：当前正在大厅与游戏中出战" : "状态：已入库（点击下方按钮立即切换出战）";
-                    _detailStatusText.color = isEquipped ? new Color(0.42f, 0.96f, 0.56f, 1f) : new Color(0.76f, 0.86f, 0.96f, 1f);
-                }
-                SetActionButtonState(
-                    isEquipped ? "当前出战中" : "使用 / 切换出战",
-                    isEquipped ? BtnMutedColor : BtnEquipColor,
-                    interactable: !isEquipped);
-            }
-            else
-            {
-                if (isEquipped)
-                {
-                    bool isDefault = item.id == InventoryManager.DefaultSkinId;
-                    if (_detailStatusText != null)
-                    {
-                        _detailStatusText.text = isDefault ? "状态：当前已穿戴原生默认皮肤" : "状态：当前已穿戴此定制皮肤（可点击卸下）";
-                        _detailStatusText.color = new Color(0.42f, 0.96f, 0.56f, 1f);
-                    }
-                    SetActionButtonState(
-                        isDefault ? "已穿戴（默认）" : "卸 下 皮 肤",
-                        isDefault ? BtnMutedColor : BtnUnequipColor,
-                        interactable: !isDefault);
-                }
-                else
-                {
-                    if (_detailStatusText != null)
-                    {
-                        _detailStatusText.text = "状态：已入库未穿戴（点击穿戴立即在游戏中生效）";
-                        _detailStatusText.color = new Color(0.76f, 0.86f, 0.96f, 1f);
-                    }
-                    SetActionButtonState("穿 戴 皮 肤", BtnEquipColor, interactable: true);
-                }
-            }
+            EquipItemWithFeedback(item);
         }
 
-        private void SetActionButtonState(string label, Color bgColor, bool interactable)
+        private void EquipItemWithFeedback(InventoryItemData item)
         {
-            if (_actionBtn == null) return;
-            _actionBtn.interactable = interactable;
-            if (_actionBtnImg != null) _actionBtnImg.color = bgColor;
-            if (_actionBtnText != null)
-            {
-                _actionBtnText.text = label;
-                _actionBtnText.color = interactable ? Color.white : new Color(0.68f, 0.72f, 0.78f, 0.92f);
-            }
+            bool ok = InventoryManager.EquipOrUseItem(item.id, out string msg);
+            if (ok) UISoundManager.PlaySave();
+            else UISoundManager.PlayClick();
+            ShowToast(msg);
+        }
+
+        private void EndDragVisual()
+        {
+            if (_dragGhostRT != null) _dragGhostRT.gameObject.SetActive(false);
+            if (_selectedDinoSlotBg != null) _selectedDinoSlotBg.color = DockSlotNormalColor;
+            if (_selectedSkinSlotBg != null) _selectedSkinSlotBg.color = DockSlotNormalColor;
         }
 
         private void ShowToast(string msg)
@@ -874,7 +631,7 @@ namespace PixelSaur.UI
             _toastText.text = msg;
             _toastObj.SetActive(true);
             _toastObj.transform.SetAsLastSibling();
-            _toastHideTime = Time.unscaledTime + 2.0f;
+            _toastHideTime = Time.unscaledTime + 1.8f;
         }
 
         private static GameObject CreateCard(Transform parent, string name, Sprite sprite, Color color)
@@ -888,7 +645,7 @@ namespace PixelSaur.UI
             return go;
         }
 
-        private Button CreateStyledButton(Transform parent, string name, Font font, string text, int fontSize, Color bgColor,
+        private Button CreateSimpleButton(Transform parent, string name, Font font, string text, int fontSize, Color bgColor,
             Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 pos, Vector2 size)
         {
             GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
@@ -917,7 +674,7 @@ namespace PixelSaur.UI
 
             Text txt = CreateText(go.transform, "Text", font, text, fontSize, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            AddOutline(txt, 1.5f);
+            AddOutline(txt, 1.2f);
             return btn;
         }
 
@@ -948,6 +705,48 @@ namespace PixelSaur.UI
             Outline outline = txt.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.90f);
             outline.effectDistance = new Vector2(dist, -dist);
+        }
+    }
+
+    /// <summary>
+    /// 仓库大格子拖拽/点击交互组件：
+    /// 支持拖拽马赛克恐龙移入底部出战方格，亦支持单击快速选角。
+    /// </summary>
+    public class WarehouseDragSlot : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
+    {
+        private InventoryPanelHUD _owner;
+        private InventoryItemData _item;
+        private Sprite _sprite;
+        private bool _dragging;
+
+        public void Init(InventoryPanelHUD owner, InventoryItemData item, Sprite sprite)
+        {
+            _owner = owner;
+            _item = item;
+            _sprite = sprite;
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            _dragging = true;
+            _owner?.BeginDragItem(_item, _sprite, eventData);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            _owner?.UpdateDragPosition(eventData);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            _dragging = false;
+            _owner?.EndDragItem(_item, eventData);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (_dragging) return;
+            _owner?.HandleSlotClicked(_item);
         }
     }
 }

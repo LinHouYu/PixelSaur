@@ -473,6 +473,24 @@ namespace PixelSaur.UI
         }
 
         private static readonly Dictionary<string, Texture2D> SkinTextureCache = new Dictionary<string, Texture2D>();
+        private static readonly Dictionary<string, Sprite> MosaicSpriteCache = new Dictionary<string, Sprite>();
+
+        public static Sprite GetItemMosaicSprite(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId)) return null;
+            if (MosaicSpriteCache.TryGetValue(itemId, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Sprite sp = Resources.Load<Sprite>("DinoIcons/" + itemId);
+            if (sp != null)
+            {
+                if (sp.texture != null) sp.texture.filterMode = FilterMode.Point;
+                MosaicSpriteCache[itemId] = sp;
+            }
+            return sp;
+        }
 
         public static string GetEffectiveSkinTextureResourcePath()
         {
