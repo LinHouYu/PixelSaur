@@ -56,7 +56,7 @@ namespace PixelSaur.UI
         private Text _toastText;
         private float _toastHideTime;
 
-        private ShopTab _activeTab = ShopTab.Items;
+        private ShopTab _activeTab = ShopTab.Dinos;
         private string _pendingProductId;
         private bool _built;
         private static Sprite _fallbackWhitePill;
@@ -180,7 +180,7 @@ namespace PixelSaur.UI
 
         public void OpenDefault()
         {
-            OpenTab(ShopTab.Items);
+            OpenTab(ShopTab.Dinos);
         }
 
         public void OpenRechargeTab()
@@ -269,12 +269,12 @@ namespace PixelSaur.UI
                 else { UISoundManager.PlayClose(); gameObject.SetActive(false); }
             });
 
-            // 2. 商品页签切换（道具商店 / 恐龙商店 / 琥珀充值） + 快捷前往背包按钮
-            BuildTabButton(font, ShopTab.Items, "ShopTabItemsBtn", "道具商店", 36f);
-            BuildTabButton(font, ShopTab.Dinos, "ShopTabDinosBtn", "恐龙商店", 248f);
-            BuildTabButton(font, ShopTab.Recharge, "ShopTabRechargeBtn", "琥珀充值", 460f);
+            // 2. 商品页签切换（主卖恐龙 / 皮肤 + 充值测试） + 快捷前往恐龙仓库按钮
+            BuildTabButton(font, ShopTab.Dinos, "ShopTabDinosBtn", "恐 龙", 36f);
+            BuildTabButton(font, ShopTab.Skins, "ShopTabSkinsBtn", "皮 肤", 248f);
+            BuildTabButton(font, ShopTab.Recharge, "ShopTabRechargeBtn", "充值测试", 460f);
 
-            Button openInvBtn = CreateStyledButton(transform, "ShopOpenInventoryBtn", font, "前往恐龙背包 →", 22,
+            Button openInvBtn = CreateStyledButton(transform, "ShopOpenInventoryBtn", font, "前往恐龙仓库 →", 22,
                 new Color(0.18f, 0.44f, 0.48f, 1f),
                 new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-36f, -104f), new Vector2(228f, 58f));
             openInvBtn.onClick.AddListener(() =>
@@ -525,9 +525,9 @@ namespace PixelSaur.UI
             }
             if (_confirmDeliveryText != null)
             {
-                _confirmDeliveryText.text = product.isUniqueUnlock
-                    ? "发放去向：永久解锁并写入恐龙背包（本地存档即时保存）"
-                    : $"发放去向：立即增加 +{product.grantQuantity} 件数量至恐龙背包";
+                _confirmDeliveryText.text = product.tab == ShopTab.Dinos
+                    ? "发放去向：一次性解锁永久入库，可在仓库中随时出战切换"
+                    : "发放去向：一次性解锁永久入库，可在仓库中随时穿戴生效";
             }
 
             if (_confirmBuyBtn != null) _confirmBuyBtn.interactable = affordable;
@@ -560,9 +560,9 @@ namespace PixelSaur.UI
             if (_amberBalanceText != null) _amberBalanceText.text = $"琥珀：{QuestManager.Amber:N0}";
 
             // 2. 更新页签状态
-            UpdateTabVisual(ShopTab.Items, "道具商店");
-            UpdateTabVisual(ShopTab.Dinos, "恐龙商店");
-            UpdateTabVisual(ShopTab.Recharge, "琥珀充值");
+            UpdateTabVisual(ShopTab.Dinos, "恐 龙");
+            UpdateTabVisual(ShopTab.Skins, "皮 肤");
+            UpdateTabVisual(ShopTab.Recharge, "充值测试");
 
             // 3. 重新生成商品卡片列表
             for (int i = _gridContent.childCount - 1; i >= 0; i--)
@@ -661,17 +661,10 @@ namespace PixelSaur.UI
                 warehouseNote = product.subtitle;
                 noteColor = new Color(0.46f, 0.88f, 1f, 1f);
             }
-            else if (product.isUniqueUnlock)
-            {
-                warehouseNote = isOwned ? "背包状态：已拥有（可前往背包穿戴）" : "背包状态：未解锁（购买后自动入库）";
-                noteColor = isOwned ? new Color(0.42f, 0.94f, 0.56f, 1f) : new Color(0.96f, 0.84f, 0.44f, 1f);
-            }
             else
             {
-                InventoryItemData invItem = InventoryManager.GetItemById(product.targetInventoryId);
-                int ownedQty = invItem != null ? invItem.quantity : 0;
-                warehouseNote = $"当前背包库存：{ownedQty} 件";
-                noteColor = new Color(0.62f, 0.86f, 1f, 1f);
+                warehouseNote = isOwned ? "仓库状态：已拥有（已在恐龙仓库中）" : "仓库状态：未购买（一次性解锁写入仓库）";
+                noteColor = isOwned ? new Color(0.42f, 0.94f, 0.56f, 1f) : new Color(0.96f, 0.84f, 0.44f, 1f);
             }
 
             CreateText(cardGo.transform, "WarehouseNote", font, warehouseNote, 16, FontStyle.Bold, noteColor,

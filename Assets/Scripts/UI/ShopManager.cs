@@ -6,8 +6,8 @@ namespace PixelSaur.UI
 {
     public enum ShopTab
     {
-        Items,
         Dinos,
+        Skins,
         Recharge
     }
 
@@ -33,19 +33,16 @@ namespace PixelSaur.UI
         public string iconKey;
 
         public string targetInventoryId;
-        public int grantQuantity;
-        public bool isUniqueUnlock;
-
         public bool isRechargePack;
         public int rechargeGold;
         public int rechargeAmber;
     }
 
     /// <summary>
-    /// 岛屿商店数据管理器：
-    /// 1. 维护【道具商店 / 恐龙商店 / 琥珀充值】三类商品列表；
-    /// 2. 执行购买结算时真实扣除【恐龙化石】或【琥珀】，并将对应物品数量或限定恐龙/皮肤写入 InventoryManager 本地仓库存档；
-    /// 3. 琥珀充值页提供点击即加钱的测试充值包，与顶部货币栏和背包库存实时互通。
+    /// 岛屿恐龙商店管理器：
+    /// 1. 主打【恐龙】与【皮肤】两大核心商品页签，均为一次性购买解锁；
+    /// 2. 购买时扣除【恐龙化石】或【琥珀】，立即写入 InventoryManager 本地仓库；
+    /// 3. 购买后的恐龙与皮肤状态锁定为“已拥有”，不可重复购买，且可直接在游戏与大厅仓库中切换使用。
     /// </summary>
     public static class ShopManager
     {
@@ -65,97 +62,109 @@ namespace PixelSaur.UI
         {
             Products.Clear();
 
-            // 1. 道具商店（消耗恐龙化石或琥珀，购买后直接累加对应道具数量至背包仓库）
-            AddProduct("shop_meat_pack", ShopTab.Items, ShopCurrency.Fossil, 120,
-                "鲜嫩恐龙肉排 x3", "补给礼包 · 写入背包",
-                "购买后立即向恐龙背包写入 3 份【鲜嫩恐龙肉排】，使用每份可兑换 80 资源补给。",
-                "普通", new Color(0.46f, 0.56f, 0.68f, 1f), new Color(0.92f, 0.56f, 0.26f, 1f), "food",
-                "item_meat", 3, false);
+            // 1. 恐龙（一次性购买解锁，进入游戏仓库后可切换出战）
+            AddProduct("shop_dino_trex", ShopTab.Dinos, ShopCurrency.Fossil, 0,
+                "成年霸王龙 · T-Rex", "初始主战恐龙 · 免费入库",
+                "基础均衡型陆地霸主（1.00x 体型 / 100% 攻速）。所有驯龙者初始即已在仓库中拥有。",
+                "普通", new Color(0.46f, 0.56f, 0.68f, 1f), new Color(0.24f, 0.72f, 0.36f, 1f), "dino_sneak",
+                "dino_trex");
 
-            AddProduct("shop_herb_pack", ShopTab.Items, ShopCurrency.Fossil, 150,
-                "热带治疗草药 x5", "恢复补给 · 写入背包",
-                "购买后立即向恐龙背包写入 5 份【热带治疗草药】，性价比极高的日常消耗物资。",
-                "普通", new Color(0.46f, 0.56f, 0.68f, 1f), new Color(0.32f, 0.84f, 0.46f, 1f), "heart",
-                "item_herb", 5, false);
+            AddProduct("shop_dino_juvenile", ShopTab.Dinos, ShopCurrency.Fossil, 240,
+                "迅捷亚成体霸王龙", "一次性购买 · 移速 +18%",
+                "身形精悍（0.82x）的敏捷霸王龙，奔跑速度提升 18%。买后永久存入游戏仓库并支持局内切换。",
+                "稀有", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.32f, 0.80f, 0.56f, 1f), "dino_jump",
+                "dino_rex_juvenile");
 
-            AddProduct("shop_potion_pack", ShopTab.Items, ShopCurrency.Fossil, 200,
-                "史前活力药剂 x3", "强化礼包 · 写入背包",
-                "购买后向背包存入 3 瓶【史前活力药剂】，方便在大厅与生存冒险中随时调度使用。",
-                "稀有", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.94f, 0.34f, 0.42f, 1f), "heart",
-                "item_potion", 3, false);
+            AddProduct("shop_dino_alpha", ShopTab.Dinos, ShopCurrency.Fossil, 380,
+                "狂暴领主霸王龙", "一次性购买 · 攻击 +28%",
+                "体型魁梧（1.12x）的重装领主，咬击与冲刺伤害提高 28%。一次性解锁并同步进入仓库。",
+                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.92f, 0.42f, 0.24f, 1f), "dino_bite",
+                "dino_rex_alpha");
 
-            AddProduct("shop_beacon_pack", ShopTab.Items, ShopCurrency.Fossil, 260,
-                "恐龙信号信标 x2", "战术物资 · 写入背包",
-                "购买后获得 2 个【恐龙信号信标】并存入背包，使用后可提炼额外远古琥珀。",
-                "稀有", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.42f, 0.74f, 0.98f, 1f), "dino_skill1",
-                "item_beacon", 2, false);
-
-            AddProduct("shop_amber_shard", ShopTab.Items, ShopCurrency.Fossil, 380,
-                "精纯琥珀结晶 x2", "珍稀矿物 · 化石兑换",
-                "消耗 380 恐龙化石即可购入 2 颗【精纯琥珀结晶】存入仓库，适合化石充裕的驯龙者。",
-                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.32f, 0.80f, 1.0f, 1f), "water",
-                "item_amber_shard", 2, false);
-
-            AddProduct("shop_supply_box", ShopTab.Items, ShopCurrency.Amber, 20,
-                "岛屿探索补给箱 x1", "琥珀甄选 · 惊喜礼盒",
-                "花费 20 琥珀即可获得 1 个【岛屿探索补给箱】写入仓库，随时开启获取双份资源回馈。",
-                "传说", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.98f, 0.72f, 0.22f, 1f), "dino_skill2",
-                "item_supply_box", 1, false);
-
-            // 2. 恐龙 & 限定皮肤商店（购买后永久解锁并写入 InventoryManager 仓库，可前往背包穿戴出战）
             AddProduct("shop_dino_raptor", ShopTab.Dinos, ShopCurrency.Fossil, 480,
-                "迅猛疾风掠食龙", "商店限定恐龙形态 · 解锁出战",
-                "消耗 480 恐龙化石永久解锁该高速掠食者。购买成功后自动放入【恐龙背包 -> 恐龙】页签可一键切换出战。",
-                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.24f, 0.86f, 0.64f, 1f), "dino_jump",
-                "dino_raptor_swift", 1, true);
+                "迅猛疾风掠食龙", "一次性购买 · 移速 +28%",
+                "极速岛屿猎手，移速高达 128% 且攻击提升 12%。购买即写入仓库，大厅与局内随时出战。",
+                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.24f, 0.86f, 0.64f, 1f), "pterosaur",
+                "dino_raptor_swift");
 
-            AddProduct("shop_skin_emerald", ShopTab.Dinos, ShopCurrency.Fossil, 360,
-                "翡翠晶鳞限定涂装", "商店限定皮肤 · 解锁穿戴",
-                "消耗 360 恐龙化石永久解锁碧玉晶鳞皮肤。购买后可在【恐龙背包 -> 皮肤】页签直接穿戴并实时渲染大厅霸王龙。",
-                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.18f, 0.86f, 0.50f, 1f), "dino_sneak",
-                "skin_emerald", 1, true);
+            AddProduct("shop_dino_spino", ShopTab.Dinos, ShopCurrency.Amber, 30,
+                "浅海棘背龙猎手", "一次性购买 · 琥珀专享",
+                "海蓝涂装两栖掠食恐龙（体型 1.06x / 攻击 +10% / 移速 +10%），一次性解锁永久入库。",
+                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.20f, 0.68f, 0.82f, 1f), "water",
+                "dino_spino");
 
-            AddProduct("shop_dino_obsidian", ShopTab.Dinos, ShopCurrency.Amber, 45,
-                "黑曜炎狱霸王龙", "传说级霸主形态 · 琥珀专享",
-                "消耗 45 远古琥珀解锁深渊黑曜重甲霸王龙，生命与咬击属性显著超越常规形态，写入背包后即可出战。",
+            AddProduct("shop_dino_obsidian", ShopTab.Dinos, ShopCurrency.Amber, 55,
+                "黑曜炎狱霸王龙", "一次性购买 · 传说霸主",
+                "暗紫重甲终极霸王龙（1.16x 巨型体型 / 攻击 +45%）。购买后永久进入仓库并在游戏中强力出战。",
                 "传说", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.68f, 0.44f, 0.98f, 1f), "dino_skill1",
-                "dino_obsidian_rex", 1, true);
+                "dino_obsidian_rex");
 
-            AddProduct("shop_skin_neon", ShopTab.Dinos, ShopCurrency.Amber, 35,
-                "霓虹雷暴战纹", "传说级幻彩皮肤 · 琥珀专享",
-                "消耗 35 远古琥珀解锁紫电幻彩战纹涂装，购买后立即写入恐龙背包并可穿戴呈现炫彩霸王龙外观。",
-                "传说", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.62f, 0.52f, 1.0f, 1f), "dino_skill2",
-                "skin_neon_storm", 1, true);
+            // 2. 皮肤（一次性购买解锁，进入游戏仓库自由穿戴与卸下）
+            AddProduct("shop_skin_default", ShopTab.Skins, ShopCurrency.Fossil, 0,
+                "原生丛林绿涂装", "默认经典涂装 · 免费入库",
+                "经典像素森林迷彩表皮，游戏初始默认已穿戴于仓库。",
+                "普通", new Color(0.46f, 0.56f, 0.68f, 1f), new Color(0.38f, 0.76f, 0.36f, 1f), "dino_sneak",
+                "skin_default");
 
-            // 3. 琥珀充值页（点击即加钱的测试充值按钮，同时提供恐龙化石测试补给）
+            AddProduct("shop_skin_golden", ShopTab.Skins, ShopCurrency.Fossil, 220,
+                "远古黄金琥珀甲", "一次性购买 · 鎏金皮肤",
+                "闪耀温润金属光泽的纪念鎏金涂装，购买后永久入库，大厅与游戏中皆可实时穿戴生效。",
+                "稀有", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.98f, 0.78f, 0.24f, 1f), "dino_skill2",
+                "skin_golden");
+
+            AddProduct("shop_skin_frost", ShopTab.Skins, ShopCurrency.Fossil, 280,
+                "霜雪冰原战纹", "一次性购买 · 极寒皮肤",
+                "极地冰川风格浅蓝银白甲壳涂装，购买即存入仓库随时切换外观。",
+                "稀有", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.68f, 0.88f, 1.0f, 1f), "dino_jump",
+                "skin_frost");
+
+            AddProduct("shop_skin_emerald", ShopTab.Skins, ShopCurrency.Fossil, 360,
+                "翡翠晶鳞限定涂装", "一次性购买 · 碧玉皮肤",
+                "浓郁翡翠碧玉晶体鳞片纹理，草地潜行隐蔽感十足，永久写入仓库。",
+                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.18f, 0.86f, 0.50f, 1f), "dino_sneak",
+                "skin_emerald");
+
+            AddProduct("shop_skin_abyss", ShopTab.Skins, ShopCurrency.Amber, 25,
+                "深海魅影冰蓝鳞", "一次性购买 · 琥珀专享",
+                "深海冰蓝冷光迷彩涂装，搭配浅水波纹质感极佳，一次购买终身拥有。",
+                "史诗", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.22f, 0.76f, 0.98f, 1f), "water",
+                "skin_abyss");
+
+            AddProduct("shop_skin_volcano", ShopTab.Skins, ShopCurrency.Amber, 40,
+                "赤焰火山熔岩纹", "一次性购买 · 传说皮肤",
+                "烈焰红橙熔岩战纹皮肤，大厅与游戏局内同步显现炽热外观，永久入库。",
+                "传说", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.98f, 0.40f, 0.22f, 1f), "dino_skill1",
+                "skin_volcano");
+
+            // 3. 测试充值页（便于一键获取测试货币购买恐龙与皮肤）
             AddRecharge("recharge_amber_60", "+60 远古琥珀（测试充值）",
-                "测试环境直充档位 · 免支付点击即到账",
-                "点击右侧【立即充值】按钮直接向当前账号发放 60 颗远古琥珀并保存至本地。",
-                "常用测试", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.28f, 0.78f, 1f, 1f), "water",
+                "免支付点击即到账 · 立即累加琥珀",
+                "点击【立即充值】直接获得 60 远古琥珀并保存至本地货币栏。",
+                "测试充值", new Color(0.24f, 0.66f, 0.98f, 1f), new Color(0.28f, 0.78f, 1f, 1f), "water",
                 goldGain: 0, amberGain: 60);
 
             AddRecharge("recharge_amber_300", "+300 远古琥珀（测试大礼包）",
-                "推荐测试档位 · 足够解锁商店传说恐龙与皮肤",
-                "点击【立即充值】立即获得 300 远古琥珀，可快速测试商店购买、弹窗结算与背包闭环流程。",
-                "热门测试", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.32f, 0.84f, 1f, 1f), "water",
+                "免支付点击即到账 · 畅买传说恐龙与皮肤",
+                "点击【立即充值】直接到账 300 远古琥珀，足够解锁所有琥珀限定恐龙与皮肤。",
+                "推荐测试", new Color(0.68f, 0.42f, 0.96f, 1f), new Color(0.32f, 0.84f, 1f, 1f), "water",
                 goldGain: 0, amberGain: 300);
 
-            AddRecharge("recharge_amber_980", "+980 远古琥珀（测试尊享包）",
-                "超大额测试充值 · 点击瞬时累加",
-                "点击直接到账 980 颗远古琥珀，并实时同步更新大厅顶部琥珀栏及本地存档。",
-                "至尊测试", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.46f, 0.88f, 1f, 1f), "dino_skill2",
-                goldGain: 0, amberGain: 980);
+            AddRecharge("recharge_fossil_500", "+500 恐龙化石（测试补给）",
+                "免支付点击即到账 · 畅买化石恐龙与皮肤",
+                "点击【立即充值】立即获得 500 恐龙化石，随时用于购买仓库恐龙与皮肤。",
+                "化石补给", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.94f, 0.58f, 0.24f, 1f), "food",
+                goldGain: 500, amberGain: 0);
 
-            AddRecharge("recharge_fossil_600", "+600 恐龙化石（测试补给）",
-                "辅助测试档位 · 点击即送恐龙化石",
-                "点击立即发放 600 恐龙化石，方便在道具商店与恐龙商店体验化石扣款与库存写入。",
-                "化石测试", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.94f, 0.58f, 0.24f, 1f), "food",
-                goldGain: 600, amberGain: 0);
+            AddRecharge("recharge_fossil_1500", "+1,500 恐龙化石（至尊测试包）",
+                "大额测试补给 · 点击瞬时累加",
+                "点击【立即充值】立即增加 1,500 恐龙化石，同步刷新顶部货币余额。",
+                "尊享测试", new Color(0.95f, 0.68f, 0.20f, 1f), new Color(0.98f, 0.72f, 0.22f, 1f), "dino_skill2",
+                goldGain: 1500, amberGain: 0);
         }
 
         private static void AddProduct(string id, ShopTab tab, ShopCurrency currency, int price,
             string title, string subtitle, string desc, string rarityLabel, Color rarityColor, Color accentColor,
-            string iconKey, string targetInventoryId, int grantQuantity, bool isUniqueUnlock)
+            string iconKey, string targetInventoryId)
         {
             Products.Add(new ShopProductData
             {
@@ -171,8 +180,6 @@ namespace PixelSaur.UI
                 accentColor = accentColor,
                 iconKey = iconKey,
                 targetInventoryId = targetInventoryId,
-                grantQuantity = grantQuantity,
-                isUniqueUnlock = isUniqueUnlock,
                 isRechargePack = false
             });
         }
@@ -233,7 +240,7 @@ namespace PixelSaur.UI
 
         public static bool IsOwned(ShopProductData product)
         {
-            if (product == null || !product.isUniqueUnlock) return false;
+            if (product == null || product.isRechargePack) return false;
             return InventoryManager.IsItemUnlocked(product.targetInventoryId);
         }
 
@@ -272,14 +279,15 @@ namespace PixelSaur.UI
                 }
                 else
                 {
-                    feedbackMessage = $"✓ 测试补给成功：+{product.rechargeGold} 恐龙化石已到账！";
+                    feedbackMessage = $"✓ 测试充值成功：+{product.rechargeGold} 恐龙化石已到账！";
                 }
                 return true;
             }
 
+            // 恐龙与皮肤严格一次性购买，已拥有不可重复购买
             if (IsOwned(product))
             {
-                feedbackMessage = $"您已拥有【{product.title}】，可直接前往恐龙背包穿戴使用！";
+                feedbackMessage = $"【{product.title}】已拥有（一次性解锁），请前往恐龙仓库使用！";
                 return false;
             }
 
@@ -287,21 +295,13 @@ namespace PixelSaur.UI
             if (!QuestManager.TrySpendCurrency(rewardType, product.price))
             {
                 string unit = GetCurrencyName(product.currency);
-                feedbackMessage = $"{unit}余额不足（需要 {product.price} {unit}），可先点击【琥珀充值】或完成任务获取！";
+                feedbackMessage = $"{unit}余额不足（需要 {product.price} {unit}），可先点击【充值测试】补充货币！";
                 return false;
             }
 
-            if (product.isUniqueUnlock)
-            {
-                InventoryManager.UnlockSpecialItem(product.targetInventoryId);
-            }
-            else
-            {
-                InventoryManager.GrantItemQuantity(product.targetInventoryId, Mathf.Max(1, product.grantQuantity));
-            }
-
+            InventoryManager.UnlockPurchasedItem(product.targetInventoryId);
             OnShopUpdated?.Invoke();
-            feedbackMessage = $"✓ 购买成功：【{product.title}】已写入恐龙背包！";
+            feedbackMessage = $"✓ 购买成功：【{product.title}】已永久解锁并放入恐龙仓库！";
             return true;
         }
     }

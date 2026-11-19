@@ -208,11 +208,43 @@ namespace PixelSaur.UI
             }
         }
 
+        public static bool OpenGlobalWarehouse()
+        {
+            if (UIPanelManager.Instance != null)
+            {
+                UIPanelManager.Instance.OpenPanel("InventoryPanel");
+                return true;
+            }
+
+            InventoryPanelHUD[] all = Resources.FindObjectsOfTypeAll<InventoryPanelHUD>();
+            InventoryPanelHUD target = null;
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] != null && all[i].gameObject.scene.IsValid() && all[i].gameObject.scene.isLoaded)
+                {
+                    target = all[i];
+                    break;
+                }
+            }
+
+            if (target == null)
+            {
+                Canvas activeCanvas = FindFirstObjectByType<Canvas>();
+                if (activeCanvas == null) return false;
+                GameObject go = new GameObject("InventoryPanel", typeof(RectTransform), typeof(InventoryPanelHUD));
+                go.transform.SetParent(activeCanvas.transform, false);
+                target = go.GetComponent<InventoryPanelHUD>();
+            }
+
+            target.OpenDefault();
+            return true;
+        }
+
         public void OpenDefault()
         {
             _activeCategory = InventoryCategory.All;
             InventoryManager.EnsureInitialized();
-            if (string.IsNullOrEmpty(_selectedItemId) || InventoryManager.GetItemById(_selectedItemId) == null)
+            if (string.IsNullOrEmpty(_selectedItemId) || !InventoryManager.IsItemUnlocked(_selectedItemId))
             {
                 _selectedItemId = InventoryManager.EquippedDinoId;
             }
@@ -310,7 +342,7 @@ namespace PixelSaur.UI
             bg.raycastTarget = true;
 
             // 1. 顶部标题、当前出战提示与关闭按钮 X
-            CreateText(transform, "Title", font, "恐龙背包 & 仓库", 36, FontStyle.Bold, Color.white,
+            CreateText(transform, "Title", font, "恐 龙 仓 库", 36, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleLeft, new Vector2(0f, 0.87f), new Vector2(0.45f, 1f), new Vector2(36f, 0f), new Vector2(0f, -6f));
 
             _loadoutSummaryText = CreateText(transform, "LoadoutSummary", font, "当前出战：成年霸王龙 · 原生丛林绿涂装", 20, FontStyle.Bold,
@@ -325,20 +357,19 @@ namespace PixelSaur.UI
                 else { UISoundManager.PlayClose(); gameObject.SetActive(false); }
             });
 
-            // 2. 分类筛选页签（全部 / 恐龙 / 皮肤 / 道具）+ 右侧重置按钮
+            // 2. 分类筛选页签（全部 / 恐龙 / 皮肤）+ 右侧重置按钮
             BuildTabButton(font, InventoryCategory.All, "TabAllBtn", "全部", 36f);
             BuildTabButton(font, InventoryCategory.Dino, "TabDinoBtn", "恐龙", 212f);
             BuildTabButton(font, InventoryCategory.Skin, "TabSkinBtn", "皮肤", 388f);
-            BuildTabButton(font, InventoryCategory.Item, "TabItemBtn", "道具", 564f);
 
-            Button resetBtn = CreateStyledButton(transform, "ResetInventoryBtn", font, "重置库存", 21,
+            Button resetBtn = CreateStyledButton(transform, "ResetInventoryBtn", font, "重置仓库", 21,
                 new Color(0.24f, 0.28f, 0.36f, 1f),
                 new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-36f, -104f), new Vector2(168f, 58f));
             resetBtn.onClick.AddListener(() =>
             {
                 UISoundManager.PlayClick();
                 InventoryManager.ResetInventoryData();
-                ShowToast("✓ 已恢复背包初始默认数据并写入本地存档！");
+                ShowToast("✓ 已恢复仓库初始默认状态并同步至本地！");
             });
 
             // 3. 左侧动态网格背包区（ScrollRect + GridLayoutGroup）
@@ -552,7 +583,6 @@ namespace PixelSaur.UI
             UpdateTabVisual(InventoryCategory.All, "全部");
             UpdateTabVisual(InventoryCategory.Dino, "恐龙");
             UpdateTabVisual(InventoryCategory.Skin, "皮肤");
-            UpdateTabVisual(InventoryCategory.Item, "道具");
 
             if (_loadoutSummaryText != null)
             {
@@ -629,10 +659,9 @@ namespace PixelSaur.UI
         private void BuildGridSlot(InventoryItemData item, Font font, Sprite panelSprite)
         {
             bool isEquipped = InventoryManager.IsItemEquipped(item);
-            bool isDepleted = item.category == InventoryCategory.Item && item.quantity <= 0;
             bool isSelected = item.id == _selectedItemId;
 
-            Color bgTint = isDepleted ? SlotDepletedBgColor : (isSelected ? SlotSelectedBgColor : SlotNormalBgColor);
+            Color bgTint = isSelected ? SlotSelectedBgColor : SlotNormalBgColor;
 
             GameObject slotGo = new GameObject("Slot_" + item.id, typeof(RectTransform), typeof(Image), typeof(Button));
             slotGo.transform.SetParent(_gridContent, false);
@@ -678,7 +707,7 @@ namespace PixelSaur.UI
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             AddOutline(ctTxt, 1f);
 
-            // 右上角状态角标（出战中 / 已穿戴 / x数量）
+            // 右上角状态角标（出战中 / 已穿戴）
             if (isEquipped)
             {
                 string eqLabel = item.category == InventoryCategory.Dino ? "出战中" : "已穿戴";
@@ -692,20 +721,6 @@ namespace PixelSaur.UI
                 Text eqTxt = CreateText(eqTag.transform, "Text", font, eqLabel, 15, FontStyle.Bold, Color.white,
                     TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 AddOutline(eqTxt, 1f);
-            }
-            else if (item.category == InventoryCategory.Item)
-            {
-                Color qtyBg = item.quantity > 0 ? new Color(0.16f, 0.40f, 0.68f, 1f) : new Color(0.32f, 0.20f, 0.22f, 1f);
-                GameObject qtyTag = CreateCard(slotGo.transform, "QuantityTag", panelSprite, qtyBg);
-                RectTransform qRT = qtyTag.GetComponent<RectTransform>();
-                qRT.anchorMin = new Vector2(0.58f, 0.81f);
-                qRT.anchorMax = new Vector2(0.94f, 0.94f);
-                qRT.offsetMin = Vector2.zero;
-                qRT.offsetMax = Vector2.zero;
-                qtyTag.GetComponent<Image>().raycastTarget = false;
-                Text qTxt = CreateText(qtyTag.transform, "Text", font, $"x{item.quantity}", 16, FontStyle.Bold, Color.white,
-                    TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                AddOutline(qTxt, 1f);
             }
 
             // 中央图标底座 + 像素图标
@@ -728,12 +743,11 @@ namespace PixelSaur.UI
             Image iconImg = iconGo.GetComponent<Image>();
             iconImg.sprite = ResolveItemSprite(item.iconKey);
             iconImg.preserveAspect = true;
-            iconImg.color = isDepleted ? new Color(0.55f, 0.55f, 0.55f, 0.7f) : Color.white;
+            iconImg.color = Color.white;
             iconImg.raycastTarget = false;
 
             // 底部物品名称
-            Text nameTxt = CreateText(slotGo.transform, "ItemName", font, item.name, 18, FontStyle.Bold,
-                isDepleted ? new Color(0.64f, 0.68f, 0.74f, 0.9f) : Color.white,
+            Text nameTxt = CreateText(slotGo.transform, "ItemName", font, item.name, 18, FontStyle.Bold, Color.white,
                 TextAnchor.MiddleCenter, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.27f), Vector2.zero, Vector2.zero);
             AddOutline(nameTxt, 1.2f);
         }
@@ -750,11 +764,9 @@ namespace PixelSaur.UI
                     if (slotTransform != null)
                     {
                         Image bg = slotTransform.GetComponent<Image>();
-                        InventoryItemData item = InventoryManager.GetItemById(kv.Key);
-                        if (bg != null && item != null)
+                        if (bg != null)
                         {
-                            bool depleted = item.category == InventoryCategory.Item && item.quantity <= 0;
-                            bg.color = depleted ? SlotDepletedBgColor : (selected ? SlotSelectedBgColor : SlotNormalBgColor);
+                            bg.color = selected ? SlotSelectedBgColor : SlotNormalBgColor;
                         }
                     }
                 }
@@ -764,7 +776,7 @@ namespace PixelSaur.UI
         private void RefreshDetailPane()
         {
             InventoryItemData item = InventoryManager.GetItemById(_selectedItemId);
-            if (item == null)
+            if (item == null || !item.unlocked)
             {
                 List<InventoryItemData> items = InventoryManager.GetItemsByCategory(_activeCategory);
                 if (items.Count > 0)
@@ -780,9 +792,7 @@ namespace PixelSaur.UI
             if (_detailIconImg != null)
             {
                 _detailIconImg.sprite = ResolveItemSprite(item.iconKey);
-                _detailIconImg.color = (item.category == InventoryCategory.Item && item.quantity <= 0)
-                    ? new Color(0.55f, 0.55f, 0.55f, 0.7f)
-                    : Color.white;
+                _detailIconImg.color = Color.white;
             }
             if (_detailIconBg != null)
             {
@@ -801,22 +811,22 @@ namespace PixelSaur.UI
             if (_detailDescText != null) _detailDescText.text = item.description;
             if (_detailSaveHintText != null)
             {
-                _detailSaveHintText.text = $"本地存档：已启用 JSON + PlayerPrefs 持久化";
+                _detailSaveHintText.text = "同步说明：大厅与游戏局内随时可切换使用并永久保存";
             }
 
             if (item.category == InventoryCategory.Dino)
             {
                 if (_detailStatusText != null)
                 {
-                    _detailStatusText.text = isEquipped ? "状态：当前正在大厅与岛屿出战中" : "状态：已解锁（可随时切换出战）";
+                    _detailStatusText.text = isEquipped ? "状态：当前正在大厅与游戏中出战" : "状态：已入库（点击下方按钮立即切换出战）";
                     _detailStatusText.color = isEquipped ? new Color(0.42f, 0.96f, 0.56f, 1f) : new Color(0.76f, 0.86f, 0.96f, 1f);
                 }
                 SetActionButtonState(
-                    isEquipped ? "已 出 战" : "穿 戴 出 战",
+                    isEquipped ? "当前出战中" : "使用 / 切换出战",
                     isEquipped ? BtnMutedColor : BtnEquipColor,
                     interactable: !isEquipped);
             }
-            else if (item.category == InventoryCategory.Skin)
+            else
             {
                 if (isEquipped)
                 {
@@ -835,24 +845,11 @@ namespace PixelSaur.UI
                 {
                     if (_detailStatusText != null)
                     {
-                        _detailStatusText.text = "状态：未穿戴（点击穿戴立即生效）";
+                        _detailStatusText.text = "状态：已入库未穿戴（点击穿戴立即在游戏中生效）";
                         _detailStatusText.color = new Color(0.76f, 0.86f, 0.96f, 1f);
                     }
                     SetActionButtonState("穿 戴 皮 肤", BtnEquipColor, interactable: true);
                 }
-            }
-            else
-            {
-                bool hasStock = item.quantity > 0;
-                if (_detailStatusText != null)
-                {
-                    _detailStatusText.text = hasStock ? $"当前库存：{item.quantity} 件（点击使用立即生效）" : "当前库存：0 件（已耗尽）";
-                    _detailStatusText.color = hasStock ? new Color(0.44f, 0.84f, 1f, 1f) : new Color(0.72f, 0.56f, 0.56f, 1f);
-                }
-                SetActionButtonState(
-                    hasStock ? "立 即 使 用" : "已 耗 尽",
-                    hasStock ? BtnUseColor : BtnMutedColor,
-                    interactable: hasStock);
             }
         }
 

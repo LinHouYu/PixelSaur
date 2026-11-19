@@ -9,8 +9,7 @@ namespace PixelSaur.UI
     {
         All,
         Dino,
-        Skin,
-        Item
+        Skin
     }
 
     public enum InventoryRarity
@@ -36,13 +35,11 @@ namespace PixelSaur.UI
         public Color previewTintColor;
         public float previewScale;
 
-        public int defaultQuantity;
-        public bool defaultUnlocked;
-        public bool isStackable;
-        public int rewardGold;
-        public int rewardAmber;
+        public float inGameScaleMultiplier = 1.0f;
+        public float moveSpeedMultiplier = 1.0f;
+        public float attackMultiplier = 1.0f;
 
-        public int quantity;
+        public bool defaultUnlocked;
         public bool unlocked;
 
         public string GetCategoryLabel()
@@ -51,7 +48,6 @@ namespace PixelSaur.UI
             {
                 case InventoryCategory.Dino: return "恐龙";
                 case InventoryCategory.Skin: return "皮肤";
-                case InventoryCategory.Item: return "道具";
                 default: return "全部";
             }
         }
@@ -83,7 +79,6 @@ namespace PixelSaur.UI
     internal class InventoryItemSaveEntry
     {
         public string id;
-        public int quantity;
         public bool unlocked;
     }
 
@@ -96,16 +91,17 @@ namespace PixelSaur.UI
     }
 
     /// <summary>
-    /// 开始场景本地背包与仓库数据管理器：
-    /// 1. 维护恐龙 / 皮肤 / 道具三类物品定义、穿戴/出战状态与道具库存；
-    /// 2. 使用 JSON 文件（persistentDataPath）+ PlayerPrefs 双备份进行本地读写与持久化，重启不丢失。
+    /// 恐龙与皮肤仓库本地数据管理器（大厅与游戏内共用）：
+    /// 1. 集中保存玩家在商店一次性购买解锁的【恐龙】与【皮肤】；
+    /// 2. 支持在大厅以及游戏运行过程中实时切换出战恐龙与穿戴皮肤，同步影响角色体型、移速、攻击力与外观着色；
+    /// 3. 采用 JSON 文件（persistentDataPath）+ PlayerPrefs 双备份进行本地持久化读写。
     /// </summary>
     public static class InventoryManager
     {
         public const string DefaultDinoId = "dino_trex";
         public const string DefaultSkinId = "skin_default";
-        private const string SaveFileName = "pixelsaur_inventory_v1.json";
-        private const string PrefsBackupKey = "PIXELSaur_INVENTORY_JSON_V1";
+        private const string SaveFileName = "pixelsaur_warehouse_v2.json";
+        private const string PrefsBackupKey = "PIXELSaur_WAREHOUSE_JSON_V2";
 
         public static event Action OnInventoryChanged;
 
@@ -153,159 +149,96 @@ namespace PixelSaur.UI
         {
             Items.Clear();
 
-            // 1. 恐龙（出战个体切换）
-            AddDef("dino_trex", InventoryCategory.Dino, InventoryRarity.Legendary,
-                "成年霸王龙 · T-Rex", "SS 级陆地顶级掠食者",
-                "生命 100  |  攻击 25  |  移速 6.5",
-                "主战像素霸王龙形态，兼具强劲下颌撕咬、潜行接近、狂暴冲刺与震慑吼叫四项岛屿核心技能，适应陆地与近岸浅海追猎。",
-                "dino_sneak", new Color(0.24f, 0.72f, 0.36f, 1f), Color.white, 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            // 1. 恐龙（默认拥有 1 只基础霸王龙，其余均需在商店一次性购买解锁并进入仓库）
+            AddDino("dino_trex", InventoryRarity.Common,
+                "成年霸王龙 · T-Rex", "初始主战恐龙 · 免费赠送",
+                "体型 1.00x  |  攻击 100%  |  移速 100%",
+                "像素侏罗纪岛屿的基础主战霸王龙，属性均衡全面，擅长近战撕咬、潜行、狂暴冲刺与震慑吼叫，出征前无需解锁即可直接出战。",
+                "dino_sneak", new Color(0.24f, 0.72f, 0.36f, 1f), Color.white,
+                previewScale: 0.78f, inGameScaleMult: 1.00f, speedMult: 1.00f, atkMult: 1.00f, defaultUnlocked: true);
 
-            AddDef("dino_rex_alpha", InventoryCategory.Dino, InventoryRarity.Legendary,
-                "狂暴领主霸王龙", "SSS 级岛屿霸主个体",
-                "生命 135  |  攻击 32  |  移速 7.0",
-                "经历数场领地争夺洗礼的成年霸王，体型更加魁梧雄壮。穿戴出战后，大厅展示霸王龙将切换为更硕大的领主体型，气场全面提升。",
-                "dino_bite", new Color(0.92f, 0.42f, 0.24f, 1f), new Color(1.06f, 0.86f, 0.76f, 1f), 0.86f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            AddDino("dino_rex_juvenile", InventoryRarity.Rare,
+                "迅捷亚成体霸王龙", "商店限定 · 灵巧机动型",
+                "体型 0.82x  |  攻击 85%  |  移速 +18%",
+                "体型更为精悍灵活的年轻霸王龙，具备更快的移动与追击节奏，切换使用后角色身形缩小且奔跑速率明显提升。",
+                "dino_jump", new Color(0.32f, 0.80f, 0.56f, 1f), new Color(0.88f, 1.04f, 0.90f, 1f),
+                previewScale: 0.64f, inGameScaleMult: 0.82f, speedMult: 1.18f, atkMult: 0.85f, defaultUnlocked: false);
 
-            AddDef("dino_rex_juvenile", InventoryCategory.Dino, InventoryRarity.Epic,
-                "迅捷亚成体霸王龙", "A 级灵巧突袭猎手",
-                "生命 78  |  攻击 19  |  移速 7.8",
-                "身形轻盈矫健的年轻霸王龙，擅长在密林草丛间高速穿行，降低遭遇伏击时的转向延迟，适合灵活机动打法。",
-                "dino_jump", new Color(0.32f, 0.80f, 0.56f, 1f), new Color(0.88f, 1.04f, 0.90f, 1f), 0.64f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            AddDino("dino_rex_alpha", InventoryRarity.Epic,
+                "狂暴领主霸王龙", "商店限定 · 高攻重装型",
+                "体型 1.12x  |  攻击 +28%  |  移速 +6%",
+                "经历数场领地争夺洗礼的成年领主霸王，体型更加魁梧雄壮，切换出战后撕咬与冲刺攻击力提升 28%。",
+                "dino_bite", new Color(0.92f, 0.42f, 0.24f, 1f), new Color(1.06f, 0.86f, 0.76f, 1f),
+                previewScale: 0.86f, inGameScaleMult: 1.12f, speedMult: 1.06f, atkMult: 1.28f, defaultUnlocked: false);
 
-            AddDef("dino_pterosaur", InventoryCategory.Dino, InventoryRarity.Epic,
-                "苍穹翼龙侦察形态", "S 级海岸巡航物种",
-                "生命 85  |  攻击 16  |  移速 8.4",
-                "活跃于热带礁岩与海岸线上空的翼龙品种，视野开阔、身姿轻盈，能够在岛屿浅水海域附近快速巡航搜寻猎物。",
-                "pterosaur", new Color(0.26f, 0.74f, 0.96f, 1f), new Color(0.84f, 0.98f, 1.06f, 1f), 0.72f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            AddDino("dino_raptor_swift", InventoryRarity.Epic,
+                "迅猛疾风掠食龙", "商店限定 · 极速突袭型",
+                "体型 0.90x  |  攻击 +12%  |  移速 +28%",
+                "擅长岛屿长距离奔袭的高速掠食恐龙，切换上场后可大幅提升移动追猎速度并兼具强劲咬击威力。",
+                "pterosaur", new Color(0.24f, 0.86f, 0.64f, 1f), new Color(0.76f, 1.02f, 0.88f, 1f),
+                previewScale: 0.70f, inGameScaleMult: 0.90f, speedMult: 1.28f, atkMult: 1.12f, defaultUnlocked: false);
 
-            AddDef("dino_spino", InventoryCategory.Dino, InventoryRarity.Epic,
-                "浅海棘背龙猎手", "S 级水陆两栖掠食者",
-                "生命 115  |  攻击 24  |  移速 6.9",
-                "背部长有标志性帆状棘刺的两栖恐龙，在水域及沙滩地形移动流畅，擅长伏击海岸附近的游荡猎物。",
-                "water", new Color(0.20f, 0.68f, 0.82f, 1f), new Color(0.76f, 0.94f, 1.05f, 1f), 0.81f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            AddDino("dino_spino", InventoryRarity.Epic,
+                "浅海棘背龙猎手", "商店限定 · 水岸伏击型",
+                "体型 1.06x  |  攻击 +10%  |  移速 +10%",
+                "活跃于热带礁岩与海岸浅水区的强悍掠食者，兼具均衡攻防与海蓝磷甲视觉表现，购买后永久入库切换。",
+                "water", new Color(0.20f, 0.68f, 0.82f, 1f), new Color(0.74f, 0.95f, 1.08f, 1f),
+                previewScale: 0.81f, inGameScaleMult: 1.06f, speedMult: 1.10f, atkMult: 1.10f, defaultUnlocked: false);
 
-            AddDef("dino_raptor_swift", InventoryCategory.Dino, InventoryRarity.Epic,
-                "迅猛疾风掠食龙", "商店限定 · S 级高速猎手",
-                "生命 95  |  攻击 28  |  移速 8.8",
-                "商店专属解锁的迅捷掠食龙形态，爆发移速极高，适合岛屿长距离奔袭与闪避反击，购买后永久写入背包。",
-                "dino_jump", new Color(0.24f, 0.86f, 0.64f, 1f), new Color(0.76f, 1.02f, 0.88f, 1f), 0.70f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
-
-            AddDef("dino_obsidian_rex", InventoryCategory.Dino, InventoryRarity.Legendary,
+            AddDino("dino_obsidian_rex", InventoryRarity.Legendary,
                 "黑曜炎狱霸王龙", "商店限定 · SSS 级深渊霸主",
-                "生命 150  |  攻击 36  |  移速 7.2",
-                "商店专属解锁的传说级黑曜石重甲霸王龙，具备压倒性咬击伤害与暗紫霸主气场，购买后立即解锁出战。",
-                "dino_skill1", new Color(0.68f, 0.44f, 0.98f, 1f), new Color(0.68f, 0.56f, 0.96f, 1f), 0.85f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+                "体型 1.16x  |  攻击 +45%  |  移速 +8%",
+                "传说级黑曜重甲霸王龙，具备压倒性的撕咬伤害（+45%）与暗紫霸主气场，游戏内切换立即巨化并全面强化火力。",
+                "dino_skill1", new Color(0.68f, 0.44f, 0.98f, 1f), new Color(0.68f, 0.56f, 0.96f, 1f),
+                previewScale: 0.88f, inGameScaleMult: 1.16f, speedMult: 1.08f, atkMult: 1.45f, defaultUnlocked: false);
 
-            // 2. 皮肤（外观穿戴与卸下切换）
-            AddDef("skin_default", InventoryCategory.Skin, InventoryRarity.Common,
-                "原生丛林绿涂装", "经典原始像素涂装",
-                "外观加成：标准森林隐蔽色",
-                "霸王龙最经典的像素迷彩表皮，能够在翠绿茂密的岛屿草丛中提供自然保护色。卸下其他定制皮肤后将自动还原为此涂装。",
-                "dino_sneak", new Color(0.38f, 0.76f, 0.36f, 1f), Color.white, 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+            // 2. 皮肤（默认拥有 1 套原生涂装，其余在商店一次性购买解锁并进入仓库切换）
+            AddSkin("skin_default", InventoryRarity.Common,
+                "原生丛林绿涂装", "默认标准外观涂装",
+                "外观加成：原始像素森林迷彩",
+                "霸王龙最经典的像素迷彩表皮，可在翠绿茂密的岛屿草丛中保持自然保护色，卸下定制皮肤后自动还原此涂装。",
+                "dino_sneak", new Color(0.38f, 0.76f, 0.36f, 1f), Color.white, defaultUnlocked: true);
 
-            AddDef("skin_volcano", InventoryCategory.Skin, InventoryRarity.Legendary,
-                "赤焰火山熔岩纹", "传说级动态战纹皮肤",
-                "外观加成：炽热火山红橙战甲光效",
-                "熔岩裂谷淬炼而成的红橙像素甲壳皮肤。穿戴后大厅展示的霸王龙表面将披上深红烈焰战纹色泽，尽显掠食者锋芒。",
-                "dino_skill1", new Color(0.98f, 0.40f, 0.22f, 1f), new Color(1.26f, 0.64f, 0.46f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
-
-            AddDef("skin_abyss", InventoryCategory.Skin, InventoryRarity.Epic,
-                "深海魅影冰蓝鳞", "史诗级海域迷彩皮肤",
-                "外观加成：幽邃海洋冰蓝反光",
-                "模仿深海海沟荧光矿物打造的冷色调皮肤，于碧蓝海面及浅水区涉水时格外协调，自带冷静肃杀的猎手质感。",
-                "water", new Color(0.22f, 0.76f, 0.98f, 1f), new Color(0.58f, 0.88f, 1.24f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
-
-            AddDef("skin_golden", InventoryCategory.Skin, InventoryRarity.Rare,
-                "远古黄金琥珀甲", "稀有纪念鎏金皮肤",
+            AddSkin("skin_golden", InventoryRarity.Rare,
+                "远古黄金琥珀甲", "商店限定 · 鎏金纪念涂装",
                 "外观加成：耀眼琥珀鎏金表皮",
-                "封印过远古树脂精华的金色像素皮肤，阳光照射下散发温暖明亮的金属质感，象征尊贵的驯龙先行者荣耀。",
-                "dino_skill2", new Color(0.98f, 0.78f, 0.24f, 1f), new Color(1.22f, 1.08f, 0.56f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+                "封印过远古树脂精华的金色像素皮肤，阳光照射下散发温暖明亮的金属质感，购买后永久入库随心穿戴。",
+                "dino_skill2", new Color(0.98f, 0.78f, 0.24f, 1f), new Color(1.22f, 1.08f, 0.56f, 1f), defaultUnlocked: false);
 
-            AddDef("skin_frost", InventoryCategory.Skin, InventoryRarity.Rare,
-                "霜雪冰原战纹", "稀有极寒质感涂装",
+            AddSkin("skin_frost", InventoryRarity.Rare,
+                "霜雪冰原战纹", "商店限定 · 极寒质感涂装",
                 "外观加成：冷冽银白冰晶表皮",
-                "取自史前冰川冻土的银白像素护甲，在正午海风下呈现清爽冷冽的浅蓝高光，适合喜欢极简冷色系搭配的驯龙者。",
-                "dino_jump", new Color(0.68f, 0.88f, 1.0f, 1f), new Color(0.96f, 1.10f, 1.22f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0);
+                "取自史前冰川冻土的银白像素护甲，在正午海风下呈现清爽冷冽的浅蓝高光，大厅与岛屿实战同步染色。",
+                "dino_jump", new Color(0.68f, 0.88f, 1.0f, 1f), new Color(0.94f, 1.10f, 1.24f, 1f), defaultUnlocked: false);
 
-            AddDef("skin_emerald", InventoryCategory.Skin, InventoryRarity.Epic,
-                "翡翠晶鳞限定涂装", "商店限定 · 史诗级碧玉鳞甲",
-                "外观加成：流光翡翠绿晶鳞涂装",
-                "在恐龙商店解锁的珍稀晶鳞外观，穿戴后大厅展示的霸王龙将覆盖浓郁的翡翠碧玉光泽，草丛伪装度极佳。",
-                "dino_sneak", new Color(0.18f, 0.86f, 0.50f, 1f), new Color(0.46f, 1.20f, 0.74f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+            AddSkin("skin_emerald", InventoryRarity.Epic,
+                "翡翠晶鳞限定涂装", "商店限定 · 碧玉晶鳞涂装",
+                "外观加成：流光翡翠绿晶鳞光效",
+                "商店专属解锁的珍稀晶鳞外观，穿戴后无论是大厅预览还是进入游戏均呈现出浓郁的翡翠碧玉质感。",
+                "dino_sneak", new Color(0.18f, 0.86f, 0.50f, 1f), new Color(0.46f, 1.20f, 0.74f, 1f), defaultUnlocked: false);
 
-            AddDef("skin_neon_storm", InventoryCategory.Skin, InventoryRarity.Legendary,
-                "霓虹雷暴战纹", "商店限定 · 传说级幻紫涂装",
-                "外观加成：深空紫电幻彩战纹",
-                "在琥珀商店购得的传说级幻彩皮肤，披戴后霸王龙周身呈现炫目的紫蓝雷暴质感，战斗威慑十足。",
-                "dino_skill2", new Color(0.62f, 0.52f, 1.0f, 1f), new Color(0.78f, 0.64f, 1.32f, 1f), 0.78f,
-                isStackable: false, defaultQty: 1, rewardGold: 0, rewardAmber: 0, defaultUnlocked: false);
+            AddSkin("skin_abyss", InventoryRarity.Epic,
+                "深海魅影冰蓝鳞", "商店限定 · 海域迷彩皮肤",
+                "外观加成：幽邃深海蓝光涂装",
+                "模仿深海海沟荧光矿物打造的冷色调皮肤，于碧蓝海面及浅水区涉水时格外协调，冷静肃杀。",
+                "water", new Color(0.22f, 0.76f, 0.98f, 1f), new Color(0.58f, 0.88f, 1.24f, 1f), defaultUnlocked: false);
 
-            // 3. 道具（可使用消耗并累加货币/即时反馈）
-            AddDef("item_meat", InventoryCategory.Item, InventoryRarity.Common,
-                "鲜嫩恐龙肉排", "消耗品 · 能量补给",
-                "使用效果：每次消耗 1 份，兑换 +80 龙肉金币",
-                "岛屿狩猎收集的高蛋白炙烤肉排。在背包中点击使用后可立即转化为补给资金，同步累加至顶部金币栏并自动保存。",
-                "food", new Color(0.92f, 0.56f, 0.26f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 5, rewardGold: 80, rewardAmber: 0);
-
-            AddDef("item_amber_shard", InventoryCategory.Item, InventoryRarity.Epic,
-                "精纯琥珀结晶", "消耗品 · 珍稀矿物",
-                "使用效果：每次消耗 1 颗，提炼 +10 远古琥珀",
-                "蕴含史前蚊虫与纯正松脂能量的半透明蓝珀原石。点击使用即可提取其中的纯净琥珀，立即增加大厅琥珀库存。",
-                "water", new Color(0.32f, 0.80f, 1.0f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 3, rewardGold: 0, rewardAmber: 10);
-
-            AddDef("item_potion", InventoryCategory.Item, InventoryRarity.Rare,
-                "史前活力药剂", "消耗品 · 战斗激励",
-                "使用效果：获得 +50 金币并激发霸王龙活力",
-                "由岛屿热带草药浓缩而成的生命活力浓缩剂，使用后可激发霸王龙兴奋状态并提供少量探险经费补贴。",
-                "heart", new Color(0.94f, 0.34f, 0.42f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 4, rewardGold: 50, rewardAmber: 0);
-
-            AddDef("item_supply_box", InventoryCategory.Item, InventoryRarity.Legendary,
-                "岛屿探索补给箱", "消耗品 · 惊喜补给礼盒",
-                "使用效果：开启获得 +150 金币 与 +5 琥珀",
-                "空投至像素岛屿海岸线的特种木箱，内部封装有珍贵的生存货币与琥珀样本，消耗开启后双项资源同步到账。",
-                "dino_skill2", new Color(0.98f, 0.72f, 0.22f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 2, rewardGold: 150, rewardAmber: 5);
-
-            AddDef("item_herb", InventoryCategory.Item, InventoryRarity.Common,
-                "热带治疗草药", "消耗品 · 伤口舒缓",
-                "使用效果：每次消耗 1 份，兑换 +40 龙肉金币",
-                "生长在岛屿林荫间的天然止血草束，常用于战斗后的快速休整，也可在集市中直接兑换探索经费。",
-                "heart", new Color(0.32f, 0.84f, 0.46f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 6, rewardGold: 40, rewardAmber: 0);
-
-            AddDef("item_beacon", InventoryCategory.Item, InventoryRarity.Rare,
-                "恐龙信号信标", "消耗品 · 支援召唤道具",
-                "使用效果：每次消耗 1 个，兑换 +8 远古琥珀",
-                "能够在岛屿制高点发送高频声波脉冲的定位装置，使用后可回收能量核心提炼远古琥珀资源。",
-                "dino_skill1", new Color(0.42f, 0.74f, 0.98f, 1f), Color.white, 0.78f,
-                isStackable: true, defaultQty: 2, rewardGold: 0, rewardAmber: 8);
+            AddSkin("skin_volcano", InventoryRarity.Legendary,
+                "赤焰火山熔岩纹", "商店限定 · 传说动态战纹",
+                "外观加成：炽热火山红橙战甲光效",
+                "熔岩裂谷淬炼而成的红橙像素甲壳皮肤，穿戴后霸王龙全身披上深红烈焰战纹色泽，尽显掠食者锋芒。",
+                "dino_skill1", new Color(0.98f, 0.40f, 0.22f, 1f), new Color(1.26f, 0.64f, 0.46f, 1f), defaultUnlocked: false);
         }
 
-        private static void AddDef(string id, InventoryCategory category, InventoryRarity rarity,
+        private static void AddDino(string id, InventoryRarity rarity,
             string name, string subtitle, string statsSummary, string description, string iconKey,
             Color accentColor, Color previewTintColor, float previewScale,
-            bool isStackable, int defaultQty, int rewardGold, int rewardAmber, bool defaultUnlocked = true)
+            float inGameScaleMult, float speedMult, float atkMult, bool defaultUnlocked)
         {
             Items.Add(new InventoryItemData
             {
                 id = id,
-                category = category,
+                category = InventoryCategory.Dino,
                 rarity = rarity,
                 name = name,
                 subtitle = subtitle,
@@ -315,12 +248,35 @@ namespace PixelSaur.UI
                 accentColor = accentColor,
                 previewTintColor = previewTintColor,
                 previewScale = previewScale,
-                isStackable = isStackable,
-                defaultQuantity = defaultQty,
+                inGameScaleMultiplier = inGameScaleMult,
+                moveSpeedMultiplier = speedMult,
+                attackMultiplier = atkMult,
                 defaultUnlocked = defaultUnlocked,
-                rewardGold = rewardGold,
-                rewardAmber = rewardAmber,
-                quantity = defaultQty,
+                unlocked = defaultUnlocked
+            });
+        }
+
+        private static void AddSkin(string id, InventoryRarity rarity,
+            string name, string subtitle, string statsSummary, string description, string iconKey,
+            Color accentColor, Color previewTintColor, bool defaultUnlocked)
+        {
+            Items.Add(new InventoryItemData
+            {
+                id = id,
+                category = InventoryCategory.Skin,
+                rarity = rarity,
+                name = name,
+                subtitle = subtitle,
+                statsSummary = statsSummary,
+                description = description,
+                iconKey = iconKey,
+                accentColor = accentColor,
+                previewTintColor = previewTintColor,
+                previewScale = 0.78f,
+                inGameScaleMultiplier = 1.0f,
+                moveSpeedMultiplier = 1.0f,
+                attackMultiplier = 1.0f,
+                defaultUnlocked = defaultUnlocked,
                 unlocked = defaultUnlocked
             });
         }
@@ -330,15 +286,14 @@ namespace PixelSaur.UI
             string json = null;
             try
             {
-                string path = SaveFilePath;
-                if (File.Exists(path))
+                if (File.Exists(SaveFilePath))
                 {
-                    json = File.ReadAllText(path);
+                    json = File.ReadAllText(SaveFilePath);
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[InventoryManager] 读取本地背包 JSON 文件失败，将尝试回退 PlayerPrefs：{e.Message}");
+                Debug.LogWarning($"[InventoryManager] 读取本地仓库 JSON 失败，尝试回退 PlayerPrefs：{e.Message}");
             }
 
             if (string.IsNullOrEmpty(json) && PlayerPrefs.HasKey(PrefsBackupKey))
@@ -373,18 +328,19 @@ namespace PixelSaur.UI
                         InventoryItemData def = FindInternal(entry.id);
                         if (def != null)
                         {
-                            def.quantity = Mathf.Max(0, entry.quantity);
-                            def.unlocked = entry.unlocked;
+                            def.unlocked = def.defaultUnlocked || entry.unlocked;
                         }
                     }
                 }
 
-                _equippedDinoId = FindInternal(save.equippedDinoId) != null ? save.equippedDinoId : DefaultDinoId;
-                _equippedSkinId = FindInternal(save.equippedSkinId) != null ? save.equippedSkinId : DefaultSkinId;
+                InventoryItemData eqDino = FindInternal(save.equippedDinoId);
+                InventoryItemData eqSkin = FindInternal(save.equippedSkinId);
+                _equippedDinoId = (eqDino != null && eqDino.unlocked && eqDino.category == InventoryCategory.Dino) ? eqDino.id : DefaultDinoId;
+                _equippedSkinId = (eqSkin != null && eqSkin.unlocked && eqSkin.category == InventoryCategory.Skin) ? eqSkin.id : DefaultSkinId;
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[InventoryManager] 解析背包存档失败，使用默认背包配置：{e.Message}");
+                Debug.LogWarning($"[InventoryManager] 解析仓库存档失败，恢复默认配置：{e.Message}");
                 _equippedDinoId = DefaultDinoId;
                 _equippedSkinId = DefaultSkinId;
                 SaveToDisk();
@@ -406,7 +362,6 @@ namespace PixelSaur.UI
                 save.items.Add(new InventoryItemSaveEntry
                 {
                     id = Items[i].id,
-                    quantity = Items[i].quantity,
                     unlocked = Items[i].unlocked
                 });
             }
@@ -427,7 +382,7 @@ namespace PixelSaur.UI
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[InventoryManager] 写入本地背包 JSON 文件失败（已保底写入 PlayerPrefs）：{e.Message}");
+                Debug.LogWarning($"[InventoryManager] 写入本地仓库 JSON 失败（已写入 PlayerPrefs）：{e.Message}");
             }
         }
 
@@ -446,6 +401,12 @@ namespace PixelSaur.UI
             return result;
         }
 
+        public static InventoryItemData GetItemById(string itemId)
+        {
+            EnsureInitialized();
+            return FindInternal(itemId);
+        }
+
         public static bool IsItemUnlocked(string itemId)
         {
             EnsureInitialized();
@@ -453,33 +414,15 @@ namespace PixelSaur.UI
             return item != null && item.unlocked;
         }
 
-        public static void UnlockSpecialItem(string itemId)
+        public static bool UnlockPurchasedItem(string itemId)
         {
             EnsureInitialized();
             InventoryItemData item = FindInternal(itemId);
-            if (item == null) return;
+            if (item == null || item.unlocked) return false;
             item.unlocked = true;
-            if (item.quantity <= 0) item.quantity = 1;
             SaveToDisk();
             OnInventoryChanged?.Invoke();
-        }
-
-        public static void GrantItemQuantity(string itemId, int delta)
-        {
-            if (delta <= 0) return;
-            EnsureInitialized();
-            InventoryItemData item = FindInternal(itemId);
-            if (item == null) return;
-            item.unlocked = true;
-            item.quantity += delta;
-            SaveToDisk();
-            OnInventoryChanged?.Invoke();
-        }
-
-        public static InventoryItemData GetItemById(string itemId)
-        {
-            EnsureInitialized();
-            return FindInternal(itemId);
+            return true;
         }
 
         public static InventoryItemData GetEquippedDino()
@@ -511,6 +454,24 @@ namespace PixelSaur.UI
             return dino != null && dino.previewScale > 0.1f ? dino.previewScale : 0.78f;
         }
 
+        public static float GetEffectiveInGameScaleMultiplier()
+        {
+            InventoryItemData dino = GetEquippedDino();
+            return dino != null && dino.inGameScaleMultiplier > 0.1f ? dino.inGameScaleMultiplier : 1.0f;
+        }
+
+        public static float GetEffectiveMoveSpeedMultiplier()
+        {
+            InventoryItemData dino = GetEquippedDino();
+            return dino != null && dino.moveSpeedMultiplier > 0.1f ? dino.moveSpeedMultiplier : 1.0f;
+        }
+
+        public static float GetEffectiveAttackMultiplier()
+        {
+            InventoryItemData dino = GetEquippedDino();
+            return dino != null && dino.attackMultiplier > 0.1f ? dino.attackMultiplier : 1.0f;
+        }
+
         public static bool IsItemEquipped(InventoryItemData item)
         {
             if (item == null) return false;
@@ -524,9 +485,9 @@ namespace PixelSaur.UI
         {
             EnsureInitialized();
             InventoryItemData item = FindInternal(itemId);
-            if (item == null)
+            if (item == null || !item.unlocked)
             {
-                feedbackMessage = "未找到对应物品。";
+                feedbackMessage = "尚未在商店购买解锁该物品。";
                 return false;
             }
 
@@ -534,7 +495,7 @@ namespace PixelSaur.UI
             {
                 if (_equippedDinoId == item.id)
                 {
-                    feedbackMessage = $"【{item.name}】当前已在出战中";
+                    feedbackMessage = $"【{item.name}】当前已在游戏中出战";
                     return false;
                 }
 
@@ -545,63 +506,26 @@ namespace PixelSaur.UI
                 return true;
             }
 
-            if (item.category == InventoryCategory.Skin)
+            // 皮肤穿戴 / 卸下逻辑
+            if (_equippedSkinId == item.id)
             {
-                if (_equippedSkinId == item.id)
+                if (item.id == DefaultSkinId)
                 {
-                    if (item.id == DefaultSkinId)
-                    {
-                        feedbackMessage = "当前已穿戴原生默认涂装";
-                        return false;
-                    }
-
-                    _equippedSkinId = DefaultSkinId;
-                    SaveToDisk();
-                    OnInventoryChanged?.Invoke();
-                    feedbackMessage = $"✓ 已卸下【{item.name}】，恢复原生丛林绿涂装";
-                    return true;
+                    feedbackMessage = "当前已穿戴原生默认涂装";
+                    return false;
                 }
 
-                _equippedSkinId = item.id;
+                _equippedSkinId = DefaultSkinId;
                 SaveToDisk();
                 OnInventoryChanged?.Invoke();
-                feedbackMessage = $"✓ 已穿戴皮肤：【{item.name}】";
+                feedbackMessage = $"✓ 已卸下【{item.name}】，恢复原生丛林绿涂装";
                 return true;
             }
 
-            // 消耗道具逻辑
-            if (item.quantity <= 0)
-            {
-                feedbackMessage = $"【{item.name}】库存不足，无法继续使用";
-                return false;
-            }
-
-            item.quantity = Mathf.Max(0, item.quantity - 1);
-            if (item.rewardGold > 0 || item.rewardAmber > 0)
-            {
-                QuestManager.AddCurrency(item.rewardGold, item.rewardAmber);
-            }
-
+            _equippedSkinId = item.id;
             SaveToDisk();
             OnInventoryChanged?.Invoke();
-
-            if (item.rewardGold > 0 && item.rewardAmber > 0)
-            {
-                feedbackMessage = $"✓ 使用【{item.name}】：+{item.rewardGold} 金币，+{item.rewardAmber} 琥珀（余 {item.quantity}）";
-            }
-            else if (item.rewardGold > 0)
-            {
-                feedbackMessage = $"✓ 使用【{item.name}】：+{item.rewardGold} 金币（余 {item.quantity}）";
-            }
-            else if (item.rewardAmber > 0)
-            {
-                feedbackMessage = $"✓ 使用【{item.name}】：+{item.rewardAmber} 琥珀（余 {item.quantity}）";
-            }
-            else
-            {
-                feedbackMessage = $"✓ 已使用【{item.name}】（余 {item.quantity}）";
-            }
-
+            feedbackMessage = $"✓ 已穿戴皮肤：【{item.name}】";
             return true;
         }
 
@@ -613,7 +537,6 @@ namespace PixelSaur.UI
             _equippedSkinId = DefaultSkinId;
             for (int i = 0; i < Items.Count; i++)
             {
-                Items[i].quantity = Items[i].defaultQuantity;
                 Items[i].unlocked = Items[i].defaultUnlocked;
             }
             SaveToDisk();

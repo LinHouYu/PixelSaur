@@ -122,6 +122,9 @@ namespace PixelSaur.Combat
             Vector3 center = transform.position;
             Collider[] hits = Physics.OverlapSphere(center, radius);
 
+            float atkMult = InventoryManager.GetEffectiveAttackMultiplier();
+            float finalBiteDamage = biteDamage * atkMult;
+
             bool hitAny = false;
             foreach (var hit in hits)
             {
@@ -130,17 +133,17 @@ namespace PixelSaur.Combat
                 var prey = hit.GetComponentInParent<GreenPreyCapsule>();
                 if (prey != null && !prey.IsDead)
                 {
-                    prey.TakeDamage(biteDamage);
+                    prey.TakeDamage(finalBiteDamage);
                     hitAny = true;
-                    Debug.Log($"<color=#FF5555>[DinoCombat] 咬中猎物！造成 {biteDamage} 伤害，剩余生命 {prey.Health}。</color>");
+                    Debug.Log($"<color=#FF5555>[DinoCombat] 咬中猎物！造成 {finalBiteDamage:0.#} 伤害，剩余生命 {prey.Health}。</color>");
                 }
 
                 var hazard = hit.GetComponentInParent<RedHazardCapsule>();
                 if (hazard != null && !hazard.IsDead)
                 {
-                    hazard.TakeDamage(biteDamage);
+                    hazard.TakeDamage(finalBiteDamage);
                     hitAny = true;
-                    Debug.Log($"<color=#FF5555>[DinoCombat] 咬中敌人！造成 {biteDamage} 伤害，剩余生命 {hazard.Health}。</color>");
+                    Debug.Log($"<color=#FF5555>[DinoCombat] 咬中敌人！造成 {finalBiteDamage:0.#} 伤害，剩余生命 {hazard.Health}。</color>");
                 }
             }
 
@@ -224,6 +227,7 @@ namespace PixelSaur.Combat
 #endif
 
             // 7. 冲击范围内目标造成碰撞伤害与推力
+            float dashFinalDamage = dashDamage * InventoryManager.GetEffectiveAttackMultiplier();
             float radius = _indicator != null ? _indicator.AttackRadius * 1.25f : 2.2f;
             Collider[] hits = Physics.OverlapSphere(transform.position + dashDirection * 1.4f, radius);
             foreach (var hit in hits)
@@ -233,13 +237,13 @@ namespace PixelSaur.Combat
                 var prey = hit.GetComponentInParent<GreenPreyCapsule>();
                 if (prey != null && !prey.IsDead)
                 {
-                    prey.TakeDamage(dashDamage);
+                    prey.TakeDamage(dashFinalDamage);
                 }
 
                 var hazard = hit.GetComponentInParent<RedHazardCapsule>();
                 if (hazard != null && !hazard.IsDead)
                 {
-                    hazard.TakeDamage(dashDamage);
+                    hazard.TakeDamage(dashFinalDamage);
                 }
             }
 

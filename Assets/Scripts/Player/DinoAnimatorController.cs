@@ -62,6 +62,7 @@ namespace PixelSaur.Player
 
         private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
         private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         private void Awake()
         {
@@ -73,6 +74,45 @@ namespace PixelSaur.Player
             }
             CollectRuntimeMaterials();
             ApplyTexture(false, force: true);
+        }
+
+        private void Start()
+        {
+            InventoryManager.OnInventoryChanged += ApplyEquippedVisualTint;
+            ApplyEquippedVisualTint();
+        }
+
+        private void OnDestroy()
+        {
+            InventoryManager.OnInventoryChanged -= ApplyEquippedVisualTint;
+        }
+
+        public void ApplyEquippedVisualTint()
+        {
+            FindAnimatorIfMissing();
+            if (modelAnimator == null) return;
+
+            InventoryManager.EnsureInitialized();
+            Color tint = InventoryManager.GetEffectivePreviewTint();
+            bool isDefaultTint = Mathf.Approximately(tint.r, 1f) && Mathf.Approximately(tint.g, 1f) && Mathf.Approximately(tint.b, 1f);
+
+            Renderer[] renderers = modelAnimator.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer r = renderers[i];
+                if (r == null) continue;
+                if (isDefaultTint)
+                {
+                    r.SetPropertyBlock(null);
+                }
+                else
+                {
+                    var mpb = new MaterialPropertyBlock();
+                    r.GetPropertyBlock(mpb);
+                    mpb.SetColor(BaseColorId, tint);
+                    r.SetPropertyBlock(mpb);
+                }
+            }
         }
 
         private void Update()

@@ -27,7 +27,7 @@ namespace PixelSaur.UI
         [Range(0.6f, 0.95f)]
         [SerializeField] private float panelWidthRatio = 0.68f;
         [Range(0.6f, 0.95f)]
-        [SerializeField] private float panelHeightRatio = 0.74f;
+        [SerializeField] private float panelHeightRatio = 0.80f;
 
         [Header("颜色配置")]
         [SerializeField] private Color foggyOverlayColor = new Color(0.22f, 0.25f, 0.30f, 0.72f);
@@ -43,6 +43,7 @@ namespace PixelSaur.UI
 
         [Header("按钮交互事件")]
         public UnityEvent onResumeClicked;
+        public UnityEvent onWarehouseClicked;
         public UnityEvent onGraphicsSettingsClicked;
         public UnityEvent onControlsClicked;
 
@@ -53,6 +54,7 @@ namespace PixelSaur.UI
         [SerializeField] private Image centerPanelBg;
         [SerializeField] private CanvasGroup centerPanelCanvasGroup;
         [SerializeField] private Button resumeButton;
+        [SerializeField] private Button warehouseButton;
         [SerializeField] private Button graphicsButton;
         [SerializeField] private Button controlsButton;
 
@@ -197,7 +199,7 @@ namespace PixelSaur.UI
             divImg.color = new Color(0.40f, 0.46f, 0.58f, 0.45f);
             divImg.raycastTarget = false;
 
-            // 4. 三个按钮的垂直布局容器
+            // 4. 四个按钮的垂直布局容器（继续游戏 / 恐龙仓库 / 画面设置 / 游戏控制）
             Transform groupTr = panelTr.Find("ButtonGroup");
             GameObject groupObj = groupTr != null ? groupTr.gameObject : new GameObject("ButtonGroup", typeof(RectTransform), typeof(VerticalLayoutGroup));
             groupObj.transform.SetParent(panelTr, false);
@@ -206,11 +208,11 @@ namespace PixelSaur.UI
             groupRT.anchorMin = new Vector2(0.5f, 0.5f);
             groupRT.anchorMax = new Vector2(0.5f, 0.5f);
             groupRT.pivot = new Vector2(0.5f, 0.5f);
-            groupRT.anchoredPosition = new Vector2(0f, -46f);
-            groupRT.sizeDelta = new Vector2(720f, 440f);
+            groupRT.anchoredPosition = new Vector2(0f, -42f);
+            groupRT.sizeDelta = new Vector2(720f, 490f);
 
             VerticalLayoutGroup vlg = groupObj.GetComponent<VerticalLayoutGroup>();
-            vlg.spacing = 30f;
+            vlg.spacing = 22f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = false;
             vlg.childControlHeight = false;
@@ -219,9 +221,11 @@ namespace PixelSaur.UI
 
             // 按钮 1: 继续游戏
             resumeButton = EnsureMenuButton(groupObj.transform, "ResumeButton", "继续游戏", mainFont, resumeBtnColor);
-            // 按钮 2: 画面设置
+            // 按钮 2: 恐龙仓库（直接打开仓库在游戏或大厅中切换出战恐龙与皮肤）
+            warehouseButton = EnsureMenuButton(groupObj.transform, "WarehouseButton", "恐龙仓库", mainFont, new Color(0.76f, 1.18f, 1.04f, 1.0f));
+            // 按钮 3: 画面设置
             graphicsButton = EnsureMenuButton(groupObj.transform, "GraphicsButton", "画面设置", mainFont, buttonBgColor);
-            // 按钮 3: 游戏控制
+            // 按钮 4: 游戏控制
             controlsButton = EnsureMenuButton(groupObj.transform, "ControlsButton", "游戏控制", mainFont, buttonBgColor);
 
             if (!_isOpen)
@@ -238,7 +242,7 @@ namespace PixelSaur.UI
             btnObj.transform.SetParent(parent, false);
 
             RectTransform btnRT = btnObj.GetComponent<RectTransform>();
-            btnRT.sizeDelta = new Vector2(680f, 114f);
+            btnRT.sizeDelta = new Vector2(680f, 98f);
 
             Image img = btnObj.GetComponent<Image>();
             img.sprite = roundedPillSprite;
@@ -291,6 +295,11 @@ namespace PixelSaur.UI
                 resumeButton.onClick.RemoveListener(HandleResumeClick);
                 resumeButton.onClick.AddListener(HandleResumeClick);
             }
+            if (warehouseButton != null)
+            {
+                warehouseButton.onClick.RemoveListener(HandleWarehouseClick);
+                warehouseButton.onClick.AddListener(HandleWarehouseClick);
+            }
             if (graphicsButton != null)
             {
                 graphicsButton.onClick.RemoveListener(HandleGraphicsClick);
@@ -306,6 +315,7 @@ namespace PixelSaur.UI
         private void UnbindButtonListeners()
         {
             if (resumeButton != null) resumeButton.onClick.RemoveListener(HandleResumeClick);
+            if (warehouseButton != null) warehouseButton.onClick.RemoveListener(HandleWarehouseClick);
             if (graphicsButton != null) graphicsButton.onClick.RemoveListener(HandleGraphicsClick);
             if (controlsButton != null) controlsButton.onClick.RemoveListener(HandleControlsClick);
         }
@@ -315,6 +325,15 @@ namespace PixelSaur.UI
             Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【继续游戏】，面板往下拉回到游戏。</color>");
             onResumeClicked?.Invoke();
             CloseMenu();
+        }
+
+        private void HandleWarehouseClick()
+        {
+            UISoundManager.PlayOpen();
+            Debug.Log("<color=#66CCFF>[SettingsMenuPanelHUD] 点击【恐龙仓库】，打开仓库面板切换恐龙与皮肤。</color>");
+            onWarehouseClicked?.Invoke();
+            CloseMenu();
+            InventoryPanelHUD.OpenGlobalWarehouse();
         }
 
         private void HandleGraphicsClick()

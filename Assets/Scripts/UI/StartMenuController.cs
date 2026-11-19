@@ -272,7 +272,7 @@ namespace PixelSaur.UI
 
         private void HandleOpenCurrencyHint()
         {
-            ShowInfoModal("资源货币栏", $"恐龙化石：{QuestManager.Gold:N0}\n远古琥珀：{QuestManager.Amber:N0}\n说明：可在【恐龙商店】消费购买道具、恐龙与皮肤并写入背包，也可点击【琥珀充值】进行测试加钱。");
+            ShowInfoModal("资源货币栏", $"恐龙化石：{QuestManager.Gold:N0}\n远古琥珀：{QuestManager.Amber:N0}\n说明：可在【恐龙商店】一次性购买恐龙与皮肤并自动写入游戏仓库，也可点击【充值测试】补充货币。");
         }
 
         private void HandleOpenCodex()

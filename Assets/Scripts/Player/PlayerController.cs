@@ -67,6 +67,8 @@ namespace PixelSaur.Player
         private readonly float _baseGravity = -9.81f;
         private float _sprintThirstTimer = 0f;
         private Vector3 _baseLocalScale = new Vector3(0.55f, 0.55f, 0.55f);
+        private Vector3 _initialPrefabScale = new Vector3(0.55f, 0.55f, 0.55f);
+        private float _activeSpeedMultiplier = 1.0f;
 
         // 冲击技能瞬时位移
         private Vector3 _dashVelocity = Vector3.zero;
@@ -96,7 +98,8 @@ namespace PixelSaur.Player
         private void Awake()
         {
             Instance = this;
-            _baseLocalScale = transform.localScale;
+            _initialPrefabScale = transform.localScale;
+            _baseLocalScale = _initialPrefabScale;
             _characterController = GetComponent<CharacterController>();
             if (_characterController != null)
             {
@@ -110,6 +113,35 @@ namespace PixelSaur.Player
             if (cameraTransform == null && UnityEngine.Camera.main != null)
             {
                 cameraTransform = UnityEngine.Camera.main.transform;
+            }
+        }
+
+        private void Start()
+        {
+            PixelSaur.UI.InventoryManager.OnInventoryChanged += ApplyEquippedDinoLoadout;
+            ApplyEquippedDinoLoadout();
+        }
+
+        private void OnDestroy()
+        {
+            PixelSaur.UI.InventoryManager.OnInventoryChanged -= ApplyEquippedDinoLoadout;
+        }
+
+        public void ApplyEquippedDinoLoadout()
+        {
+            PixelSaur.UI.InventoryManager.EnsureInitialized();
+            float scaleMult = PixelSaur.UI.InventoryManager.GetEffectiveInGameScaleMultiplier();
+            _activeSpeedMultiplier = PixelSaur.UI.InventoryManager.GetEffectiveMoveSpeedMultiplier();
+
+            Vector3 targetBase = _initialPrefabScale * scaleMult;
+            float prevScaleY = transform.localScale.y;
+            _baseLocalScale = targetBase;
+            transform.localScale = targetBase;
+
+            float deltaY = targetBase.y - prevScaleY;
+            if (deltaY > 0.001f)
+            {
+                transform.position += Vector3.up * deltaY;
             }
         }
 
@@ -199,7 +231,7 @@ namespace PixelSaur.Player
                 isSprinting = false; // 缺水无法奔跑
             }
 
-            float currentSpeed = isSneaking ? (walkSpeed * sneakSpeedMultiplier) : (isSprinting ? runSpeed : walkSpeed);
+            float currentSpeed = (isSneaking ? (walkSpeed * sneakSpeedMultiplier) : (isSprinting ? runSpeed : walkSpeed)) * _activeSpeedMultiplier;
 
             if (isSprinting && input.sqrMagnitude > 0.01f)
             {

@@ -30,7 +30,9 @@ namespace PixelSaur.Editor
         [MenuItem("PixelSaur/生成并配置双场景 (StartMenu + Game)")]
         public static string Main()
         {
-            // 1. 打开 Game.unity，确保 HUD_Canvas 挂载 ResponsiveCanvasAdapter
+            EnsureUiAssetImports();
+
+            // 1. 打开 Game.unity，确保 HUD_Canvas 挂载 ResponsiveCanvasAdapter、恐龙仓库面板及更新设置菜单按钮
             Scene gameScene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
             GameObject hudCanvas = GameObject.Find("HUD_Canvas");
             if (hudCanvas != null)
@@ -38,6 +40,19 @@ namespace PixelSaur.Editor
                 ResponsiveCanvasAdapter adapter = hudCanvas.GetComponent<ResponsiveCanvasAdapter>();
                 if (adapter == null) adapter = hudCanvas.AddComponent<ResponsiveCanvasAdapter>();
                 adapter.Configure(hudCanvas.GetComponent<CanvasScaler>(), null);
+
+                SettingsMenuPanelHUD settingsInGame = hudCanvas.GetComponentInChildren<SettingsMenuPanelHUD>(true);
+                if (settingsInGame != null)
+                {
+                    settingsInGame.EnsureUIHierarchy();
+                    EditorUtility.SetDirty(settingsInGame);
+                }
+
+                Transform oldInv = hudCanvas.transform.Find("InventoryPanel");
+                if (oldInv != null) Object.DestroyImmediate(oldInv.gameObject);
+                InventoryPanelHUD gameInv = AttachInventoryPanelWithSprites(hudCanvas.transform);
+                gameInv.gameObject.SetActive(false);
+
                 EditorUtility.SetDirty(hudCanvas);
             }
             EditorSceneManager.SaveScene(gameScene);
@@ -421,7 +436,7 @@ namespace PixelSaur.Editor
                 new Color(0.20f, 0.34f, 0.50f, 0.96f), 25,
                 new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-838f, 74f), new Vector2(168f, 84f));
 
-            Button inventoryBtn = CreateTextPillButton(safeRT, "InventoryButton", pillSprite, font, "恐龙背包",
+            Button inventoryBtn = CreateTextPillButton(safeRT, "InventoryButton", pillSprite, font, "恐龙仓库",
                 new Color(0.18f, 0.44f, 0.48f, 0.96f), 25,
                 new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-1024f, 74f), new Vector2(168f, 84f));
 
@@ -468,24 +483,9 @@ namespace PixelSaur.Editor
             noticeHud.EnsureUI();
             noticeObj.SetActive(false);
 
-            // 4.7 恐龙背包与仓库弹窗面板（初始隐藏，受 UIPanelManager 管理）
-            GameObject inventoryObj = new GameObject("InventoryPanel", typeof(RectTransform), typeof(InventoryPanelHUD));
-            inventoryObj.transform.SetParent(safeRT, false);
-            InventoryPanelHUD inventoryHud = inventoryObj.GetComponent<InventoryPanelHUD>();
-            SerializedObject invSo = new SerializedObject(inventoryHud);
-            invSo.FindProperty("whitePillSprite").objectReferenceValue = panelSprite;
-            invSo.FindProperty("buttonPillSprite").objectReferenceValue = pillSprite;
-            invSo.FindProperty("iconDinoSneak").objectReferenceValue = dinoSprite;
-            invSo.FindProperty("iconDinoBite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
-            invSo.FindProperty("iconDinoJump").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
-            invSo.FindProperty("iconDinoSkill1").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill1.png");
-            invSo.FindProperty("iconDinoSkill2").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill2.png");
-            invSo.FindProperty("iconPterosaurRun").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
-            invSo.FindProperty("iconFood").objectReferenceValue = foodSprite;
-            invSo.FindProperty("iconWater").objectReferenceValue = waterSprite;
-            invSo.FindProperty("iconHeart").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
-            invSo.ApplyModifiedPropertiesWithoutUndo();
-            inventoryHud.EnsureUI();
+            // 4.7 恐龙仓库弹窗面板（初始隐藏，受 UIPanelManager 管理）
+            InventoryPanelHUD inventoryHud = AttachInventoryPanelWithSprites(safeRT);
+            GameObject inventoryObj = inventoryHud.gameObject;
             inventoryObj.SetActive(false);
 
             // 4.8 恐龙商店与琥珀充值弹窗面板（初始隐藏，受 UIPanelManager 管理）
@@ -692,6 +692,28 @@ namespace PixelSaur.Editor
             outline.effectColor = new Color(0f, 0f, 0f, 0.90f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
             return btn;
+        }
+
+        private static InventoryPanelHUD AttachInventoryPanelWithSprites(Transform parent)
+        {
+            GameObject inventoryObj = new GameObject("InventoryPanel", typeof(RectTransform), typeof(InventoryPanelHUD));
+            inventoryObj.transform.SetParent(parent, false);
+            InventoryPanelHUD inventoryHud = inventoryObj.GetComponent<InventoryPanelHUD>();
+            SerializedObject invSo = new SerializedObject(inventoryHud);
+            invSo.FindProperty("whitePillSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_white_pill_64x64.png");
+            invSo.FindProperty("buttonPillSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/ui_bevel_pill_64x64.png");
+            invSo.FindProperty("iconDinoSneak").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
+            invSo.FindProperty("iconDinoBite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
+            invSo.FindProperty("iconDinoJump").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
+            invSo.FindProperty("iconDinoSkill1").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill1.png");
+            invSo.FindProperty("iconDinoSkill2").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_skill2.png");
+            invSo.FindProperty("iconPterosaurRun").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
+            invSo.FindProperty("iconFood").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
+            invSo.FindProperty("iconWater").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
+            invSo.FindProperty("iconHeart").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
+            invSo.ApplyModifiedPropertiesWithoutUndo();
+            inventoryHud.EnsureUI();
+            return inventoryHud;
         }
 
         private static void StretchFull(RectTransform rt)
