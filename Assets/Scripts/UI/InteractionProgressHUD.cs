@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using PixelSaur.Combat;
 
@@ -6,7 +7,8 @@ namespace PixelSaur.UI
 {
     /// <summary>
     /// 顶部居中进食/饮水进度条 HUD：
-    /// 长按进食或饮水时在屏幕顶部居中显示进度 Slider，填充颜色与底部状态条一致，并在居中显示剩余秒数（保留 1 位小数）。
+    /// 长按进食或饮水时在屏幕顶部居中显示进度 Slider，填充颜色与底部状态条一致，并在居中显示动作与剩余秒数（保留 1 位小数）。
+    /// 支持从 StartMenu 切换到 Game 场景后的自动挂载与静态挂载双重保障。
     /// </summary>
     public class InteractionProgressHUD : MonoBehaviour
     {
@@ -20,7 +22,19 @@ namespace PixelSaur.UI
         private Text _timerText;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoAttachToHudCanvas()
+        private static void RegisterSceneAutoAttach()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            AttachToHudCanvasIfPresent();
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            AttachToHudCanvasIfPresent();
+        }
+
+        private static void AttachToHudCanvasIfPresent()
         {
             GameObject canvasObj = GameObject.Find("HUD_Canvas");
             if (canvasObj == null) return;
@@ -39,6 +53,18 @@ namespace PixelSaur.UI
             }
         }
 
+        private void OnEnable()
+        {
+            if (_container == null)
+            {
+                BuildUI();
+                if (_container != null)
+                {
+                    _container.SetActive(false);
+                }
+            }
+        }
+
         private void Update()
         {
             DinoInteractionController interaction = DinoInteractionController.Instance;
@@ -51,6 +77,11 @@ namespace PixelSaur.UI
                 return;
             }
 
+            if (_container == null)
+            {
+                BuildUI();
+            }
+
             if (_container != null && !_container.activeSelf)
             {
                 _container.SetActive(true);
@@ -59,6 +90,7 @@ namespace PixelSaur.UI
             float duration = interaction.CurrentActionDuration;
             float elapsed = Mathf.Clamp(interaction.CurrentActionElapsed, 0f, duration);
             float remaining = Mathf.Max(0f, interaction.CurrentActionRemaining);
+            bool isEating = interaction.CurrentInteraction == InteractionType.EatingPrey;
 
             if (_slider != null)
             {
@@ -67,18 +99,16 @@ namespace PixelSaur.UI
 
             if (_fillImage != null)
             {
-                _fillImage.color = interaction.CurrentInteraction == InteractionType.EatingPrey
-                    ? FoodColor
-                    : ThirstColor;
+                _fillImage.color = isEating ? FoodColor : ThirstColor;
             }
 
             if (_timerText != null)
             {
-                _timerText.text = $"{remaining:F1}s";
+                _timerText.text = $"{(isEating ? "进食中" : "喝水中")} {remaining:F1}s";
             }
         }
 
-        private void BuildUI()
+        public void BuildUI()
         {
             Transform existing = transform.Find("InteractionProgressBar");
             if (existing != null)
@@ -87,11 +117,13 @@ namespace PixelSaur.UI
                 _slider = _container.GetComponent<Slider>();
                 _fillImage = _container.transform.Find("Fill Area/Fill")?.GetComponent<Image>();
                 _timerText = _container.transform.Find("TimerText")?.GetComponent<Text>();
+                EnsureSiblingOrder();
                 return;
             }
 
             _container = new GameObject("InteractionProgressBar", typeof(RectTransform), typeof(Image), typeof(Slider));
             _container.transform.SetParent(transform, false);
+            EnsureSiblingOrder();
 
             RectTransform rt = _container.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 1f);
@@ -148,7 +180,9 @@ namespace PixelSaur.UI
             textRT.offsetMax = Vector2.zero;
 
             _timerText = textObj.GetComponent<Text>();
-            _timerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            _timerText.font = font;
             _timerText.fontSize = 22;
             _timerText.fontStyle = FontStyle.Bold;
             _timerText.alignment = TextAnchor.MiddleCenter;
@@ -159,6 +193,27 @@ namespace PixelSaur.UI
             Outline textOutline = textObj.AddComponent<Outline>();
             textOutline.effectColor = new Color(0f, 0f, 0f, 0.95f);
             textOutline.effectDistance = new Vector2(1.5f, -1.5f);
+        }
+
+        private void EnsureSiblingOrder()
+        {
+            if (_container == null) return;
+
+            // 将进度条放在弹窗面板（设置菜单/仓库面板）之前，既高于常驻 HUD 又不会遮挡暂停与仓库弹窗
+            int targetIndex = transform.childCount - 1;
+            Transform settingsPanel = transform.Find("SettingsMenuPanel");
+            if (settingsPanel != null && settingsPanel != _container.transform)
+            {
+                targetIndex = Mathf.Min(targetIndex, settingsPanel.GetSiblingIndex());
+            }
+
+            Transform inventoryPanel = transform.Find("InventoryPanel");
+            if (inventoryPanel != null && inventoryPanel != _container.transform)
+            {
+                targetIndex = Mathf.Min(targetIndex, inventoryPanel.GetSiblingIndex());
+            }
+
+            _container.transform.SetSiblingIndex(Mathf.Max(0, targetIndex));
         }
     }
 }

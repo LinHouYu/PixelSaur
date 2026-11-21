@@ -41,6 +41,10 @@ namespace PixelSaur.Editor
                 if (adapter == null) adapter = hudCanvas.AddComponent<ResponsiveCanvasAdapter>();
                 adapter.Configure(hudCanvas.GetComponent<CanvasScaler>(), null);
 
+                InteractionProgressHUD progressHud = hudCanvas.GetComponent<InteractionProgressHUD>();
+                if (progressHud == null) progressHud = hudCanvas.AddComponent<InteractionProgressHUD>();
+                EditorUtility.SetDirty(progressHud);
+
                 SettingsMenuPanelHUD settingsInGame = hudCanvas.GetComponentInChildren<SettingsMenuPanelHUD>(true);
                 if (settingsInGame != null)
                 {

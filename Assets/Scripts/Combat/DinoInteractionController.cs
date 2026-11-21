@@ -219,11 +219,11 @@ namespace PixelSaur.Combat
                     {
                         if (CanEatPrey)
                         {
-                            StartInteraction(InteractionType.EatingPrey);
+                            StartInteraction(InteractionType.EatingPrey, ediblePrey != null ? ediblePrey.FeedBiteDuration : 1.5f);
                         }
                         else if (CanDrinkWater)
                         {
-                            StartInteraction(InteractionType.DrinkingWater);
+                            StartInteraction(InteractionType.DrinkingWater, drinkInterval);
                         }
                     }
                 }
@@ -282,11 +282,12 @@ namespace PixelSaur.Combat
             }
         }
 
-        private void StartInteraction(InteractionType type)
+        private void StartInteraction(InteractionType type, float initialDuration)
         {
             currentInteraction = type;
             actionTimer = 0f;
             stayTimer = 0f;
+            CurrentActionDuration = Mathf.Max(0.01f, initialDuration);
 
             // 进食/喝水时不可以移动！
             if (_playerController != null)
