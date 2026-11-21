@@ -51,12 +51,13 @@ namespace PixelSaur.Editor
                 // 替换 5 个操作与技能按钮的贴图（skill1~skill5）
                 ApplySkillButtonSprites(hudCanvas.transform);
 
-                // 放大游戏内所有 UI (1.5x 尺寸，固定 localScale=1) 并应用无重叠默认布局
+                // TopBarStatusHUD 严格保持原始尺寸 (360 x 68) 与样式不改动
                 TopBarStatusHUD topBar = hudCanvas.GetComponentInChildren<TopBarStatusHUD>(true);
                 if (topBar != null)
                 {
                     SerializedObject topSo = new SerializedObject(topBar);
-                    topSo.FindProperty("panelSize").vector2Value = new Vector2(520f, 96f);
+                    topSo.FindProperty("panelPosition").vector2Value = new Vector2(24f, -20f);
+                    topSo.FindProperty("panelSize").vector2Value = new Vector2(360f, 68f);
                     topSo.ApplyModifiedPropertiesWithoutUndo();
                     topBar.EnsureUIHierarchy();
                     EditorUtility.SetDirty(topBar);

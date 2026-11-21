@@ -28,21 +28,39 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite skillIconSprite;
 
         private Image _iconImage;
+        private SkillCooldownOverlay _cdOverlay;
         private readonly Vector3 _originalScale = Vector3.one;
 
         private void Awake()
         {
             EnsureAppearance();
+            if (Application.isPlaying) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnEnable()
         {
             EnsureAppearance();
+            if (Application.isPlaying && _cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnValidate()
         {
             EnsureAppearance();
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying || DinoCombatController.Instance == null) return;
+            if (_cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
+
+            if (skillSlot == SkillSlot.Roar)
+            {
+                _cdOverlay.SetCooldown(DinoCombatController.Instance.RemainingRoarCooldown, DinoCombatController.Instance.RoarCooldown);
+            }
+            else
+            {
+                _cdOverlay.SetCooldown(DinoCombatController.Instance.RemainingDashCooldown, DinoCombatController.Instance.DashCooldown);
+            }
         }
 
         public void EnsureAppearance()

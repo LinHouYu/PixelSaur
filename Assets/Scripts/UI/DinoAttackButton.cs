@@ -25,6 +25,7 @@ namespace PixelSaur.UI
 
         private Image _bgImage;
         private Image _iconImage;
+        private SkillCooldownOverlay _cdOverlay;
         private float _pointerDownTime = -999f;
         private bool _isPointerDown = false;
         private Vector3 _originalScale = Vector3.one;
@@ -33,16 +34,25 @@ namespace PixelSaur.UI
         private void Awake()
         {
             EnsureAppearance();
+            if (Application.isPlaying) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnEnable()
         {
             EnsureAppearance();
+            if (Application.isPlaying && _cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnValidate()
         {
             EnsureAppearance();
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying || DinoCombatController.Instance == null) return;
+            if (_cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
+            _cdOverlay.SetCooldown(DinoCombatController.Instance.RemainingAttackCooldown, DinoCombatController.Instance.AttackCooldown);
         }
 
         public void EnsureAppearance()

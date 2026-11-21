@@ -68,8 +68,11 @@ namespace PixelSaur.Combat
         private DinoAttackIndicator _indicator;
 
         public float AttackCooldown => attackCooldown;
+        public float DashCooldown => dashCooldown;
+        public float RoarCooldown => roarCooldown;
         public float RemainingAttackCooldown => Mathf.Max(0f, attackCooldown - (Time.time - _lastAttackTime));
         public float RemainingDashCooldown => Mathf.Max(0f, dashCooldown - (Time.time - _lastDashTime));
+        public float RemainingRoarCooldown => Mathf.Max(0f, roarCooldown - (Time.time - _lastRoarTime));
 
         private void Awake()
         {
@@ -185,27 +188,12 @@ namespace PixelSaur.Combat
                 PlayerStatusUI.Instance.ModifyFood(-dashFoodCost);
             }
 
-            // 3. MOBA 索敌锁定：在 dashLockRange 内自动检测并锁定目标
+            // 3. 沿角色当前朝向直线冲刺（禁止自动锁定或强制转向敌人）
             Vector3 dashDirection = transform.forward;
+            dashDirection.y = 0f;
+            if (dashDirection.sqrMagnitude > 0.0001f) dashDirection.Normalize();
+            else dashDirection = Vector3.forward;
             float finalSpeed = dashSpeed;
-
-            Transform lockTarget = FindBestDashLockTarget();
-            if (lockTarget != null)
-            {
-                Vector3 toTarget = lockTarget.position - transform.position;
-                toTarget.y = 0f;
-                if (toTarget.sqrMagnitude > 0.01f)
-                {
-                    dashDirection = toTarget.normalized;
-                    // 瞬间转向锁定目标
-                    transform.rotation = Quaternion.LookRotation(dashDirection, Vector3.up);
-
-                    // 动态调整速度确保在冲刺时长内疾冲撞击到目标
-                    float dist = toTarget.magnitude;
-                    finalSpeed = Mathf.Max(dashSpeed, (dist + 0.5f) / dashDuration);
-                    Debug.Log($"<color=#33FFFF>[DinoCombat] MOBA 锁定冲撞目标: {lockTarget.name}！距离: {dist:F1}m，冲刺速度: {finalSpeed:F1}m/s。</color>");
-                }
-            }
 
             // 4. 恐龙猛冲位移
             if (_playerController != null)

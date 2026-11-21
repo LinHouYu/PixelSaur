@@ -16,25 +16,40 @@ namespace PixelSaur.UI
         [SerializeField] private Color normalColor = Color.white;
         [SerializeField] private Color pressColor = new Color(0.76f, 0.76f, 0.76f, 1f);
 
+        [Header("冷却配置")]
+        [SerializeField] private float jumpCooldown = 0.6f;
+
         [Header("图标资产")]
         [SerializeField] private Sprite jumpIconSprite;
 
         private Image _bgImage;
+        private SkillCooldownOverlay _cdOverlay;
+        private float _lastJumpTime = -999f;
         private readonly Vector3 _originalScale = Vector3.one;
 
         private void Awake()
         {
             EnsureAppearance();
+            if (Application.isPlaying) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnEnable()
         {
             EnsureAppearance();
+            if (Application.isPlaying && _cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnValidate()
         {
             EnsureAppearance();
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying) return;
+            if (_cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
+            float remaining = Mathf.Max(0f, jumpCooldown - (Time.time - _lastJumpTime));
+            _cdOverlay.SetCooldown(remaining, jumpCooldown);
         }
 
         public void EnsureAppearance()
@@ -69,6 +84,8 @@ namespace PixelSaur.UI
 
             if (Application.isPlaying)
             {
+                if (Time.time - _lastJumpTime < jumpCooldown) return;
+                _lastJumpTime = Time.time;
                 UISoundManager.PlayJump();
                 PlayerInputProxy.Instance?.TriggerJump();
             }

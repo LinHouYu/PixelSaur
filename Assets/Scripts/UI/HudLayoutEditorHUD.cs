@@ -79,6 +79,7 @@ namespace PixelSaur.UI
         private readonly List<GameObject> _hiddenWhileEditing = new List<GameObject>();
 
         private static Sprite _whiteSprite;
+        private static Sprite _gridBgSprite;
         private static Sprite _circleBaseSprite;
         private static Sprite _circleKnobSprite;
 
@@ -159,6 +160,33 @@ namespace PixelSaur.UI
             }
             if (_circleBaseSprite == null) _circleBaseSprite = CreateCircleSprite(128, true);
             if (_circleKnobSprite == null) _circleKnobSprite = CreateCircleSprite(64, false);
+            if (_gridBgSprite == null) _gridBgSprite = CreateDarkGridSprite(64);
+        }
+
+        private static Sprite CreateDarkGridSprite(int size)
+        {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "HudEditorDarkGridTile",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Repeat,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            Color bg = new Color(0.11f, 0.13f, 0.17f, 1.0f);
+            Color line = new Color(0.16f, 0.19f, 0.24f, 1.0f);
+            Color[] px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    px[y * size + x] = (x == 0 || y == 0) ? line : bg;
+                }
+            }
+            tex.SetPixels(px);
+            tex.Apply();
+            Sprite sp = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            sp.hideFlags = HideFlags.HideAndDontSave;
+            return sp;
         }
 
         private static Sprite CreateCircleSprite(int size, bool ring)
@@ -210,22 +238,15 @@ namespace PixelSaur.UI
 
             HideInterferingMenus();
 
+            // 无论在 StartMenu 还是 Game 中，均在纯暗灰不透明背景画布上专注展示并编辑全部 9 个 HUD 控件，
+            // 完全遮蔽后方游戏画面，同时在 Game 场景中保存/应用时同步至真实 HUD。
+            BuildStartMenuPreviewWidgets();
+            _previewLayer.gameObject.SetActive(true);
+            ApplyDraftToStartMenuPreview();
+
             if (_isGameScene)
             {
-                _previewLayer.gameObject.SetActive(false);
-                GameObject hudCanvas = GameObject.Find("HUD_Canvas");
-                if (hudCanvas != null)
-                {
-                    var progressHud = hudCanvas.GetComponent<InteractionProgressHUD>();
-                    if (progressHud != null) progressHud.SetEditorPreviewMode(true);
-                }
                 HudLayoutManager.ApplyLayoutToGameHud(_draftLayout);
-            }
-            else
-            {
-                BuildStartMenuPreviewWidgets();
-                _previewLayer.gameObject.SetActive(true);
-                ApplyDraftToStartMenuPreview();
             }
 
             BuildEditableFrames();
@@ -357,10 +378,12 @@ namespace PixelSaur.UI
             Canvas c = GetComponentInParent<Canvas>();
             if (c != null) _canvasRect = c.GetComponent<RectTransform>();
 
-            // 轻微半透明网格幕布（阻挡底层游戏按钮误触，同时清晰透视场景）
+            // 纯不透明深灰对齐网格画布（完全屏蔽后方游戏画面，让玩家专注设置界面布局）
             Image dimBg = GetComponent<Image>();
             if (dimBg == null) dimBg = gameObject.AddComponent<Image>();
-            dimBg.color = new Color(0.03f, 0.05f, 0.08f, 0.34f);
+            dimBg.sprite = _gridBgSprite;
+            dimBg.type = Image.Type.Tiled;
+            dimBg.color = Color.white;
             dimBg.raycastTarget = true;
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -624,7 +647,7 @@ namespace PixelSaur.UI
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-            // 1. 锁定占位：左上角 TopBarStatusHUD（仅展示位置参考，不可拖动/缩放）
+            // 1. 锁定占位：左上角 TopBarStatusHUD（严格按原始 360x68 展示参考位置，不可拖动/缩放）
             GameObject lockedTop = new GameObject("LockedTopBarPreview", typeof(RectTransform), typeof(Image));
             lockedTop.transform.SetParent(_previewLayer, false);
             RectTransform topRT = lockedTop.GetComponent<RectTransform>();
@@ -632,10 +655,10 @@ namespace PixelSaur.UI
             topRT.anchorMax = new Vector2(0f, 1f);
             topRT.pivot = new Vector2(0f, 1f);
             topRT.anchoredPosition = new Vector2(24f, -20f);
-            topRT.sizeDelta = new Vector2(520f, 96f);
+            topRT.sizeDelta = new Vector2(360f, 68f);
             Image topBg = lockedTop.GetComponent<Image>();
             if (pillBgSprite != null) { topBg.sprite = pillBgSprite; topBg.type = Image.Type.Sliced; }
-            topBg.color = new Color(0.14f, 0.16f, 0.20f, 0.78f);
+            topBg.color = new Color(0.16f, 0.18f, 0.22f, 0.92f);
             topBg.raycastTarget = false;
 
             GameObject lockTxtGo = new GameObject("LockLabel", typeof(RectTransform), typeof(Text));
@@ -643,11 +666,11 @@ namespace PixelSaur.UI
             StretchFull(lockTxtGo.GetComponent<RectTransform>());
             Text lockTxt = lockTxtGo.GetComponent<Text>();
             lockTxt.font = font;
-            lockTxt.fontSize = 24;
+            lockTxt.fontSize = 18;
             lockTxt.fontStyle = FontStyle.Bold;
             lockTxt.alignment = TextAnchor.MiddleCenter;
-            lockTxt.color = new Color(0.75f, 0.80f, 0.88f, 0.90f);
-            lockTxt.text = "TopBarStatusHUD（已锁定 · 不可调整）";
+            lockTxt.color = new Color(0.75f, 0.80f, 0.88f, 0.95f);
+            lockTxt.text = "TopBarStatusHUD（锁定 · 不可调）";
             lockTxt.raycastTarget = false;
 
             // 2. 构建 9 个可编辑游戏 HUD 预览控件
@@ -851,15 +874,7 @@ namespace PixelSaur.UI
             data.width = Mathf.Clamp(newSize.x, meta.minSize.x, meta.maxSize.x);
             data.height = Mathf.Clamp(newSize.y, meta.minSize.y, meta.maxSize.y);
 
-            if (_isGameScene)
-            {
-                GameObject hudCanvas = GameObject.Find("HUD_Canvas");
-                if (hudCanvas != null)
-                {
-                    HudLayoutManager.ApplySingleElementToGameHud(hudCanvas.transform, meta, data);
-                }
-            }
-            else if (_previewWidgets.TryGetValue(id, out var rt) && rt != null)
+            if (_previewWidgets.TryGetValue(id, out var rt) && rt != null)
             {
                 rt.anchorMin = meta.anchorMin;
                 rt.anchorMax = meta.anchorMax;
@@ -867,6 +882,15 @@ namespace PixelSaur.UI
                 rt.localScale = Vector3.one;
                 rt.anchoredPosition = new Vector2(data.posX, data.posY);
                 rt.sizeDelta = new Vector2(data.width, data.height);
+            }
+
+            if (_isGameScene)
+            {
+                GameObject hudCanvas = GameObject.Find("HUD_Canvas");
+                if (hudCanvas != null)
+                {
+                    HudLayoutManager.ApplySingleElementToGameHud(hudCanvas.transform, meta, data);
+                }
             }
 
             _isDirty = !HudLayoutManager.LayoutsMatch(_draftLayout, _savedSnapshot);
@@ -905,14 +929,11 @@ namespace PixelSaur.UI
         {
             _draftLayout = HudLayoutManager.GetDefaultLayout();
             SyncAllFramesFromDraft();
+            ApplyDraftToStartMenuPreview();
 
             if (_isGameScene)
             {
                 HudLayoutManager.ApplyLayoutToGameHud(_draftLayout);
-            }
-            else
-            {
-                ApplyDraftToStartMenuPreview();
             }
 
             _isDirty = !HudLayoutManager.LayoutsMatch(_draftLayout, _savedSnapshot);
@@ -924,13 +945,10 @@ namespace PixelSaur.UI
 
         private void HandleApplyClicked()
         {
+            ApplyDraftToStartMenuPreview();
             if (_isGameScene)
             {
                 HudLayoutManager.ApplyLayoutToGameHud(_draftLayout);
-            }
-            else
-            {
-                ApplyDraftToStartMenuPreview();
             }
 
             ShowToast("已应用当前界面布局预览（未写入存档）");

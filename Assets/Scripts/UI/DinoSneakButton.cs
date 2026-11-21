@@ -18,10 +18,15 @@ namespace PixelSaur.UI
         [SerializeField] private Color pressColor = new Color(0.76f, 0.76f, 0.76f, 1f);
         [SerializeField] private Color activeSneakColor = new Color(1.0f, 0.92f, 0.45f, 1f);
 
+        [Header("冷却配置")]
+        [SerializeField] private float sneakCooldown = 0.4f;
+
         [Header("图标资产")]
         [SerializeField] private Sprite sneakIconSprite;
 
         private Image _bgImage;
+        private SkillCooldownOverlay _cdOverlay;
+        private float _lastToggleTime = -999f;
         private bool _isPointerDown = false;
         private bool _lastSyncedSneak = false;
         private readonly Vector3 _originalScale = Vector3.one;
@@ -29,11 +34,13 @@ namespace PixelSaur.UI
         private void Awake()
         {
             EnsureAppearance();
+            if (Application.isPlaying) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnEnable()
         {
             EnsureAppearance();
+            if (Application.isPlaying && _cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
         }
 
         private void OnValidate()
@@ -43,7 +50,12 @@ namespace PixelSaur.UI
 
         private void Update()
         {
-            if (!Application.isPlaying || _isPointerDown) return;
+            if (!Application.isPlaying) return;
+            if (_cdOverlay == null) _cdOverlay = SkillCooldownOverlay.EnsureOn(gameObject);
+            float remaining = Mathf.Max(0f, sneakCooldown - (Time.time - _lastToggleTime));
+            _cdOverlay.SetCooldown(remaining, sneakCooldown);
+
+            if (_isPointerDown) return;
             bool sneaking = PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSneaking;
             if (sneaking != _lastSyncedSneak)
             {
@@ -97,6 +109,8 @@ namespace PixelSaur.UI
 
             if (Application.isPlaying && PlayerInputProxy.Instance != null)
             {
+                if (Time.time - _lastToggleTime < sneakCooldown) return;
+                _lastToggleTime = Time.time;
                 bool nowSneaking = PlayerInputProxy.Instance.ToggleSneak();
                 _lastSyncedSneak = nowSneaking;
                 UISoundManager.PlaySneak(nowSneaking);
