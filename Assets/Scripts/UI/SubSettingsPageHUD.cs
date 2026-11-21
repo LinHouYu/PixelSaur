@@ -40,6 +40,7 @@ namespace PixelSaur.UI
         public const string KeyHaptics = "SETTING_CTRL_HAPTICS";
         public const string KeyAttackLock = "SETTING_CTRL_ATTACK_LOCK";
         public const string KeyControlGuide = "SETTING_CTRL_KEY_GUIDE";
+        public const string KeyHudLayoutEditor = "SETTING_CTRL_HUD_LAYOUT_EDITOR";
 
         private enum ItemWidgetType
         {
@@ -51,7 +52,8 @@ namespace PixelSaur.UI
             BgmVolumeSlider,
             SfxVolumeSlider,
             LookSensitivitySlider,
-            KeyGuidePlaceholder
+            KeyGuidePlaceholder,
+            HudLayoutEditorButton
         }
 
         private class SettingItemDef
@@ -195,6 +197,14 @@ namespace PixelSaur.UI
 
         private static readonly SettingItemDef[] ControlsDefs =
         {
+            new SettingItemDef
+            {
+                key = KeyHudLayoutEditor,
+                title = "自定义游戏界面布局 (HUD)",
+                desc = "自由拖动除左上状态条外的所有游戏 UI，按住边缘/角点缩放（Scale 固定不变，大厅与游戏同步）",
+                defaultValue = 0,
+                widgetType = ItemWidgetType.HudLayoutEditorButton
+            },
             new SettingItemDef
             {
                 key = KeyBgmVolume,
@@ -585,7 +595,7 @@ namespace PixelSaur.UI
 
             foreach (var def in GetCurrentDefs())
             {
-                if (def.widgetType == ItemWidgetType.KeyGuidePlaceholder) continue;
+                if (def.widgetType == ItemWidgetType.KeyGuidePlaceholder || def.widgetType == ItemWidgetType.HudLayoutEditorButton) continue;
                 int val = PlayerPrefs.GetInt(def.key, def.defaultValue);
                 _committedSettings[def.key] = val;
                 _draftSettings[def.key] = val;
@@ -871,11 +881,15 @@ namespace PixelSaur.UI
                 }
                 else
                 {
-                    float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.72f : 0.46f;
+                    float leftWidthRatio = def.widgetType == ItemWidgetType.Toggle ? 0.72f :
+                                           def.widgetType == ItemWidgetType.HudLayoutEditorButton ? 0.66f : 0.46f;
                     BuildCardTexts(card.transform, mainFont, def.title, def.desc, leftWidthRatio);
 
                     switch (def.widgetType)
                     {
+                        case ItemWidgetType.HudLayoutEditorButton:
+                            BuildHudLayoutEditorButtonWidget(card.transform, mainFont);
+                            break;
                         case ItemWidgetType.Toggle:
                             BuildToggleWidget(card.transform, def.key, curVal == 1);
                             break;
@@ -1180,6 +1194,53 @@ namespace PixelSaur.UI
             ApplyGraphicsValues(preset, disableGrass, grassRes, renderScale, vsync, fpsLimit, waterRipple);
             UpdateSaveButtonState();
             ShowToast($"已一键应用【{QualityPresetLabels[preset]}】，请点击保存确认！");
+        }
+
+        private void BuildHudLayoutEditorButtonWidget(Transform cardTr, Font font)
+        {
+            GameObject btnGo = new GameObject("OpenHudLayoutEditorBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGo.transform.SetParent(cardTr, false);
+            RectTransform rt = btnGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.anchoredPosition = new Vector2(-26f, 0f);
+            rt.sizeDelta = new Vector2(260f, 64f);
+
+            Image img = btnGo.GetComponent<Image>();
+            img.sprite = _whitePillSprite;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.18f, 0.54f, 0.82f, 1f);
+            img.raycastTarget = true;
+
+            Button btn = btnGo.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() =>
+            {
+                UISoundManager.PlayOpen();
+                HudLayoutEditorHUD.OpenGlobalEditor();
+            });
+
+            GameObject txtGo = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(Outline));
+            txtGo.transform.SetParent(btnGo.transform, false);
+            RectTransform trt = txtGo.GetComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            Text txt = txtGo.GetComponent<Text>();
+            txt.font = font;
+            txt.fontSize = 26;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.text = "进入布局编辑";
+            txt.raycastTarget = false;
+
+            Outline o = txtGo.GetComponent<Outline>();
+            o.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            o.effectDistance = new Vector2(1.2f, -1.2f);
         }
 
         private void BuildKeyGuidePlaceholderWidget(Transform cardTr, Font font, string title)

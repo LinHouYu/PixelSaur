@@ -51,8 +51,8 @@ namespace PixelSaur.UI
             if (skillIconSprite == null)
             {
                 string path = skillSlot == SkillSlot.Roar
-                    ? "Assets/Textures/UI/icon_dino_skill2.png"
-                    : "Assets/Textures/UI/icon_dino_skill1.png";
+                    ? "Assets/Textures/UI/skill1.png"
+                    : "Assets/Textures/UI/skill3.png";
                 skillIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
             }
 #endif
@@ -65,6 +65,12 @@ namespace PixelSaur.UI
                 _iconImage.color = normalColor;
                 _iconImage.raycastTarget = true;
             }
+        }
+
+        public void SetIconSprite(Sprite sprite)
+        {
+            skillIconSprite = sprite;
+            EnsureAppearance();
         }
 
         public void OnPointerDown(PointerEventData eventData)

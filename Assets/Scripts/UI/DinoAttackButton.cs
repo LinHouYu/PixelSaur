@@ -50,7 +50,7 @@ namespace PixelSaur.UI
 #if UNITY_EDITOR
             if (biteIconSprite == null)
             {
-                biteIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_bite_32x32.png");
+                biteIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill4.png");
             }
 #endif
             RectTransform rt = GetComponent<RectTransform>();
@@ -82,11 +82,17 @@ namespace PixelSaur.UI
                 _iconImage = iconTr.GetComponent<Image>();
                 if (_iconImage != null)
                 {
-                    // 鍥炬爣鏈韩宸叉槸瀹屾暣鍦嗗舰鎸夐挳璐村浘锛岄殣钘忔棫鐨勫彔鍔犲瓙鑺傜偣閬垮厤閲嶅奖
+                    // 图标本身已是完整圆形按钮贴图，隐藏旧的叠加子节点避免重影
                     _iconImage.enabled = false;
                     _iconImage.raycastTarget = false;
                 }
             }
+        }
+
+        public void SetIconSprite(Sprite sprite)
+        {
+            biteIconSprite = sprite;
+            EnsureAppearance();
         }
 
         private static Sprite CreateAntiAliasedCircleSprite(int size, bool withOuterRing)

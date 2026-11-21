@@ -20,6 +20,54 @@ namespace PixelSaur.UI
         private Slider _slider;
         private Image _fillImage;
         private Text _timerText;
+        private bool _editorPreviewMode;
+
+        public RectTransform BarRectTransform
+        {
+            get
+            {
+                if (_container == null) BuildUI();
+                return _container != null ? _container.GetComponent<RectTransform>() : null;
+            }
+        }
+
+        public void SetEditorPreviewMode(bool active)
+        {
+            _editorPreviewMode = active;
+            if (_container == null) BuildUI();
+            if (_container == null) return;
+
+            if (active)
+            {
+                _container.SetActive(true);
+                if (_slider != null) _slider.value = 0.65f;
+                if (_fillImage != null) _fillImage.color = ThirstColor;
+                if (_timerText != null) _timerText.text = "喝水中 0.2s";
+            }
+            else
+            {
+                _container.SetActive(false);
+            }
+        }
+
+        public void ApplyCustomLayout(Vector2 anchoredPos, Vector2 size)
+        {
+            if (_container == null) BuildUI();
+            if (_container == null) return;
+
+            RectTransform rt = _container.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.localScale = Vector3.one;
+            rt.anchoredPosition = anchoredPos;
+            rt.sizeDelta = new Vector2(Mathf.Max(220f, size.x), Mathf.Max(26f, size.y));
+
+            if (_timerText != null)
+            {
+                _timerText.fontSize = Mathf.Clamp(Mathf.RoundToInt(rt.sizeDelta.y * 0.54f), 14, 46);
+            }
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void RegisterSceneAutoAttach()
@@ -67,6 +115,11 @@ namespace PixelSaur.UI
 
         private void Update()
         {
+            if (_editorPreviewMode)
+            {
+                return;
+            }
+
             DinoInteractionController interaction = DinoInteractionController.Instance;
             if (interaction == null || !interaction.IsInteracting || interaction.CurrentActionDuration <= 0.001f)
             {
@@ -129,8 +182,9 @@ namespace PixelSaur.UI
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -24f);
-            rt.sizeDelta = new Vector2(360f, 36f);
+            rt.localScale = Vector3.one;
+            rt.anchoredPosition = new Vector2(0f, -26f);
+            rt.sizeDelta = new Vector2(540f, 54f);
 
             Image bgImage = _container.GetComponent<Image>();
             bgImage.color = BgColor;
@@ -183,7 +237,7 @@ namespace PixelSaur.UI
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             _timerText.font = font;
-            _timerText.fontSize = 22;
+            _timerText.fontSize = 29;
             _timerText.fontStyle = FontStyle.Bold;
             _timerText.alignment = TextAnchor.MiddleCenter;
             _timerText.color = Color.white;

@@ -97,8 +97,41 @@ namespace PixelSaur.UI
 #endif
         }
 
+        public void RestoreOriginalButtonColors()
+        {
+            panelHeightRatio = 0.80f;
+            foggyOverlayColor = new Color(0.22f, 0.25f, 0.30f, 0.72f);
+            panelBgColor = new Color(0.38f, 0.42f, 0.48f, 0.96f);
+            resumeBtnColor = new Color(0.75f, 1.00f, 1.00f, 1.0f);
+            buttonBgColor = Color.white;
+            buttonHoverColor = new Color(1.0f, 1.0f, 1.0f, 1f);
+            buttonPressedColor = new Color(0.82f, 0.90f, 1.0f, 1f);
+        }
+
+        private static void SetLayerRecursively(Transform root, int layer)
+        {
+            if (root == null || layer < 0) return;
+            root.gameObject.layer = layer;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                SetLayerRecursively(root.GetChild(i), layer);
+            }
+        }
+
         public void EnsureUIHierarchy()
         {
+            // 修复旧场景中序列化残留的暗灰色按钮配色，确保按钮还原贴图本身颜色而不删除任何图片或组件
+            if (buttonBgColor.r < 0.85f || buttonBgColor.g < 0.85f || buttonBgColor.b < 0.85f || panelBgColor.r < 0.30f)
+            {
+                RestoreOriginalButtonColors();
+            }
+
+            int uiLayer = LayerMask.NameToLayer("UI");
+            if (uiLayer >= 0)
+            {
+                SetLayerRecursively(transform, uiLayer);
+            }
+
             rootRect = GetComponent<RectTransform>();
             if (rootRect == null) rootRect = gameObject.AddComponent<RectTransform>();
 
@@ -222,11 +255,16 @@ namespace PixelSaur.UI
             // 按钮 1: 继续游戏
             resumeButton = EnsureMenuButton(groupObj.transform, "ResumeButton", "继续游戏", mainFont, resumeBtnColor);
             // 按钮 2: 恐龙仓库（直接打开仓库在游戏或大厅中切换出战恐龙与皮肤）
-            warehouseButton = EnsureMenuButton(groupObj.transform, "WarehouseButton", "恐龙仓库", mainFont, new Color(0.76f, 1.18f, 1.04f, 1.0f));
+            warehouseButton = EnsureMenuButton(groupObj.transform, "WarehouseButton", "恐龙仓库", mainFont, new Color(0.78f, 1.00f, 0.90f, 1.0f));
             // 按钮 3: 画面设置
             graphicsButton = EnsureMenuButton(groupObj.transform, "GraphicsButton", "画面设置", mainFont, buttonBgColor);
             // 按钮 4: 游戏控制
             controlsButton = EnsureMenuButton(groupObj.transform, "ControlsButton", "游戏控制", mainFont, buttonBgColor);
+
+            if (resumeButton != null) resumeButton.transform.SetSiblingIndex(0);
+            if (warehouseButton != null) warehouseButton.transform.SetSiblingIndex(1);
+            if (graphicsButton != null) graphicsButton.transform.SetSiblingIndex(2);
+            if (controlsButton != null) controlsButton.transform.SetSiblingIndex(3);
 
             if (!_isOpen)
             {
@@ -380,6 +418,15 @@ namespace PixelSaur.UI
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
+            // 保持 TopBarStatusHUD 位于设置面板之上，避免左上角齿轮与 FPS 条被灰蒙蒙遮罩压暗
+            if (transform.parent != null)
+            {
+                Transform topBar = transform.parent.Find("TopBarStatusHUD");
+                if (topBar != null)
+                {
+                    topBar.SetAsLastSibling();
+                }
+            }
             if (Application.isPlaying)
             {
                 UISoundManager.PlayOpen();

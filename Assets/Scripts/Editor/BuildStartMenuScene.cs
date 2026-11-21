@@ -43,11 +43,32 @@ namespace PixelSaur.Editor
 
                 InteractionProgressHUD progressHud = hudCanvas.GetComponent<InteractionProgressHUD>();
                 if (progressHud == null) progressHud = hudCanvas.AddComponent<InteractionProgressHUD>();
+                progressHud.BuildUI();
+                Transform progBar = hudCanvas.transform.Find("InteractionProgressBar");
+                if (progBar != null) progBar.gameObject.SetActive(false);
                 EditorUtility.SetDirty(progressHud);
 
+                // 替换 5 个操作与技能按钮的贴图（skill1~skill5）
+                ApplySkillButtonSprites(hudCanvas.transform);
+
+                // 放大游戏内所有 UI (1.5x 尺寸，固定 localScale=1) 并应用无重叠默认布局
+                TopBarStatusHUD topBar = hudCanvas.GetComponentInChildren<TopBarStatusHUD>(true);
+                if (topBar != null)
+                {
+                    SerializedObject topSo = new SerializedObject(topBar);
+                    topSo.FindProperty("panelSize").vector2Value = new Vector2(520f, 96f);
+                    topSo.ApplyModifiedPropertiesWithoutUndo();
+                    topBar.EnsureUIHierarchy();
+                    EditorUtility.SetDirty(topBar);
+                }
+
+                HudLayoutManager.ApplyLayoutToGameHud(HudLayoutManager.GetDefaultLayout());
+
+                // 修复 SettingsMenuPanel 按钮原本颜色发灰及 Layer 问题（不删除任何图片或组件）
                 SettingsMenuPanelHUD settingsInGame = hudCanvas.GetComponentInChildren<SettingsMenuPanelHUD>(true);
                 if (settingsInGame != null)
                 {
+                    settingsInGame.RestoreOriginalButtonColors();
                     settingsInGame.EnsureUIHierarchy();
                     EditorUtility.SetDirty(settingsInGame);
                 }
@@ -56,6 +77,11 @@ namespace PixelSaur.Editor
                 if (oldInv != null) Object.DestroyImmediate(oldInv.gameObject);
                 InventoryPanelHUD gameInv = AttachInventoryPanelWithSprites(hudCanvas.transform);
                 gameInv.gameObject.SetActive(false);
+
+                Transform oldLayoutEditor = hudCanvas.transform.Find("HudLayoutEditorPanel");
+                if (oldLayoutEditor != null) Object.DestroyImmediate(oldLayoutEditor.gameObject);
+                HudLayoutEditorHUD gameLayoutEditor = AttachHudLayoutEditorWithSprites(hudCanvas.transform);
+                gameLayoutEditor.gameObject.SetActive(false);
 
                 EditorUtility.SetDirty(hudCanvas);
             }
@@ -259,6 +285,7 @@ namespace PixelSaur.Editor
 
         private static void EnsureUiAssetImports()
         {
+            AssetDatabase.Refresh();
             var pillImporter = AssetImporter.GetAtPath("Assets/Textures/UI/ui_white_pill_64x64.png") as TextureImporter;
             if (pillImporter != null)
             {
@@ -283,6 +310,29 @@ namespace PixelSaur.Editor
                 bevelImporter.spriteBorder = new Vector4(15f, 15f, 15f, 15f);
                 bevelImporter.textureCompression = TextureImporterCompression.Uncompressed;
                 bevelImporter.SaveAndReimport();
+            }
+
+            string[] skillPaths =
+            {
+                "Assets/Textures/UI/skill1.png",
+                "Assets/Textures/UI/skill2.png",
+                "Assets/Textures/UI/skill3.png",
+                "Assets/Textures/UI/skill4.png",
+                "Assets/Textures/UI/skill5.png"
+            };
+            foreach (string spPath in skillPaths)
+            {
+                var skImp = AssetImporter.GetAtPath(spPath) as TextureImporter;
+                if (skImp != null)
+                {
+                    skImp.textureType = TextureImporterType.Sprite;
+                    skImp.spriteImportMode = SpriteImportMode.Single;
+                    skImp.alphaIsTransparency = true;
+                    skImp.mipmapEnabled = false;
+                    skImp.filterMode = FilterMode.Point;
+                    skImp.textureCompression = TextureImporterCompression.Uncompressed;
+                    skImp.SaveAndReimport();
+                }
             }
 
             var qqImporter = AssetImporter.GetAtPath("Assets/Textures/UI/qq_group_card.jpg") as TextureImporter;
@@ -570,6 +620,9 @@ namespace PixelSaur.Editor
             subHud.EnsureUIHierarchy();
             subSettingsObj.SetActive(false);
 
+            HudLayoutEditorHUD startLayoutEditor = AttachHudLayoutEditorWithSprites(canvasGo.transform);
+            startLayoutEditor.gameObject.SetActive(false);
+
             // 6. 绑定 StartMenuController 与 UIPanelManager 序列化引用
             UIPanelManager panelMgr = canvasGo.GetComponent<UIPanelManager>();
             panelMgr.RegisterPanel("InfoModal", modalGo, true);
@@ -750,6 +803,109 @@ namespace PixelSaur.Editor
             invSo.ApplyModifiedPropertiesWithoutUndo();
             inventoryHud.EnsureUI();
             return inventoryHud;
+        }
+
+        private static void ApplySkillButtonSprites(Transform hudRoot)
+        {
+            if (hudRoot == null) return;
+            Sprite s1 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill1.png");
+            Sprite s2 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill2.png");
+            Sprite s3 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill3.png");
+            Sprite s4 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill4.png");
+            Sprite s5 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill5.png");
+
+            Transform jumpTr = hudRoot.Find("DinoJumpButton");
+            if (jumpTr != null && s5 != null)
+            {
+                var comp = jumpTr.GetComponent<DinoJumpButton>();
+                if (comp != null)
+                {
+                    SerializedObject so = new SerializedObject(comp);
+                    so.FindProperty("jumpIconSprite").objectReferenceValue = s5;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    comp.SetIconSprite(s5);
+                    EditorUtility.SetDirty(comp);
+                }
+            }
+
+            Transform atkTr = hudRoot.Find("DinoAttackButton");
+            if (atkTr != null && s4 != null)
+            {
+                var comp = atkTr.GetComponent<DinoAttackButton>();
+                if (comp != null)
+                {
+                    SerializedObject so = new SerializedObject(comp);
+                    so.FindProperty("biteIconSprite").objectReferenceValue = s4;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    comp.SetIconSprite(s4);
+                    EditorUtility.SetDirty(comp);
+                }
+            }
+
+            Transform sneakTr = hudRoot.Find("DinoSneakButton");
+            if (sneakTr != null && s2 != null)
+            {
+                var comp = sneakTr.GetComponent<DinoSneakButton>();
+                if (comp != null)
+                {
+                    SerializedObject so = new SerializedObject(comp);
+                    so.FindProperty("sneakIconSprite").objectReferenceValue = s2;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    comp.SetIconSprite(s2);
+                    EditorUtility.SetDirty(comp);
+                }
+            }
+
+            Transform sk1Tr = hudRoot.Find("DinoSkill1Button");
+            if (sk1Tr != null && s3 != null)
+            {
+                var comp = sk1Tr.GetComponent<DinoSkillButton>();
+                if (comp != null)
+                {
+                    SerializedObject so = new SerializedObject(comp);
+                    so.FindProperty("skillIconSprite").objectReferenceValue = s3;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    comp.SetIconSprite(s3);
+                    EditorUtility.SetDirty(comp);
+                }
+            }
+
+            Transform sk2Tr = hudRoot.Find("DinoSkill2Button");
+            if (sk2Tr != null && s1 != null)
+            {
+                var comp = sk2Tr.GetComponent<DinoSkillButton>();
+                if (comp != null)
+                {
+                    SerializedObject so = new SerializedObject(comp);
+                    so.FindProperty("skillIconSprite").objectReferenceValue = s1;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    comp.SetIconSprite(s1);
+                    EditorUtility.SetDirty(comp);
+                }
+            }
+        }
+
+        private static HudLayoutEditorHUD AttachHudLayoutEditorWithSprites(Transform parent)
+        {
+            GameObject go = new GameObject("HudLayoutEditorPanel", typeof(RectTransform), typeof(HudLayoutEditorHUD));
+            go.transform.SetParent(parent, false);
+            HudLayoutEditorHUD hud = go.GetComponent<HudLayoutEditorHUD>();
+            SerializedObject so = new SerializedObject(hud);
+            so.FindProperty("skill1Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill1.png");
+            so.FindProperty("skill2Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill2.png");
+            so.FindProperty("skill3Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill3.png");
+            so.FindProperty("skill4Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill4.png");
+            so.FindProperty("skill5Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill5.png");
+            so.FindProperty("dialogueSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dialogue_32x32.png");
+            so.FindProperty("heartSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
+            so.FindProperty("foodSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
+            so.FindProperty("waterSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
+            so.FindProperty("pillBgSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
+            so.FindProperty("gearSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_gear_32x32.png");
+            so.FindProperty("playersSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_players_32x32.png");
+            so.ApplyModifiedPropertiesWithoutUndo();
+            hud.EnsureUIHierarchy();
+            return hud;
         }
 
         private static void StretchFull(RectTransform rt)

@@ -24,10 +24,10 @@ namespace PixelSaur.UI
 
         [Header("位置与尺寸 (可在 Inspector 中自由微调)")]
         [Tooltip("左下角锚点偏移位置 (X, Y)")]
-        [SerializeField] private Vector2 buttonPosition = new Vector2(76f, 76f);
+        [SerializeField] private Vector2 buttonPosition = new Vector2(90f, 90f);
 
         [Tooltip("按钮尺寸（宽, 高）")]
-        [SerializeField] private Vector2 buttonSize = new Vector2(96f, 96f);
+        [SerializeField] private Vector2 buttonSize = new Vector2(144f, 144f);
 
         [Header("交互事件")]
         [Tooltip("点击对话按钮时触发的 Unity 事件")]
@@ -87,10 +87,11 @@ namespace PixelSaur.UI
             _rectTransform = GetComponent<RectTransform>();
             if (_rectTransform == null) _rectTransform = gameObject.AddComponent<RectTransform>();
 
-            // 1. 左下角锚点对齐 (AnchorMin = 0,0; AnchorMax = 0,0)
+            // 1. 左下角锚点对齐 (AnchorMin = 0,0; AnchorMax = 0,0)，固定 localScale = 1
             _rectTransform.anchorMin = new Vector2(0f, 0f);
             _rectTransform.anchorMax = new Vector2(0f, 0f);
             _rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _rectTransform.localScale = Vector3.one;
             _rectTransform.anchoredPosition = buttonPosition;
             _rectTransform.sizeDelta = buttonSize;
 

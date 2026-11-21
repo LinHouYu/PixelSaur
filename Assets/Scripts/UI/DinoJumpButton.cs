@@ -42,7 +42,7 @@ namespace PixelSaur.UI
 #if UNITY_EDITOR
             if (jumpIconSprite == null)
             {
-                jumpIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_jump_32x32.png");
+                jumpIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill5.png");
             }
 #endif
             _bgImage = GetComponent<Image>();
@@ -54,6 +54,12 @@ namespace PixelSaur.UI
                 _bgImage.color = normalColor;
                 _bgImage.raycastTarget = true;
             }
+        }
+
+        public void SetIconSprite(Sprite sprite)
+        {
+            jumpIconSprite = sprite;
+            EnsureAppearance();
         }
 
         public void OnPointerDown(PointerEventData eventData)

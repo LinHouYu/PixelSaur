@@ -195,7 +195,7 @@ namespace PixelSaur.UI
 
             LoadPixelSpritesIfMissing(true);
 
-            // 根容器：底部居中
+            // 根容器：底部居中，默认放大 1.5 倍（1080 x 58）且允许自定义布局编辑器按尺寸自适应调整，保持 localScale 固定为 1
             RectTransform panelRT = GetComponent<RectTransform>();
             if (panelRT == null) panelRT = gameObject.AddComponent<RectTransform>();
 
@@ -203,28 +203,62 @@ namespace PixelSaur.UI
             panelRT.anchorMin = new Vector2(0.5f, 0f);
             panelRT.anchorMax = new Vector2(0.5f, 0f);
             panelRT.pivot = new Vector2(0.5f, 0f);
-            panelRT.anchoredPosition = new Vector2(0f, 24f); // 底部边距 24px
-            panelRT.sizeDelta = new Vector2(760f, 34f);
+            panelRT.localScale = Vector3.one;
+
+            if (panelRT.sizeDelta.x < 100f || (panelRT.sizeDelta.x <= 780f && panelRT.sizeDelta.y <= 40f))
+            {
+                panelRT.anchoredPosition = new Vector2(0f, 22f);
+                panelRT.sizeDelta = new Vector2(1080f, 58f);
+            }
+
+            ApplySizeDeltaLayout(panelRT);
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// 自定义布局编辑器与运行时同步接口：调整位置与整体尺寸，内部三根状态条与图标、字体按尺寸自适应且保持 localScale 固定
+        /// </summary>
+        public void ApplyCustomLayout(Vector2 anchoredPos, Vector2 size)
+        {
+            RectTransform panelRT = GetComponent<RectTransform>();
+            if (panelRT == null) return;
+
+            panelRT.anchorMin = new Vector2(0.5f, 0f);
+            panelRT.anchorMax = new Vector2(0.5f, 0f);
+            panelRT.pivot = new Vector2(0.5f, 0f);
+            panelRT.localScale = Vector3.one;
+            panelRT.anchoredPosition = anchoredPos;
+            panelRT.sizeDelta = new Vector2(Mathf.Max(360f, size.x), Mathf.Max(26f, size.y));
+
+            ApplySizeDeltaLayout(panelRT);
+            UpdateUI();
+        }
+
+        private void ApplySizeDeltaLayout(RectTransform panelRT)
+        {
+            float totalWidth = Mathf.Max(360f, panelRT.sizeDelta.x);
+            float totalHeight = Mathf.Max(26f, panelRT.sizeDelta.y);
+            float gap = Mathf.Clamp(totalWidth * 0.022f, 10f, 32f);
+            float itemWidth = (totalWidth - gap * 2f) / 3f;
+            float offsetX = itemWidth + gap;
 
             // 1. 生命状态条 (草绿色填充)
-            healthSlider = SetupOrUpdateStatItem("HealthBar", panelRT, new Vector2(-255f, 0f), 
+            healthSlider = SetupOrUpdateStatItem("HealthBar", panelRT, new Vector2(-offsetX, 0f), itemWidth, totalHeight,
                 heartSprite, new Color(0.40f, 0.78f, 0.16f, 1f),
                 out healthText, out healthIcon);
 
             // 2. 食物状态条 (暖橙/烤肉色填充)
-            foodSlider = SetupOrUpdateStatItem("FoodBar", panelRT, new Vector2(0f, 0f), 
+            foodSlider = SetupOrUpdateStatItem("FoodBar", panelRT, new Vector2(0f, 0f), itemWidth, totalHeight,
                 foodSprite, new Color(0.90f, 0.48f, 0.12f, 1f),
                 out foodText, out foodIcon);
 
             // 3. 口渴状态条 (清透天蓝色填充)
-            thirstSlider = SetupOrUpdateStatItem("ThirstBar", panelRT, new Vector2(255f, 0f), 
+            thirstSlider = SetupOrUpdateStatItem("ThirstBar", panelRT, new Vector2(offsetX, 0f), itemWidth, totalHeight,
                 waterSprite, new Color(0.18f, 0.65f, 0.95f, 1f),
                 out thirstText, out thirstIcon);
-
-            UpdateUI();
         }
 
-        private Slider SetupOrUpdateStatItem(string itemName, RectTransform parent, Vector2 pos, 
+        private Slider SetupOrUpdateStatItem(string itemName, RectTransform parent, Vector2 pos, float itemWidth, float itemHeight,
             Sprite iconSp, Color fillColor, out Text outText, out Image outIcon)
         {
             Transform itemTr = parent.Find(itemName);
@@ -234,10 +268,17 @@ namespace PixelSaur.UI
             itemRT.anchorMin = new Vector2(0.5f, 0f);
             itemRT.anchorMax = new Vector2(0.5f, 0f);
             itemRT.pivot = new Vector2(0.5f, 0f);
+            itemRT.localScale = Vector3.one;
             itemRT.anchoredPosition = pos;
-            itemRT.sizeDelta = new Vector2(240f, 32f);
+            itemRT.sizeDelta = new Vector2(itemWidth, itemHeight);
 
-            // 1. 移动到 Slider 左边边缘的 8x8 像素图标 (整倍数 30x30，紧贴 Slider 左侧)
+            float iconSize = Mathf.Clamp(itemHeight * 0.90f, 24f, 76f);
+            float iconGap = Mathf.Clamp(iconSize * 0.16f, 4f, 12f);
+            float sliderWidth = Mathf.Max(60f, itemWidth - iconSize - iconGap);
+            float sliderHeight = Mathf.Clamp(itemHeight * 0.74f, 18f, 64f);
+            int fontSize = Mathf.Clamp(Mathf.RoundToInt(sliderHeight * 0.64f), 14, 38);
+
+            // 1. 移动到 Slider 左边边缘的 8x8 像素图标
             Transform iconTr = itemObj.transform.Find("Icon");
             GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
             RectTransform iconRT = iconObj.GetComponent<RectTransform>();
@@ -245,8 +286,8 @@ namespace PixelSaur.UI
             iconRT.anchorMin = new Vector2(0f, 0.5f);
             iconRT.anchorMax = new Vector2(0f, 0.5f);
             iconRT.pivot = new Vector2(0f, 0.5f);
-            iconRT.anchoredPosition = new Vector2(0f, 0f); // 左侧靠齐
-            iconRT.sizeDelta = new Vector2(30f, 30f);
+            iconRT.anchoredPosition = new Vector2(0f, 0f);
+            iconRT.sizeDelta = new Vector2(iconSize, iconSize);
 
             Image iconImg = iconObj.GetComponent<Image>();
             iconImg.sprite = iconSp;
@@ -255,7 +296,7 @@ namespace PixelSaur.UI
             iconImg.raycastTarget = false;
             outIcon = iconImg;
 
-            // 2. 右侧紧挨着的 Slider 像素进度条 (202 x 24)
+            // 2. 右侧紧挨着的 Slider 像素进度条
             Transform sliderTr = itemObj.transform.Find("Slider");
             GameObject sliderObj = sliderTr != null ? sliderTr.gameObject : new GameObject("Slider", typeof(RectTransform), typeof(Slider));
             RectTransform sliderRT = sliderObj.GetComponent<RectTransform>();
@@ -263,8 +304,8 @@ namespace PixelSaur.UI
             sliderRT.anchorMin = new Vector2(0f, 0.5f);
             sliderRT.anchorMax = new Vector2(0f, 0.5f);
             sliderRT.pivot = new Vector2(0f, 0.5f);
-            sliderRT.anchoredPosition = new Vector2(34f, 0f);
-            sliderRT.sizeDelta = new Vector2(202f, 24f);
+            sliderRT.anchoredPosition = new Vector2(iconSize + iconGap, 0f);
+            sliderRT.sizeDelta = new Vector2(sliderWidth, sliderHeight);
 
             Slider slider = sliderObj.GetComponent<Slider>();
             slider.interactable = false;
@@ -348,7 +389,7 @@ namespace PixelSaur.UI
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             textComp.font = font;
-            textComp.fontSize = 16;
+            textComp.fontSize = fontSize;
             textComp.fontStyle = FontStyle.Bold;
             textComp.alignment = centerValueText ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
             textComp.color = Color.white;

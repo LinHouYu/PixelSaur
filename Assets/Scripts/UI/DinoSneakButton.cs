@@ -57,7 +57,7 @@ namespace PixelSaur.UI
 #if UNITY_EDITOR
             if (sneakIconSprite == null)
             {
-                sneakIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dino_sneak_32x32.png");
+                sneakIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill2.png");
             }
 #endif
             _bgImage = GetComponent<Image>();
@@ -69,6 +69,12 @@ namespace PixelSaur.UI
                 _bgImage.raycastTarget = true;
                 RefreshVisualState(Application.isPlaying && PlayerInputProxy.Instance != null && PlayerInputProxy.Instance.IsSneaking);
             }
+        }
+
+        public void SetIconSprite(Sprite sprite)
+        {
+            sneakIconSprite = sprite;
+            EnsureAppearance();
         }
 
         private void RefreshVisualState(bool sneaking)

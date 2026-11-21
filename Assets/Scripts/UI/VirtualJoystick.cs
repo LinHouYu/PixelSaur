@@ -141,8 +141,12 @@ namespace PixelSaur.UI
             sprintButton.anchorMin = new Vector2(0.5f, 0.5f);
             sprintButton.anchorMax = new Vector2(0.5f, 0.5f);
             sprintButton.pivot = new Vector2(0.5f, 0.5f);
+            float baseDim = background != null && background.sizeDelta.x > 10f ? background.sizeDelta.x : 220f;
+            float ratio = baseDim / 220f;
+            sprintButtonYOffset = Mathf.Clamp(160f * ratio, 100f, 360f);
+            sprintSnapDistance = Mathf.Clamp(48f * ratio, 24f, 120f);
             sprintButton.anchoredPosition = new Vector2(0f, sprintButtonYOffset);
-            sprintButton.sizeDelta = new Vector2(76f, 76f);
+            sprintButton.sizeDelta = new Vector2(76f * ratio, 76f * ratio);
 
             sprintButtonBg = sprintObj.GetComponent<Image>();
             if (sprintButtonBg == null) sprintButtonBg = sprintObj.AddComponent<Image>();
@@ -159,7 +163,7 @@ namespace PixelSaur.UI
             iconRT.anchorMax = new Vector2(0.5f, 0.5f);
             iconRT.pivot = new Vector2(0.5f, 0.5f);
             iconRT.anchoredPosition = Vector2.zero;
-            iconRT.sizeDelta = new Vector2(36f, 36f);
+            iconRT.sizeDelta = new Vector2(36f * ratio, 36f * ratio);
 
             sprintButtonIcon = iconObj.GetComponent<Image>();
             sprintButtonIcon.sprite = pterosaurRunSprite;
@@ -171,6 +175,33 @@ namespace PixelSaur.UI
             {
                 sprintButton.gameObject.SetActive(false);
             }
+        }
+
+        public void ApplyCustomLayout(Vector2 anchoredPos, Vector2 size)
+        {
+            InitializeReferences();
+            if (background == null) return;
+
+            float dim = Mathf.Max(100f, Mathf.Max(size.x, size.y));
+            background.anchorMin = new Vector2(0f, 0f);
+            background.anchorMax = new Vector2(0f, 0f);
+            background.pivot = new Vector2(0.5f, 0.5f);
+            background.localScale = Vector3.one;
+            background.anchoredPosition = anchoredPos;
+            background.sizeDelta = new Vector2(dim, dim);
+
+            _defaultBackgroundPosition = anchoredPos;
+            _hasRecordedDefaultPos = true;
+
+            float ratio = dim / 220f;
+            handleRange = Mathf.Clamp(75f * ratio, 36f, 220f);
+            if (handle != null)
+            {
+                handle.localScale = Vector3.one;
+                handle.sizeDelta = new Vector2(88f * ratio, 88f * ratio);
+            }
+
+            EnsureSprintButtonHierarchy();
         }
 
         public void EnsureCircularAppearance()
