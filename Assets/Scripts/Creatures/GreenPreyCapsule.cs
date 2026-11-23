@@ -26,12 +26,12 @@ namespace PixelSaur.Creatures
 
         [Header("进食与食用机制")]
         [Tooltip("最大可被食用次数")]
-        [SerializeField] private int totalFeedCount = 3;
+        [SerializeField] private int totalFeedCount = 10;
         [Tooltip("当前剩余可被食用次数")]
-        [SerializeField] private int remainingFeedCount = 3;
+        [SerializeField] private int remainingFeedCount = 10;
 
         [Tooltip("每吃一口消耗的时间（秒）")]
-        [SerializeField] private float feedBiteDuration = 1.5f;
+        [SerializeField] private float feedBiteDuration = 5.0f;
 
         [Tooltip("每吃一口恢复的饱食度数值")]
         [SerializeField] private float feedFoodRecovery = 20.0f;

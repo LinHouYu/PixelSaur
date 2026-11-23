@@ -11516,9 +11516,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PixelSaur.Creatures.GreenPreyCapsule
   maxHealth: 100
   currentHealth: 100
-  totalFeedCount: 3
-  remainingFeedCount: 3
-  feedBiteDuration: 1.5
+  totalFeedCount: 10
+  remainingFeedCount: 10
+  feedBiteDuration: 5
   feedFoodRecovery: 20
   feedHealthRecovery: 15
   respawnDelay: 5

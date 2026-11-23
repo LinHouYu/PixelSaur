@@ -220,7 +220,7 @@ namespace PixelSaur.Combat
                     {
                         if (CanEatPrey)
                         {
-                            StartInteraction(InteractionType.EatingPrey, ediblePrey != null ? ediblePrey.FeedBiteDuration : 1.5f);
+                            StartInteraction(InteractionType.EatingPrey, ediblePrey != null ? ediblePrey.FeedBiteDuration : 5.0f);
                         }
                         else if (CanDrinkWater)
                         {
