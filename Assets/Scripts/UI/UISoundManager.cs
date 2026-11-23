@@ -38,6 +38,8 @@ namespace PixelSaur.UI
         private AudioSource _audioSource;
         private AudioSource _bgmSource;
         private float _lastSliderTickTime = -999f;
+        private static AudioClip _cachedEvoReadyClip;
+        private static AudioClip _cachedEvoSequenceClip;
 
         public float SfxVolume => masterVolume;
         public float BgmVolume => bgmVolume;
@@ -289,6 +291,137 @@ namespace PixelSaur.UI
         {
             var mgr = EnsureInstance();
             mgr?.PlayClip(null, 0.95f, 180f, 75f, 0.55f);
+        }
+
+        /// <summary>
+        /// 程序合成：可升级提示叮咚音（经验刚攒满时播放）
+        /// </summary>
+        public static void PlayEvolutionReadyChime()
+        {
+            var mgr = EnsureInstance();
+            if (mgr == null || !Application.isPlaying) return;
+            if (_cachedEvoReadyClip == null)
+            {
+                _cachedEvoReadyClip = CreateEvolutionReadyChimeClip();
+            }
+            mgr.PlayClip(_cachedEvoReadyClip, 1.0f);
+        }
+
+        /// <summary>
+        /// 程序合成：3秒进化演出音效（能量蓄力上升 + 白光爆发完成和弦）
+        /// </summary>
+        public static void PlayEvolutionSequenceSfx()
+        {
+            var mgr = EnsureInstance();
+            if (mgr == null || !Application.isPlaying) return;
+            if (_cachedEvoSequenceClip == null)
+            {
+                _cachedEvoSequenceClip = CreateEvolutionSequenceClip();
+            }
+            mgr.PlayClip(_cachedEvoSequenceClip, 1.0f);
+        }
+
+        private static AudioClip CreateEvolutionReadyChimeClip()
+        {
+            const int sr = 44100;
+            const float dur = 0.52f;
+            int n = Mathf.RoundToInt(sr * dur);
+            float[] data = new float[n];
+
+            // 两段清脆上扬叮咚音：E6 (1318.5Hz) -> B6 (1975.5Hz) + 柔和八度泛音
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)sr;
+                float sample = 0f;
+
+                // Note 1: 0.00s ~ 0.24s
+                if (t < 0.26f)
+                {
+                    float env1 = Mathf.Clamp01(t / 0.008f) * Mathf.Exp(-t * 11f);
+                    sample += env1 * (0.55f * Mathf.Sin(2f * Mathf.PI * 1318.5f * t)
+                                    + 0.22f * Mathf.Sin(2f * Mathf.PI * 2637.0f * t));
+                }
+
+                // Note 2: 0.13s ~ 0.52s
+                if (t >= 0.13f)
+                {
+                    float t2 = t - 0.13f;
+                    float env2 = Mathf.Clamp01(t2 / 0.008f) * Mathf.Exp(-t2 * 7.5f);
+                    sample += env2 * (0.65f * Mathf.Sin(2f * Mathf.PI * 1975.5f * t2)
+                                    + 0.25f * Mathf.Sin(2f * Mathf.PI * 3951.0f * t2)
+                                    + 0.14f * Mathf.Sin(2f * Mathf.PI * 987.8f * t2));
+                }
+
+                data[i] = Mathf.Clamp(sample * 0.65f, -0.95f, 0.95f);
+            }
+
+            AudioClip clip = AudioClip.Create("SFX_EvolutionReadyChime", n, 1, sr, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        private static AudioClip CreateEvolutionSequenceClip()
+        {
+            const int sr = 44100;
+            const float dur = 3.0f;
+            int n = Mathf.RoundToInt(sr * dur);
+            float[] data = new float[n];
+
+            float phaseBase = 0f;
+            float phaseFifth = 0f;
+            float phaseHigh = 0f;
+            System.Random rng = new System.Random(2026);
+
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)sr;
+                float sample = 0f;
+
+                // 阶段 A (0.0s ~ 1.45s): 能量蓄力拉升 + 脉冲震颤
+                if (t < 1.55f)
+                {
+                    float p = Mathf.Clamp01(t / 1.45f);
+                    float curve = p * p;
+                    float freq = Mathf.Lerp(150f, 740f, curve);
+                    phaseBase += 2f * Mathf.PI * freq / sr;
+                    phaseFifth += 2f * Mathf.PI * (freq * 1.5f) / sr;
+                    phaseHigh += 2f * Mathf.PI * (freq * 2.0f) / sr;
+
+                    float tremolo = 0.72f + 0.28f * Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(4f, 18f, p) * t);
+                    float env = Mathf.Clamp01(t / 0.12f) * (1f - Mathf.Clamp01((t - 1.38f) / 0.17f));
+                    float chargeWave = 0.45f * Mathf.Sin(phaseBase)
+                                     + 0.26f * Mathf.Sin(phaseFifth)
+                                     + 0.16f * Mathf.Sin(phaseHigh);
+                    sample += chargeWave * tremolo * env * 0.55f;
+                }
+
+                // 阶段 B (1.38s ~ 3.00s): 爆发低频冲击 + 辉煌大三和弦升华余韵
+                if (t >= 1.38f)
+                {
+                    float tb = t - 1.38f;
+                    // 爆发瞬间温暖低音冲击 + 轻噪声光爆
+                    float boomEnv = Mathf.Clamp01(tb / 0.015f) * Mathf.Exp(-tb * 4.2f);
+                    float boomFreq = Mathf.Lerp(140f, 52f, Mathf.Clamp01(tb / 0.45f));
+                    float noise = ((float)rng.NextDouble() * 2f - 1f) * Mathf.Exp(-tb * 9.0f) * 0.22f;
+                    sample += boomEnv * (0.48f * Mathf.Sin(2f * Mathf.PI * boomFreq * tb) + noise);
+
+                    // 进化成功明亮大三和弦 (C5 523.25 + E5 659.25 + G5 783.99 + C6 1046.5 + G6 1567.98)
+                    float chordEnv = Mathf.Clamp01(tb / 0.03f) * Mathf.Exp(-tb * 1.95f);
+                    float shimmer = 0.88f + 0.12f * Mathf.Sin(2f * Mathf.PI * 7.5f * tb);
+                    float chord = 0.30f * Mathf.Sin(2f * Mathf.PI * 523.25f * tb)
+                                + 0.24f * Mathf.Sin(2f * Mathf.PI * 659.25f * tb)
+                                + 0.24f * Mathf.Sin(2f * Mathf.PI * 783.99f * tb)
+                                + 0.22f * Mathf.Sin(2f * Mathf.PI * 1046.50f * tb)
+                                + 0.12f * Mathf.Sin(2f * Mathf.PI * 1567.98f * tb);
+                    sample += chord * chordEnv * shimmer * 0.68f;
+                }
+
+                data[i] = Mathf.Clamp(sample, -0.95f, 0.95f);
+            }
+
+            AudioClip clip = AudioClip.Create("SFX_EvolutionSequence", n, 1, sr, false);
+            clip.SetData(data, 0);
+            return clip;
         }
     }
 }
