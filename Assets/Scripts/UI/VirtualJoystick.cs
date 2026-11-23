@@ -32,30 +32,41 @@ namespace PixelSaur.UI
         [Tooltip("是否为动态摇杆（按下时将底盘移至手指触摸点）")]
         [SerializeField] private bool dynamicJoystick = false;
 
-        [Header("奔跑按钮配置 (PUBG/COD手游上推奔跑)")]
-        [Tooltip("上方圆形奔跑按钮")]
+        [Header("扇形疾跑与自动奔跑锁定配置 (CODM / 和平精英手感)")]
+        [Tooltip("上方圆形疾跑视觉反馈按钮")]
         [SerializeField] private RectTransform sprintButton;
         [SerializeField] private Image sprintButtonBg;
         [SerializeField] private Image sprintButtonIcon;
         [Tooltip("32*32 像素翼龙奔跑图标资产")]
         [SerializeField] private Sprite pterosaurRunSprite;
-        [Tooltip("奔跑按钮在摇杆正上方的垂直距离（像素）")]
-        [Range(100f, 250f)]
+        [Tooltip("疾跑图标在摇杆正上方的垂直距离（像素）")]
+        [Range(100f, 360f)]
         [SerializeField] private float sprintButtonYOffset = 160f;
-        [Tooltip("手指滑动到奔跑按钮的吸附判定半径")]
-        [Range(20f, 80f)]
-        [SerializeField] private float sprintSnapDistance = 48f;
-        [SerializeField] private Color sprintNormalColor = new Color(0.10f, 0.14f, 0.20f, 0.75f);
-        [SerializeField] private Color sprintActiveColor = new Color(0.18f, 0.75f, 0.95f, 0.92f);
+        [Tooltip("与正上方(Vector2.up)的最大夹角（度）：左右各偏35°共70°扇形区")]
+        [Range(5f, 90f)]
+        [SerializeField] private float sprintAngleLimit = 35f;
+        [Tooltip("进入疾跑所需的推力比例阈值（0.85 表示 85%）")]
+        [Range(0.5f, 1.0f)]
+        [SerializeField] private float sprintMagnitude = 0.85f;
+        [Tooltip("上滑超出外圈触发自动奔跑锁定的推力比例阈值（默认 1.25）")]
+        [Range(1.05f, 2.5f)]
+        [SerializeField] private float lockMagnitude = 1.25f;
+        [Tooltip("平时/非疾跑时的默认暗色半透明颜色")]
+        [SerializeField] private Color sprintNormalColor = new Color(0.10f, 0.14f, 0.20f, 0.72f);
+        [Tooltip("进入疾跑或自动奔跑锁定时的黄色高亮颜色")]
+        [SerializeField] private Color sprintActiveColor = Color.yellow;
 
         private Vector2 _defaultBackgroundPosition;
         private bool _hasRecordedDefaultPos;
         private int _activePointerId = int.MinValue;
         private Canvas _canvas;
+        private bool _isAutoRunPendingLock;
         private static Sprite _cachedBaseCircleSprite;
         private static Sprite _cachedKnobCircleSprite;
 
         public bool IsSprinting { get; private set; }
+        public bool IsAutoRunLocked { get; private set; }
+        public Color SprintActiveColor => sprintActiveColor;
 
         public bool DynamicJoystick
         {
@@ -88,7 +99,24 @@ namespace PixelSaur.UI
 
             if (Application.isPlaying && sprintButton != null)
             {
-                sprintButton.gameObject.SetActive(false);
+                sprintButton.gameObject.SetActive(true);
+                UpdateSprintButtonVisual(false);
+            }
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying) return;
+
+            if (IsAutoRunLocked)
+            {
+                IsSprinting = true;
+                if (PlayerInputProxy.Instance != null)
+                {
+                    PlayerInputProxy.Instance.SetJoystickInput(Vector2.up);
+                    PlayerInputProxy.Instance.SetSprint(true);
+                }
+                UpdateSprintButtonVisual(true);
             }
         }
 
@@ -144,7 +172,6 @@ namespace PixelSaur.UI
             float baseDim = background != null && background.sizeDelta.x > 10f ? background.sizeDelta.x : 220f;
             float ratio = baseDim / 220f;
             sprintButtonYOffset = Mathf.Clamp(160f * ratio, 100f, 360f);
-            sprintSnapDistance = Mathf.Clamp(48f * ratio, 24f, 120f);
             sprintButton.anchoredPosition = new Vector2(0f, sprintButtonYOffset);
             sprintButton.sizeDelta = new Vector2(76f * ratio, 76f * ratio);
 
@@ -152,7 +179,7 @@ namespace PixelSaur.UI
             if (sprintButtonBg == null) sprintButtonBg = sprintObj.AddComponent<Image>();
             if (_cachedBaseCircleSprite == null) _cachedBaseCircleSprite = CreateAntiAliasedCircleSprite(256, true);
             sprintButtonBg.sprite = _cachedBaseCircleSprite;
-            sprintButtonBg.color = sprintNormalColor;
+            sprintButtonBg.color = (IsSprinting || IsAutoRunLocked) ? sprintActiveColor : sprintNormalColor;
             sprintButtonBg.raycastTarget = false;
 
             Transform iconTr = sprintObj.transform.Find("Icon");
@@ -167,14 +194,41 @@ namespace PixelSaur.UI
 
             sprintButtonIcon = iconObj.GetComponent<Image>();
             sprintButtonIcon.sprite = pterosaurRunSprite;
-            sprintButtonIcon.color = Color.white;
+            sprintButtonIcon.color = (IsSprinting || IsAutoRunLocked) ? new Color(0.12f, 0.12f, 0.12f, 1f) : new Color(1f, 1f, 1f, 0.78f);
             sprintButtonIcon.preserveAspect = true;
             sprintButtonIcon.raycastTarget = false;
 
-            if (Application.isPlaying)
+            sprintButton.gameObject.SetActive(true);
+        }
+
+        public void SetSprintActiveColor(Color color)
+        {
+            sprintActiveColor = color;
+            UpdateSprintButtonVisual(IsSprinting || IsAutoRunLocked);
+        }
+
+        private void UpdateSprintButtonVisual(bool highlighted)
+        {
+            if (sprintButton != null && !sprintButton.gameObject.activeSelf)
             {
-                sprintButton.gameObject.SetActive(false);
+                sprintButton.gameObject.SetActive(true);
             }
+            if (sprintButtonBg != null)
+            {
+                sprintButtonBg.color = highlighted ? sprintActiveColor : sprintNormalColor;
+            }
+            if (sprintButtonIcon != null)
+            {
+                sprintButtonIcon.color = highlighted ? new Color(0.12f, 0.12f, 0.12f, 1f) : new Color(1f, 1f, 1f, 0.78f);
+            }
+        }
+
+        public void CancelAutoRunLock()
+        {
+            IsAutoRunLocked = false;
+            _isAutoRunPendingLock = false;
+            IsSprinting = false;
+            UpdateSprintButtonVisual(false);
         }
 
         public void ApplyCustomLayout(Vector2 anchoredPos, Vector2 size)
@@ -298,6 +352,12 @@ namespace PixelSaur.UI
             if (_activePointerId != int.MinValue && _activePointerId != eventData.pointerId) return;
             _activePointerId = eventData.pointerId;
 
+            // 再次触碰摇杆时立即解除自动奔跑锁定
+            if (IsAutoRunLocked)
+            {
+                CancelAutoRunLock();
+            }
+
             if (dynamicJoystick && background != null)
             {
                 MoveBackgroundToScreenPosition(eventData.position, eventData.pressEventCamera);
@@ -311,60 +371,71 @@ namespace PixelSaur.UI
             if (background == null || handle == null) return;
             if (_activePointerId != int.MinValue && eventData.pointerId != _activePointerId) return;
 
+            if (IsAutoRunLocked)
+            {
+                CancelAutoRunLock();
+            }
+
             Camera cam = _canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceCamera ? _canvas.worldCamera : null;
 
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(background, eventData.position, cam, out Vector2 position))
             {
-                // 计算偏移向量并限制在摇杆范围内
-                Vector2 clampedPos = Vector2.ClampMagnitude(position, handleRange);
+                ProcessDragLocalPosition(position);
+            }
+        }
 
-                // 归一化输入值 (-1 ~ 1)
-                Vector2 normalizedInput = clampedPos / handleRange;
-                if (normalizedInput.magnitude < deadZone)
-                {
-                    normalizedInput = Vector2.zero;
-                }
+        /// <summary>
+        /// 基于摇杆本地偏移向量执行扇形疾跑与上滑锁定判定（不依赖 UI 碰撞盒）
+        /// </summary>
+        public void ProcessDragLocalPosition(Vector2 position)
+        {
+            float safeRange = Mathf.Max(1f, handleRange);
+            float rawRatio = position.magnitude / safeRange;
 
-                // 奔跑按钮逻辑 (手指向上推进进入奔跑区域)
-                if (sprintButton != null)
-                {
-                    // 仅当玩家有移动输入时显示奔跑按钮，静止时不显示
-                    if (normalizedInput.sqrMagnitude > 0.01f)
-                    {
-                        if (!sprintButton.gameObject.activeSelf) sprintButton.gameObject.SetActive(true);
+            // 计算限幅后的摇杆旋钮位置与归一化输入向量
+            Vector2 clampedPos = Vector2.ClampMagnitude(position, safeRange);
+            Vector2 normalizedInput = clampedPos / safeRange;
+            if (normalizedInput.magnitude < deadZone)
+            {
+                normalizedInput = Vector2.zero;
+            }
 
-                        float distToSprint = Vector2.Distance(position, sprintButton.anchoredPosition);
-                        if (position.y > handleRange * 0.75f && distToSprint <= sprintSnapDistance)
-                        {
-                            IsSprinting = true;
-                            handle.anchoredPosition = sprintButton.anchoredPosition;
-                            if (sprintButtonBg != null) sprintButtonBg.color = sprintActiveColor;
-                            normalizedInput = Vector2.up; // 向上全速狂奔
-                        }
-                        else
-                        {
-                            IsSprinting = false;
-                            handle.anchoredPosition = clampedPos;
-                            if (sprintButtonBg != null) sprintButtonBg.color = sprintNormalColor;
-                        }
-                    }
-                    else
-                    {
-                        IsSprinting = false;
-                        handle.anchoredPosition = clampedPos;
-                        if (sprintButton.gameObject.activeSelf) sprintButton.gameObject.SetActive(false);
-                    }
-                }
-                else
-                {
-                    handle.anchoredPosition = clampedPos;
-                }
+            // 1. 扇形疾跑判定：与正上方(Vector2.up)夹角 <= sprintAngleLimit (35°)，且推力 >= sprintMagnitude (0.85)
+            float angleFromUp = position.sqrMagnitude > 0.001f ? Vector2.Angle(Vector2.up, position) : 180f;
+            bool inSprintCone = normalizedInput.sqrMagnitude > 0.001f && angleFromUp <= sprintAngleLimit;
 
-                if (PlayerInputProxy.Instance != null)
+            if (inSprintCone && rawRatio >= lockMagnitude)
+            {
+                // 2. 在疾跑扇形区内继续上滑超出外圈（推力 >= lockMagnitude）：进入待锁定自动奔跑状态
+                IsSprinting = true;
+                _isAutoRunPendingLock = true;
+                if (handle != null)
                 {
-                    PlayerInputProxy.Instance.SetJoystickInput(normalizedInput);
-                    PlayerInputProxy.Instance.SetSprint(IsSprinting);
+                    handle.anchoredPosition = sprintButton != null ? sprintButton.anchoredPosition : new Vector2(0f, safeRange);
                 }
+                normalizedInput = normalizedInput.normalized;
+            }
+            else if (inSprintCone && rawRatio >= sprintMagnitude)
+            {
+                // 进入扇形疾跑区
+                IsSprinting = true;
+                _isAutoRunPendingLock = false;
+                if (handle != null) handle.anchoredPosition = clampedPos;
+            }
+            else
+            {
+                IsSprinting = false;
+                _isAutoRunPendingLock = false;
+                if (handle != null) handle.anchoredPosition = clampedPos;
+            }
+
+            // 3. 疾跑指示按钮高亮（疾跑或锁定态为黄色，平时暗色半透明）
+            UpdateSprintButtonVisual(IsSprinting || _isAutoRunPendingLock || IsAutoRunLocked);
+
+            if (PlayerInputProxy.Instance != null)
+            {
+                PlayerInputProxy.Instance.SetJoystickInput(normalizedInput);
+                PlayerInputProxy.Instance.SetSprint(IsSprinting);
             }
         }
 
@@ -373,12 +444,35 @@ namespace PixelSaur.UI
             if (_activePointerId != int.MinValue && eventData.pointerId != _activePointerId) return;
             _activePointerId = int.MinValue;
 
-            IsSprinting = false;
-            if (sprintButton != null)
+            if (_isAutoRunPendingLock)
             {
-                sprintButton.gameObject.SetActive(false);
-                if (sprintButtonBg != null) sprintButtonBg.color = sprintNormalColor;
+                // 松手触发自动奔跑锁定：保持持续疾跑向前移动，疾跑按钮保持黄色高亮
+                _isAutoRunPendingLock = false;
+                IsAutoRunLocked = true;
+                IsSprinting = true;
+
+                if (dynamicJoystick && background != null)
+                {
+                    background.anchoredPosition = _defaultBackgroundPosition;
+                }
+                if (handle != null)
+                {
+                    handle.anchoredPosition = sprintButton != null ? sprintButton.anchoredPosition : new Vector2(0f, handleRange);
+                }
+
+                UpdateSprintButtonVisual(true);
+
+                if (PlayerInputProxy.Instance != null)
+                {
+                    PlayerInputProxy.Instance.SetJoystickInput(Vector2.up);
+                    PlayerInputProxy.Instance.SetSprint(true);
+                }
+                return;
             }
+
+            IsAutoRunLocked = false;
+            IsSprinting = false;
+            UpdateSprintButtonVisual(false);
 
             if (handle != null)
             {
@@ -452,6 +546,11 @@ namespace PixelSaur.UI
         {
             if (_activePointerId != int.MinValue && _activePointerId != eventData.pointerId) return;
             _activePointerId = eventData.pointerId;
+
+            if (IsAutoRunLocked)
+            {
+                CancelAutoRunLock();
+            }
 
             if (background != null)
             {

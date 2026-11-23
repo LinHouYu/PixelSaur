@@ -200,11 +200,17 @@ namespace PixelSaur.Player
                 input = PlayerInputProxy.Instance.MoveInput;
             }
 
-            // 1. 获取摄像机前向与右向在水平面 (XZ) 的投影
+            // 1. 获取摄像机前向与右向在水平面 (XZ) 的投影（小眼睛自由观察时使用冻结的参考方向，绝不改变移动方向）
             Vector3 camForward = Vector3.forward;
             Vector3 camRight = Vector3.right;
 
-            if (cameraTransform != null)
+            var orbitCam = PixelSaur.Cam.ThirdPersonOrbitCamera.Instance;
+            if (orbitCam != null)
+            {
+                camForward = orbitCam.MovementReferenceForward;
+                camRight = orbitCam.MovementReferenceRight;
+            }
+            else if (cameraTransform != null)
             {
                 camForward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
                 camRight = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;

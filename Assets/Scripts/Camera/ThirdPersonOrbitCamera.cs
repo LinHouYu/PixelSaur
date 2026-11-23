@@ -49,6 +49,13 @@ namespace PixelSaur.Cam
         [Range(0.05f, 0.5f)]
         [SerializeField] private float collisionRadius = 0.18f;
 
+        [Header("自由视角（小眼睛）配置")]
+        [Tooltip("松开小眼睛后摄像机平滑回正到恐龙正后方的插值速度")]
+        [Range(1f, 30f)]
+        [SerializeField] private float cameraResetSpeed = 8f;
+
+        public static ThirdPersonOrbitCamera Instance { get; private set; }
+
         private float _currentYaw = 0f;
         private float _currentPitch = 26f;
         private float _targetYaw = 0f;
@@ -56,12 +63,98 @@ namespace PixelSaur.Cam
         private float _currentDistance;
         private Vector3 _smoothVelocity;
 
+        // 自由视角（小眼睛）状态：自由观察时锁定移动参考 Yaw，绝不改变恐龙移动方向
+        private bool _isFreeLooking = false;
+        private bool _isResettingFreeLook = false;
+        private float _lockedMoveYaw = 0f;
+        private float _savedPitchBeforeFreeLook = 26f;
+
         [Header("摄像机微抖动参数")]
         private float _shakeIntensity = 0f;
         private float _shakeDuration = 0f;
         private float _shakeTimer = 0f;
 
         public Transform Target => target;
+        public bool IsFreeLooking => _isFreeLooking;
+        public bool IsResettingFreeLook => _isResettingFreeLook;
+        public float CameraResetSpeed
+        {
+            get => cameraResetSpeed;
+            set => cameraResetSpeed = Mathf.Clamp(value, 1f, 30f);
+        }
+
+        /// <summary>
+        /// 角色移动参考水平前向（小眼睛自由观察及回正期间保持冻结，绝不改变恐龙前进方向）
+        /// </summary>
+        public Vector3 MovementReferenceForward
+        {
+            get
+            {
+                float refYaw = (_isFreeLooking || _isResettingFreeLook) ? _lockedMoveYaw : _currentYaw;
+                return Quaternion.Euler(0f, refYaw, 0f) * Vector3.forward;
+            }
+        }
+
+        /// <summary>
+        /// 角色移动参考水平右向（小眼睛自由观察及回正期间保持冻结）
+        /// </summary>
+        public Vector3 MovementReferenceRight
+        {
+            get
+            {
+                float refYaw = (_isFreeLooking || _isResettingFreeLook) ? _lockedMoveYaw : _currentYaw;
+                return Quaternion.Euler(0f, refYaw, 0f) * Vector3.right;
+            }
+        }
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        private void OnEnable()
+        {
+            Instance = this;
+        }
+
+        /// <summary>
+        /// 按下小眼睛开始自由观察：锁定当前移动参考方向，只允许旋转观察镜头
+        /// </summary>
+        public void BeginFreeLook()
+        {
+            if (!_isFreeLooking && !_isResettingFreeLook)
+            {
+                _lockedMoveYaw = _currentYaw;
+                _savedPitchBeforeFreeLook = _currentPitch;
+            }
+            _isFreeLooking = true;
+            _isResettingFreeLook = false;
+            _targetYaw = _currentYaw;
+            _targetPitch = _currentPitch;
+        }
+
+        /// <summary>
+        /// 拖动小眼睛叠加自由视角增量（仅旋转摄像机 Yaw/Pitch，不影响恐龙移动方向）
+        /// </summary>
+        public void AddFreeLookDelta(Vector2 delta)
+        {
+            if (!_isFreeLooking) return;
+            _targetYaw += delta.x;
+            _targetPitch = Mathf.Clamp(_targetPitch - delta.y, minPitch, maxPitch);
+        }
+
+        /// <summary>
+        /// 松开小眼睛：启动平滑插值回正到恐龙正后方
+        /// </summary>
+        public void EndFreeLook(float customResetSpeed = -1f)
+        {
+            if (customResetSpeed > 0f)
+            {
+                cameraResetSpeed = Mathf.Clamp(customResetSpeed, 1f, 30f);
+            }
+            _isFreeLooking = false;
+            _isResettingFreeLook = true;
+        }
 
         /// <summary>
         /// 触发摄像机微抖动（用于冲击技能或撞击打击感）
@@ -115,19 +208,53 @@ namespace PixelSaur.Cam
 
         private void HandleInput()
         {
+            // 小眼睛自由观察中：屏蔽常规右屏/鼠标视角输入，避免冲突或干扰
+            if (_isFreeLooking) return;
+
             if (PlayerInputProxy.Instance != null)
             {
                 Vector2 lookInput = PlayerInputProxy.Instance.LookInput;
-                _targetYaw += lookInput.x;
-                _targetPitch -= lookInput.y;
-                _targetPitch = Mathf.Clamp(_targetPitch, minPitch, maxPitch);
+                if (lookInput.sqrMagnitude > 0.0004f)
+                {
+                    // 玩家主动手动拖动视角时，立即接管并取消回正插值
+                    if (_isResettingFreeLook)
+                    {
+                        _isResettingFreeLook = false;
+                        _targetYaw = _currentYaw;
+                        _targetPitch = _currentPitch;
+                    }
+                    _targetYaw += lookInput.x;
+                    _targetPitch -= lookInput.y;
+                    _targetPitch = Mathf.Clamp(_targetPitch, minPitch, maxPitch);
+                }
             }
         }
 
         private void CalculatePositionAndRotation()
         {
-            _currentYaw = Mathf.LerpAngle(_currentYaw, _targetYaw, Time.deltaTime * rotationSmoothSpeed);
-            _currentPitch = Mathf.Lerp(_currentPitch, _targetPitch, Time.deltaTime * rotationSmoothSpeed);
+            if (_isResettingFreeLook && target != null)
+            {
+                // 松开小眼睛：通过插值平滑回正到恐龙正后方
+                float rearYaw = target.eulerAngles.y;
+                float t = 1f - Mathf.Exp(-cameraResetSpeed * Time.deltaTime);
+                _currentYaw = Mathf.LerpAngle(_currentYaw, rearYaw, t);
+                _currentPitch = Mathf.Lerp(_currentPitch, _savedPitchBeforeFreeLook, t);
+                _targetYaw = _currentYaw;
+                _targetPitch = _currentPitch;
+
+                if (Mathf.Abs(Mathf.DeltaAngle(_currentYaw, rearYaw)) < 0.35f &&
+                    Mathf.Abs(_currentPitch - _savedPitchBeforeFreeLook) < 0.35f)
+                {
+                    _currentYaw = _targetYaw = rearYaw;
+                    _currentPitch = _targetPitch = _savedPitchBeforeFreeLook;
+                    _isResettingFreeLook = false;
+                }
+            }
+            else
+            {
+                _currentYaw = Mathf.LerpAngle(_currentYaw, _targetYaw, Time.deltaTime * rotationSmoothSpeed);
+                _currentPitch = Mathf.Lerp(_currentPitch, _targetPitch, Time.deltaTime * rotationSmoothSpeed);
+            }
 
             Quaternion rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
             Vector3 targetPivot = target.position + targetOffset;

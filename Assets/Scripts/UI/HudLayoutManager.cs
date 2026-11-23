@@ -76,6 +76,7 @@ namespace PixelSaur.UI
         public const string IdDinoSneakButton = "DinoSneakButton";
         public const string IdDinoSkill1Button = "DinoSkill1Button";
         public const string IdDinoSkill2Button = "DinoSkill2Button";
+        public const string IdFreeLookEyeButton = "FreeLookEyeButton";
 
         public static readonly HudElementMeta[] EditableElements =
         {
@@ -194,6 +195,19 @@ namespace PixelSaur.UI
                 defaultSize = new Vector2(198f, 198f),
                 minSize = new Vector2(90f, 90f),
                 maxSize = new Vector2(340f, 340f),
+                lockSquareAspect = true
+            },
+            new HudElementMeta
+            {
+                id = IdFreeLookEyeButton,
+                displayName = "自由视角眼",
+                anchorMin = new Vector2(0f, 1f),
+                anchorMax = new Vector2(0f, 1f),
+                pivot = new Vector2(0.5f, 0.5f),
+                defaultPos = new Vector2(442f, -54f),
+                defaultSize = new Vector2(80f, 80f),
+                minSize = new Vector2(56f, 56f),
+                maxSize = new Vector2(180f, 180f),
                 lockSquareAspect = true
             }
         };
@@ -373,6 +387,14 @@ namespace PixelSaur.UI
                 {
                     dlg.SetPosition(pos);
                     dlg.SetSize(size);
+                }
+            }
+            else if (meta.id == IdFreeLookEyeButton)
+            {
+                var eye = tr.GetComponent<FreeLookEyeButton>();
+                if (eye != null)
+                {
+                    eye.ApplyCustomLayout(pos, size);
                 }
             }
         }

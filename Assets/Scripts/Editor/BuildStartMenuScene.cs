@@ -48,8 +48,10 @@ namespace PixelSaur.Editor
                 if (progBar != null) progBar.gameObject.SetActive(false);
                 EditorUtility.SetDirty(progressHud);
 
-                // 替换 5 个操作与技能按钮的贴图（skill1~skill5）
+                // 替换 5 个操作与技能按钮的贴图（skill1~skill5）并挂载小眼睛按钮（eyes.png）与摇杆扇形疾跑配置
                 ApplySkillButtonSprites(hudCanvas.transform);
+                EnsureFreeLookEyeButton(hudCanvas.transform);
+                ConfigureVirtualJoystickSprint(hudCanvas.transform);
 
                 // TopBarStatusHUD 严格保持原始尺寸 (360 x 68) 与样式不改动
                 TopBarStatusHUD topBar = hudCanvas.GetComponentInChildren<TopBarStatusHUD>(true);
@@ -319,7 +321,8 @@ namespace PixelSaur.Editor
                 "Assets/Textures/UI/skill2.png",
                 "Assets/Textures/UI/skill3.png",
                 "Assets/Textures/UI/skill4.png",
-                "Assets/Textures/UI/skill5.png"
+                "Assets/Textures/UI/skill5.png",
+                "Assets/Textures/UI/eyes.png"
             };
             foreach (string spPath in skillPaths)
             {
@@ -898,6 +901,7 @@ namespace PixelSaur.Editor
             so.FindProperty("skill4Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill4.png");
             so.FindProperty("skill5Sprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill5.png");
             so.FindProperty("dialogueSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dialogue_32x32.png");
+            so.FindProperty("eyeSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/eyes.png");
             so.FindProperty("heartSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
             so.FindProperty("foodSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
             so.FindProperty("waterSprite").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
@@ -907,6 +911,57 @@ namespace PixelSaur.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
             hud.EnsureUIHierarchy();
             return hud;
+        }
+
+        private static void EnsureFreeLookEyeButton(Transform hudRoot)
+        {
+            if (hudRoot == null) return;
+            Sprite eyeSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/eyes.png");
+            Transform existing = hudRoot.Find("FreeLookEyeButton");
+            GameObject go = existing != null
+                ? existing.gameObject
+                : new GameObject("FreeLookEyeButton", typeof(RectTransform), typeof(Image), typeof(FreeLookEyeButton));
+            go.transform.SetParent(hudRoot, false);
+
+            FreeLookEyeButton eyeBtn = go.GetComponent<FreeLookEyeButton>();
+            if (eyeBtn == null) eyeBtn = go.AddComponent<FreeLookEyeButton>();
+
+            SerializedObject so = new SerializedObject(eyeBtn);
+            if (eyeSprite != null) so.FindProperty("eyeIconSprite").objectReferenceValue = eyeSprite;
+            so.FindProperty("buttonPosition").vector2Value = new Vector2(442f, -54f);
+            so.FindProperty("buttonSize").vector2Value = new Vector2(80f, 80f);
+            so.FindProperty("eyeCameraSensitivity").floatValue = 0.35f;
+            so.FindProperty("cameraResetSpeed").floatValue = 8f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            eyeBtn.EnsureUIHierarchy();
+
+            // 放置在 TouchLookArea 之后、弹窗面板（SettingsMenuPanel / InventoryPanel）之前，避免被右屏视角区抢占触控
+            Transform settingsPanel = hudRoot.Find("SettingsMenuPanel");
+            if (settingsPanel != null)
+            {
+                go.transform.SetSiblingIndex(Mathf.Max(0, settingsPanel.GetSiblingIndex()));
+            }
+            EditorUtility.SetDirty(eyeBtn);
+        }
+
+        private static void ConfigureVirtualJoystickSprint(Transform hudRoot)
+        {
+            if (hudRoot == null) return;
+            Transform joyTr = hudRoot.Find("VirtualJoystick");
+            if (joyTr == null) return;
+            VirtualJoystick joy = joyTr.GetComponent<VirtualJoystick>();
+            if (joy == null) return;
+
+            SerializedObject so = new SerializedObject(joy);
+            so.FindProperty("sprintAngleLimit").floatValue = 35f;
+            so.FindProperty("sprintMagnitude").floatValue = 0.85f;
+            so.FindProperty("lockMagnitude").floatValue = 1.25f;
+            so.FindProperty("sprintNormalColor").colorValue = new Color(0.10f, 0.14f, 0.20f, 0.72f);
+            so.FindProperty("sprintActiveColor").colorValue = Color.yellow;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            joy.SetSprintActiveColor(Color.yellow);
+            joy.EnsureCircularAppearance();
+            EditorUtility.SetDirty(joy);
         }
 
         private static void StretchFull(RectTransform rt)

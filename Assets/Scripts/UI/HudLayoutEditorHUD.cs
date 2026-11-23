@@ -38,6 +38,7 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite skill4Sprite;
         [SerializeField] private Sprite skill5Sprite;
         [SerializeField] private Sprite dialogueSprite;
+        [SerializeField] private Sprite eyeSprite;
         [SerializeField] private Sprite heartSprite;
         [SerializeField] private Sprite foodSprite;
         [SerializeField] private Sprite waterSprite;
@@ -136,6 +137,7 @@ namespace PixelSaur.UI
             if (skill4Sprite == null) skill4Sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill4.png");
             if (skill5Sprite == null) skill5Sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/skill5.png");
             if (dialogueSprite == null) dialogueSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_dialogue_32x32.png");
+            if (eyeSprite == null) eyeSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/eyes.png");
             if (heartSprite == null) heartSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_heart_8x8.png");
             if (foodSprite == null) foodSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_food_8x8.png");
             if (waterSprite == null) waterSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_water_8x8.png");
@@ -829,6 +831,7 @@ namespace PixelSaur.UI
                 case HudLayoutManager.IdDinoSkill1Button: return skill3Sprite;
                 case HudLayoutManager.IdDinoSkill2Button: return skill1Sprite;
                 case HudLayoutManager.IdDialogueButton: return dialogueSprite;
+                case HudLayoutManager.IdFreeLookEyeButton: return eyeSprite;
                 default: return _whiteSprite;
             }
         }

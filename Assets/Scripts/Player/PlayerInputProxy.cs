@@ -188,9 +188,9 @@ namespace PixelSaur.Player
             {
                 finalLook = _touchLookDelta;
             }
-            else
+            else if (PixelSaur.Cam.ThirdPersonOrbitCamera.Instance == null || !PixelSaur.Cam.ThirdPersonOrbitCamera.Instance.IsFreeLooking)
             {
-                // 2. PC 鼠标输入作为备用支持（右键按住或直接移动）
+                // 2. PC 鼠标输入作为备用支持（小眼睛自由观察中跳过，避免编辑器鼠标拖动冲突）
 #if ENABLE_INPUT_SYSTEM
                 if (Mouse.current != null)
                 {
