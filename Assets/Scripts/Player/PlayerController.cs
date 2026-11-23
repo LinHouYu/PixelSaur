@@ -68,6 +68,7 @@ namespace PixelSaur.Player
         private float _sprintThirstTimer = 0f;
         private Vector3 _baseLocalScale = new Vector3(0.55f, 0.55f, 0.55f);
         private Vector3 _initialPrefabScale = new Vector3(0.55f, 0.55f, 0.55f);
+        private float _evolutionScaleMultiplier = 1.0f;
         private float _activeSpeedMultiplier = 1.0f;
 
         // 冲击技能瞬时位移
@@ -133,15 +134,34 @@ namespace PixelSaur.Player
             float scaleMult = PixelSaur.UI.InventoryManager.GetEffectiveInGameScaleMultiplier();
             _activeSpeedMultiplier = PixelSaur.UI.InventoryManager.GetEffectiveMoveSpeedMultiplier();
 
-            Vector3 targetBase = _initialPrefabScale * scaleMult;
+            ApplyCombinedScale(scaleMult * _evolutionScaleMultiplier);
+        }
+
+        /// <summary>
+        /// 由 DinoEvolutionController 驱动的平滑进化体型倍率接口：
+        /// 因 CharacterController 底部位于本地 Y=-1.0，放大时同步沿 Y 轴上抬 deltaY，确保脚底贴地绝不卡入地面。
+        /// </summary>
+        public void SetEvolutionScaleMultiplier(float evolutionMult)
+        {
+            _evolutionScaleMultiplier = Mathf.Max(0.25f, evolutionMult);
+            float loadoutMult = PixelSaur.UI.InventoryManager.GetEffectiveInGameScaleMultiplier();
+            ApplyCombinedScale(loadoutMult * _evolutionScaleMultiplier);
+        }
+
+        private void ApplyCombinedScale(float combinedMult)
+        {
+            Vector3 targetBase = _initialPrefabScale * combinedMult;
             float prevScaleY = transform.localScale.y;
             _baseLocalScale = targetBase;
             transform.localScale = targetBase;
 
             float deltaY = targetBase.y - prevScaleY;
-            if (deltaY > 0.001f)
+            if (Mathf.Abs(deltaY) > 0.0001f)
             {
+                bool wasEnabled = _characterController != null && _characterController.enabled;
+                if (wasEnabled) _characterController.enabled = false;
                 transform.position += Vector3.up * deltaY;
+                if (wasEnabled) _characterController.enabled = true;
             }
         }
 

@@ -326,28 +326,25 @@ namespace PixelSaur.Creatures
         }
 
         /// <summary>
-        /// 执行一次进食咬食（消耗1口，回饱食度与血量）
+        /// 执行一次进食咬食（消耗1口，回饱食度与血量，并触发恐龙进化成长值增长；满饱食度仍可继续进食且上限锁定100）
         /// </summary>
         public bool BiteFeed()
         {
             if (!_isDead || remainingFeedCount <= 0) return false;
 
-            // 饱食度满（100）时不可进食
-            if (PlayerStatusUI.Instance != null && PlayerStatusUI.Instance.Food >= 100f)
-            {
-                Debug.Log("[GreenPreyCapsule] 角色饱食度已满 (100)，无法继续进食！");
-                return false;
-            }
-
             remainingFeedCount--;
 
             if (PlayerStatusUI.Instance != null)
             {
+                // ModifyFood/ModifyHealth 内部自动 Clamp 至 [0, 100]，饱食度满时保持 100 不溢出
                 PlayerStatusUI.Instance.ModifyFood(feedFoodRecovery);
                 PlayerStatusUI.Instance.ModifyHealth(feedHealthRecovery);
             }
 
-            Debug.Log($"<color=#33FF33>[GreenPreyCapsule] 成功咬食一口！剩余 {remainingFeedCount} 口，恢复饱食度 {feedFoodRecovery}，生命 {feedHealthRecovery}。</color>");
+            // 触发恐龙进化系统成长值（默认 +25，可在 DinoEvolutionController Inspector 微调）
+            DinoEvolutionController.Instance?.OnPreyFed();
+
+            Debug.Log($"<color=#33FF33>[GreenPreyCapsule] 成功咬食一口！剩余 {remainingFeedCount} 口，恢复饱食度 {feedFoodRecovery}，生命 {feedHealthRecovery}，并增加进化成长值。</color>");
 
             if (statusText != null)
             {

@@ -62,6 +62,9 @@ namespace PixelSaur.Cam
         private float _targetPitch = 26f;
         private float _currentDistance;
         private Vector3 _smoothVelocity;
+        private float _evolutionDistanceBonus = 0f;
+        private float _evolutionTargetYBonus = 0f;
+        private float _currentEvolutionYBonus = 0f;
 
         // 自由视角（小眼睛）状态：自由观察时锁定移动参考 Yaw，绝不改变恐龙移动方向
         private bool _isFreeLooking = false;
@@ -166,6 +169,15 @@ namespace PixelSaur.Cam
             _shakeTimer = duration;
         }
 
+        /// <summary>
+        /// 进化体型放大时同步微调摄像机距离与注视点高度（防止 2.5 倍体型挡住视野）
+        /// </summary>
+        public void SetEvolutionViewBonus(float distanceBonus, float targetYBonus)
+        {
+            _evolutionDistanceBonus = Mathf.Max(0f, distanceBonus);
+            _evolutionTargetYBonus = Mathf.Max(0f, targetYBonus);
+        }
+
         public void SetTarget(Transform newTarget)
         {
             target = newTarget;
@@ -257,14 +269,16 @@ namespace PixelSaur.Cam
             }
 
             Quaternion rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
-            Vector3 targetPivot = target.position + targetOffset;
+            _currentEvolutionYBonus = Mathf.Lerp(_currentEvolutionYBonus, _evolutionTargetYBonus, Time.deltaTime * 8f);
+            Vector3 targetPivot = target.position + targetOffset + Vector3.up * _currentEvolutionYBonus;
 
             Vector3 desiredDirection = rotation * -Vector3.forward;
-            float targetDistance = defaultDistance;
+            float desiredDist = defaultDistance + _evolutionDistanceBonus;
+            float targetDistance = desiredDist;
 
             // 遮挡检测（排除角色自身碰撞体）
-            RaycastHit[] hits = Physics.SphereCastAll(targetPivot, collisionRadius, desiredDirection, defaultDistance, collisionLayers, QueryTriggerInteraction.Ignore);
-            float closestDist = defaultDistance;
+            RaycastHit[] hits = Physics.SphereCastAll(targetPivot, collisionRadius, desiredDirection, desiredDist, collisionLayers, QueryTriggerInteraction.Ignore);
+            float closestDist = desiredDist;
             foreach (RaycastHit hit in hits)
             {
                 if (hit.transform == target || hit.transform.IsChildOf(target)) continue;
@@ -273,9 +287,9 @@ namespace PixelSaur.Cam
                     closestDist = hit.distance;
                 }
             }
-            if (closestDist < defaultDistance)
+            if (closestDist < desiredDist)
             {
-                targetDistance = Mathf.Clamp(closestDist - 0.1f, minDistance, defaultDistance);
+                targetDistance = Mathf.Clamp(closestDist - 0.1f, minDistance, desiredDist);
             }
 
             _currentDistance = Mathf.Lerp(_currentDistance, targetDistance, Time.deltaTime * 15f);

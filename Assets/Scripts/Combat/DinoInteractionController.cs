@@ -194,7 +194,8 @@ namespace PixelSaur.Combat
             }
 
             bool isNearWater = (transform.position.y <= waterLevelY + waterContactTolerance);
-            CanEatPrey = ediblePrey != null && (PlayerStatusUI.Instance == null || PlayerStatusUI.Instance.Food < 100f);
+            // 解除饱食度满 100 时无法进食的限制：只要附近有可食用猎物即可继续进食获取进化成长值
+            CanEatPrey = ediblePrey != null;
             CanDrinkWater = isNearWater && (PlayerStatusUI.Instance == null || PlayerStatusUI.Instance.Thirst < 100f);
 
             // 3. 判定长按状态 (移动端攻击按键按住 或 PC J/E键按住)
@@ -261,9 +262,10 @@ namespace PixelSaur.Combat
                 }
                 else if (currentInteraction == InteractionType.EatingPrey)
                 {
-                    if (ediblePrey == null || ediblePrey.RemainingFeedCount <= 0 || (PlayerStatusUI.Instance != null && PlayerStatusUI.Instance.Food >= 100f))
+                    // 饱食度满 100 仍允许继续进食猎物直至猎物被吃完
+                    if (ediblePrey == null || ediblePrey.RemainingFeedCount <= 0)
                     {
-                        InterruptInteraction("饱食度已满或猎物吃完，自动完成进食");
+                        InterruptInteraction("猎物已吃完，自动完成进食");
                         return;
                     }
 
