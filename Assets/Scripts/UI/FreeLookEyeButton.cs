@@ -8,13 +8,13 @@ namespace PixelSaur.UI
 {
     /// <summary>
     /// 自由视角“小眼睛”按钮（参考《和平精英》）：
-    /// 1. 置于 TopBarStatusHUD 右侧（左上角锚点对齐，防止不同分辨率错位或遮挡）；
-    /// 2. 使用 32x32 像素恐龙眼睛图标 eyes.png（Point 过滤保持像素清晰）；
-    /// 3. 按住并拖动仅旋转摄像机视角（Yaw/Pitch）观察四周，绝不改变恐龙移动方向，也不打断疾跑或自动奔跑锁定；
-    /// 4. 松开后摄像机平滑插值回正到恐龙正后方。
+    /// 1. 外层半透明圆形底框固定在 TopBarStatusHUD 右侧（左上角锚点对齐，防止不同分辨率错位或遮挡）；
+    /// 2. 恐龙眼睛图标（eyes.png）作为居中子物体，按住拖动时像虚拟摇杆中心球一样跟随手指偏移并受 ClampMagnitude 限制；
+    /// 3. 图标到达最大偏移边界后，继续拖动依然根据未截断的滑动增量持续旋转摄像机视角，且绝不改变恐龙移动方向或打断疾跑/自动奔跑；
+    /// 4. 松手后眼睛图标通过平滑插值迅速回弹居中，摄像机视角平滑回正到恐龙正后方。
     /// </summary>
     [ExecuteAlways]
-    public class FreeLookEyeButton : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+    public class FreeLookEyeButton : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IEndDragHandler
     {
         public static FreeLookEyeButton Instance { get; private set; }
 
@@ -37,24 +37,52 @@ namespace PixelSaur.UI
         [SerializeField] private bool invertX = false;
         [SerializeField] private bool invertY = false;
 
+        [Header("图标拖拽摇杆反馈配置")]
+        [Tooltip("最大偏移半径比例（基于眼睛图标宽度，默认 0.5 即图标宽度的一半）")]
+        [Range(0.1f, 1.5f)]
+        [SerializeField] private float maxDragRadiusRatio = 0.5f;
+
+        [Tooltip("手动指定最大偏移半径（像素）；设为 0 时自动使用 眼睛图标宽度 * maxDragRadiusRatio")]
+        [Min(0f)]
+        [SerializeField] private float maxDragRadius = 0f;
+
+        [Tooltip("松手后眼睛图标平滑回弹至中心点 (0, 0) 的插值速度")]
+        [Range(4f, 40f)]
+        [SerializeField] private float iconReturnSpeed = 18f;
+
         [Header("视觉反馈配置")]
         [SerializeField] private Color normalBgColor = new Color(0.12f, 0.14f, 0.18f, 0.86f);
         [SerializeField] private Color activeBgColor = new Color(0.95f, 0.82f, 0.18f, 0.94f);
-        [SerializeField] private float pressScale = 0.92f;
+        [SerializeField] private float pressScale = 0.95f;
 
         [Header("内部节点引用")]
         [SerializeField] private Image bgImage;
         [SerializeField] private Image iconImage;
 
         private RectTransform _rectTransform;
+        private RectTransform _iconRect;
+        private Canvas _canvas;
         private int _activePointerId = int.MinValue;
         private Vector2 _lastPointerPos;
+        private Vector2 _pointerDownLocalPos;
         private bool _isDragging;
         private static Sprite _cachedCircleBgSprite;
 
         public bool IsHoldingEye => _isDragging;
         public float EyeCameraSensitivity => eyeCameraSensitivity;
         public float CameraResetSpeed => cameraResetSpeed;
+        public Vector2 CurrentIconOffset => _iconRect != null ? _iconRect.anchoredPosition : Vector2.zero;
+        public float EffectiveMaxDragRadius
+        {
+            get
+            {
+                if (maxDragRadius > 0.01f) return maxDragRadius;
+                float iconW = _iconRect != null && _iconRect.rect.width > 1f
+                    ? _iconRect.rect.width
+                    : buttonSize.x * 0.76f;
+                return iconW * maxDragRadiusRatio;
+            }
+        }
 
         private void Awake()
         {
@@ -85,6 +113,27 @@ namespace PixelSaur.UI
                 ThirdPersonOrbitCamera.Instance?.EndFreeLook(cameraResetSpeed);
                 ApplyVisualState(false);
             }
+            if (_iconRect != null)
+            {
+                _iconRect.anchoredPosition = Vector2.zero;
+            }
+        }
+
+        private void Update()
+        {
+            if (!Application.isPlaying) return;
+
+            // 松手后通过平滑插值迅速回弹至中心点 (0, 0)
+            if (!_isDragging && _iconRect != null && _iconRect.anchoredPosition.sqrMagnitude > 0.001f)
+            {
+                float t = 1f - Mathf.Exp(-iconReturnSpeed * Time.unscaledDeltaTime);
+                Vector2 next = Vector2.Lerp(_iconRect.anchoredPosition, Vector2.zero, t);
+                if (next.sqrMagnitude <= 0.04f)
+                {
+                    next = Vector2.zero;
+                }
+                _iconRect.anchoredPosition = next;
+            }
         }
 
         private void LoadDefaultSprite()
@@ -114,8 +163,9 @@ namespace PixelSaur.UI
         {
             _rectTransform = GetComponent<RectTransform>();
             if (_rectTransform == null) _rectTransform = gameObject.AddComponent<RectTransform>();
+            _canvas = GetComponentInParent<Canvas>();
 
-            // 与 TopBarStatusHUD 一致使用左上角锚点，避免不同屏幕纵横比错位或遮挡
+            // 外层圆形半透明底框固定不动，与 TopBarStatusHUD 一致使用左上角锚点
             _rectTransform.anchorMin = new Vector2(0f, 1f);
             _rectTransform.anchorMax = new Vector2(0f, 1f);
             _rectTransform.pivot = new Vector2(0.5f, 0.5f);
@@ -136,16 +186,21 @@ namespace PixelSaur.UI
             bgImage.color = _isDragging ? activeBgColor : normalBgColor;
             bgImage.raycastTarget = true;
 
+            // 恐龙眼睛图标作为居中子物体（anchoredPosition = Vector2.zero），支持摇杆中心球式拖拽偏移
             Transform iconTr = transform.Find("EyeIcon");
             GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("EyeIcon", typeof(RectTransform), typeof(Image));
             iconObj.transform.SetParent(transform, false);
 
-            RectTransform iconRT = iconObj.GetComponent<RectTransform>();
-            iconRT.anchorMin = new Vector2(0.12f, 0.12f);
-            iconRT.anchorMax = new Vector2(0.88f, 0.88f);
-            iconRT.offsetMin = Vector2.zero;
-            iconRT.offsetMax = Vector2.zero;
-            iconRT.localScale = Vector3.one;
+            _iconRect = iconObj.GetComponent<RectTransform>();
+            _iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            _iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            _iconRect.pivot = new Vector2(0.5f, 0.5f);
+            _iconRect.sizeDelta = buttonSize * 0.76f;
+            if (!_isDragging)
+            {
+                _iconRect.anchoredPosition = Vector2.zero;
+            }
+            _iconRect.localScale = Vector3.one;
 
             iconImage = iconObj.GetComponent<Image>();
             if (eyeIconSprite != null) iconImage.sprite = eyeIconSprite;
@@ -157,10 +212,14 @@ namespace PixelSaur.UI
 
         private void ApplyVisualState(bool active)
         {
-            transform.localScale = active ? Vector3.one * pressScale : Vector3.one;
+            // 外层底框保持固定不动，仅高亮颜色并对子物体图标做轻微按压缩放反馈
             if (bgImage != null)
             {
                 bgImage.color = active ? activeBgColor : normalBgColor;
+            }
+            if (_iconRect != null)
+            {
+                _iconRect.localScale = active ? Vector3.one * pressScale : Vector3.one;
             }
         }
 
@@ -170,6 +229,16 @@ namespace PixelSaur.UI
             _activePointerId = eventData.pointerId;
             _lastPointerPos = eventData.position;
             _isDragging = true;
+
+            Camera uiCam = _canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceCamera ? _canvas.worldCamera : null;
+            if (_rectTransform != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(_rectTransform, eventData.position, uiCam, out Vector2 localDown))
+            {
+                _pointerDownLocalPos = localDown;
+            }
+            else
+            {
+                _pointerDownLocalPos = Vector2.zero;
+            }
 
             ApplyVisualState(true);
 
@@ -185,8 +254,18 @@ namespace PixelSaur.UI
         {
             if (!_isDragging || eventData.pointerId != _activePointerId) return;
 
+            // 1. 眼睛图标摇杆式视觉偏移（严格使用 ClampMagnitude 限制最大半径为图标宽度一半，不影响下方视角旋转）
+            Camera uiCam = _canvas != null && _canvas.renderMode == RenderMode.ScreenSpaceCamera ? _canvas.worldCamera : null;
+            if (_rectTransform != null && _iconRect != null &&
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(_rectTransform, eventData.position, uiCam, out Vector2 localCurrent))
+            {
+                Vector2 rawOffset = localCurrent - _pointerDownLocalPos;
+                _iconRect.anchoredPosition = Vector2.ClampMagnitude(rawOffset, EffectiveMaxDragRadius);
+            }
+
+            // 2. 摄像机视角持续旋转：直接使用未受限的滑动增量（图标到边界卡住后继续滑动依然持续旋转）
             Vector2 currentPos = eventData.position;
-            Vector2 delta = currentPos - _lastPointerPos;
+            Vector2 delta = eventData.delta.sqrMagnitude > 0.0001f ? eventData.delta : (currentPos - _lastPointerPos);
             _lastPointerPos = currentPos;
 
             if (invertX) delta.x = -delta.x;
@@ -202,7 +281,19 @@ namespace PixelSaur.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (eventData.pointerId != _activePointerId) return;
+            FinishDrag(eventData);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            FinishDrag(eventData);
+        }
+
+        private void FinishDrag(PointerEventData eventData)
+        {
+            if (eventData != null && _activePointerId != int.MinValue && eventData.pointerId != _activePointerId) return;
+            if (!_isDragging && _activePointerId == int.MinValue) return;
+
             _activePointerId = int.MinValue;
             _isDragging = false;
 
