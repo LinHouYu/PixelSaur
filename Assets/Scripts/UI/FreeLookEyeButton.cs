@@ -22,7 +22,7 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite eyeIconSprite;
 
         [Header("位置与尺寸（默认位于右上角小地图左下方）")]
-        [SerializeField] private Vector2 buttonPosition = new Vector2(-204f, -294f);
+        [SerializeField] private Vector2 buttonPosition = new Vector2(-274f, -364f);
         [SerializeField] private Vector2 buttonSize = new Vector2(80f, 80f);
 
         [Header("自由视角参数配置")]

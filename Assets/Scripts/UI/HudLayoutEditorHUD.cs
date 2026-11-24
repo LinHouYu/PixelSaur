@@ -45,6 +45,8 @@ namespace PixelSaur.UI
         [SerializeField] private Sprite pillBgSprite;
         [SerializeField] private Sprite gearSprite;
         [SerializeField] private Sprite playersSprite;
+        [SerializeField] private Sprite sprintRunSprite;
+        [SerializeField] private Sprite sprintLockSprite;
 
         private RectTransform _canvasRect;
         private RectTransform _rootRect;
@@ -144,7 +146,10 @@ namespace PixelSaur.UI
             if (pillBgSprite == null) pillBgSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/hud_pill_bg_64x64.png");
             if (gearSprite == null) gearSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_gear_32x32.png");
             if (playersSprite == null) playersSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_players_32x32.png");
+            if (sprintRunSprite == null) sprintRunSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
+            if (sprintLockSprite == null) sprintLockSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_sprint_lock_32x32.png");
 #endif
+            if (sprintLockSprite == null) sprintLockSprite = VirtualJoystick.GetFallbackWhiteLockSprite();
             EnsureProceduralSprites();
         }
 
@@ -431,10 +436,10 @@ namespace PixelSaur.UI
             GameObject bar = new GameObject("TopToolbar", typeof(RectTransform), typeof(Image));
             bar.transform.SetParent(transform, false);
             _toolbarRect = bar.GetComponent<RectTransform>();
-            _toolbarRect.anchorMin = new Vector2(1f, 1f);
-            _toolbarRect.anchorMax = new Vector2(1f, 1f);
-            _toolbarRect.pivot = new Vector2(1f, 1f);
-            _toolbarRect.anchoredPosition = new Vector2(-20f, -18f);
+            _toolbarRect.anchorMin = new Vector2(0.5f, 1f);
+            _toolbarRect.anchorMax = new Vector2(0.5f, 1f);
+            _toolbarRect.pivot = new Vector2(0.5f, 1f);
+            _toolbarRect.anchoredPosition = new Vector2(0f, -100f);
             _toolbarRect.sizeDelta = new Vector2(620f, 74f);
 
             Image barBg = bar.GetComponent<Image>();
@@ -462,10 +467,10 @@ namespace PixelSaur.UI
             GameObject infoObj = new GameObject("EditorInfoBanner", typeof(RectTransform), typeof(Image));
             infoObj.transform.SetParent(transform, false);
             RectTransform infoRT = infoObj.GetComponent<RectTransform>();
-            infoRT.anchorMin = new Vector2(1f, 1f);
-            infoRT.anchorMax = new Vector2(1f, 1f);
-            infoRT.pivot = new Vector2(1f, 1f);
-            infoRT.anchoredPosition = new Vector2(-20f, -100f);
+            infoRT.anchorMin = new Vector2(0.5f, 1f);
+            infoRT.anchorMax = new Vector2(0.5f, 1f);
+            infoRT.pivot = new Vector2(0.5f, 1f);
+            infoRT.anchoredPosition = new Vector2(0f, -182f);
             infoRT.sizeDelta = new Vector2(620f, 44f);
             Image infoBg = infoObj.GetComponent<Image>();
             infoBg.color = new Color(0.06f, 0.09f, 0.13f, 0.86f);
@@ -686,7 +691,12 @@ namespace PixelSaur.UI
         private RectTransform CreatePreviewWidgetForElement(HudElementMeta meta, Font font)
         {
             GameObject go = new GameObject("Preview_" + meta.id, typeof(RectTransform));
-            go.transform.SetParent(_previewLayer, false);
+            Transform targetParent = _previewLayer;
+            if (!string.IsNullOrEmpty(meta.parentElementId) && _previewWidgets.TryGetValue(meta.parentElementId, out var parentWidget) && parentWidget != null)
+            {
+                targetParent = parentWidget;
+            }
+            go.transform.SetParent(targetParent, false);
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.anchorMin = meta.anchorMin;
             rt.anchorMax = meta.anchorMax;
@@ -711,6 +721,87 @@ namespace PixelSaur.UI
                 kimg.sprite = _circleKnobSprite;
                 kimg.color = Color.white;
                 kimg.raycastTarget = false;
+            }
+            else if (meta.id == HudLayoutManager.IdSprintButton || meta.id == HudLayoutManager.IdSprintLockButton)
+            {
+                Image bg = go.AddComponent<Image>();
+                bg.sprite = _circleBaseSprite;
+                bg.color = new Color(0.10f, 0.14f, 0.20f, 0.80f);
+                bg.raycastTarget = false;
+
+                GameObject ic = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+                ic.transform.SetParent(go.transform, false);
+                RectTransform irt = ic.GetComponent<RectTransform>();
+                float pad = meta.id == HudLayoutManager.IdSprintLockButton ? 0.24f : 0.24f;
+                irt.anchorMin = new Vector2(pad, pad);
+                irt.anchorMax = new Vector2(1f - pad, 1f - pad);
+                irt.offsetMin = Vector2.zero;
+                irt.offsetMax = Vector2.zero;
+                Image iimg = ic.GetComponent<Image>();
+                iimg.sprite = meta.id == HudLayoutManager.IdSprintLockButton
+                    ? (sprintLockSprite != null ? sprintLockSprite : VirtualJoystick.GetFallbackWhiteLockSprite())
+                    : sprintRunSprite;
+                iimg.preserveAspect = true;
+                iimg.color = Color.white;
+                iimg.raycastTarget = false;
+            }
+            else if (meta.id == HudLayoutManager.IdMiniMapPanel)
+            {
+                // 2D 小地图预览：灰色外框 + 淡青蓝海 + 淡黄陆地 + 淡绿草地 + 灰线 + 中心白色箭头
+                Image frame = go.AddComponent<Image>();
+                frame.color = new Color(0.44f, 0.48f, 0.54f, 0.96f);
+                frame.raycastTarget = false;
+
+                GameObject sea = new GameObject("Sea", typeof(RectTransform), typeof(Image));
+                sea.transform.SetParent(go.transform, false);
+                RectTransform seaRT = sea.GetComponent<RectTransform>();
+                seaRT.anchorMin = Vector2.zero;
+                seaRT.anchorMax = Vector2.one;
+                seaRT.offsetMin = new Vector2(4f, 4f);
+                seaRT.offsetMax = new Vector2(-4f, -4f);
+                Image seaImg = sea.GetComponent<Image>();
+                seaImg.color = new Color(0.60f, 0.87f, 0.89f, 1f);
+                seaImg.raycastTarget = false;
+
+                GameObject land = new GameObject("Land", typeof(RectTransform), typeof(Image), typeof(Outline));
+                land.transform.SetParent(sea.transform, false);
+                RectTransform landRT = land.GetComponent<RectTransform>();
+                landRT.anchorMin = new Vector2(0.20f, 0.20f);
+                landRT.anchorMax = new Vector2(0.80f, 0.80f);
+                landRT.offsetMin = Vector2.zero;
+                landRT.offsetMax = Vector2.zero;
+                Image landImg = land.GetComponent<Image>();
+                landImg.color = new Color(0.95f, 0.90f, 0.68f, 1f);
+                landImg.raycastTarget = false;
+                Outline landOut = land.GetComponent<Outline>();
+                landOut.effectColor = new Color(0.45f, 0.49f, 0.54f, 1f);
+                landOut.effectDistance = new Vector2(2f, -2f);
+
+                GameObject grass = new GameObject("Grass", typeof(RectTransform), typeof(Image), typeof(Outline));
+                grass.transform.SetParent(land.transform, false);
+                RectTransform grassRT = grass.GetComponent<RectTransform>();
+                grassRT.anchorMin = new Vector2(0.15f, 0.15f);
+                grassRT.anchorMax = new Vector2(0.85f, 0.85f);
+                grassRT.offsetMin = Vector2.zero;
+                grassRT.offsetMax = Vector2.zero;
+                Image grassImg = grass.GetComponent<Image>();
+                grassImg.color = new Color(0.67f, 0.88f, 0.60f, 1f);
+                grassImg.raycastTarget = false;
+                Outline grassOut = grass.GetComponent<Outline>();
+                grassOut.effectColor = new Color(0.45f, 0.49f, 0.54f, 1f);
+                grassOut.effectDistance = new Vector2(1.5f, -1.5f);
+
+                GameObject lbl = new GameObject("MapLabel", typeof(RectTransform), typeof(Text));
+                lbl.transform.SetParent(sea.transform, false);
+                StretchFull(lbl.GetComponent<RectTransform>());
+                Text t = lbl.GetComponent<Text>();
+                t.font = font;
+                t.fontSize = 22;
+                t.fontStyle = FontStyle.Bold;
+                t.alignment = TextAnchor.MiddleCenter;
+                t.color = new Color(0.16f, 0.20f, 0.25f, 0.92f);
+                t.text = "2D 地图";
+                t.raycastTarget = false;
             }
             else if (meta.id == HudLayoutManager.IdStatusBarsPanel)
             {
@@ -850,7 +941,12 @@ namespace PixelSaur.UI
             foreach (var meta in HudLayoutManager.EditableElements)
             {
                 GameObject frameGo = new GameObject("Frame_" + meta.id, typeof(RectTransform), typeof(HudEditableFrame));
-                frameGo.transform.SetParent(_handlesLayer, false);
+                Transform frameParent = _handlesLayer;
+                if (!string.IsNullOrEmpty(meta.parentElementId) && _frames.TryGetValue(meta.parentElementId, out var parentFrame) && parentFrame != null)
+                {
+                    frameParent = parentFrame.transform;
+                }
+                frameGo.transform.SetParent(frameParent, false);
                 HudEditableFrame frame = frameGo.GetComponent<HudEditableFrame>();
                 frame.Initialize(this, meta, _draftLayout[meta.id], font, _whiteSprite);
                 _frames[meta.id] = frame;
@@ -872,10 +968,15 @@ namespace PixelSaur.UI
             var meta = HudLayoutManager.GetMeta(id);
             if (meta == null || !_draftLayout.TryGetValue(id, out var data)) return;
 
-            data.posX = newPos.x;
+            data.posX = meta.lockXToParent ? 0f : newPos.x;
             data.posY = newPos.y;
             data.width = Mathf.Clamp(newSize.x, meta.minSize.x, meta.maxSize.x);
             data.height = Mathf.Clamp(newSize.y, meta.minSize.y, meta.maxSize.y);
+
+            if (_frames.TryGetValue(id, out var frame) && frame != null)
+            {
+                frame.ApplyLayoutData(data);
+            }
 
             if (_previewWidgets.TryGetValue(id, out var rt) && rt != null)
             {
@@ -991,7 +1092,14 @@ namespace PixelSaur.UI
             var meta = HudLayoutManager.GetMeta(_selectedId);
             if (meta != null && _draftLayout.TryGetValue(_selectedId, out var d))
             {
-                _infoText.text = $"选中: {meta.displayName}  位置({Mathf.RoundToInt(d.posX)},{Mathf.RoundToInt(d.posY)})  尺寸 {Mathf.RoundToInt(d.width)}×{Mathf.RoundToInt(d.height)}  Scale=1";
+                if (meta.lockXToParent)
+                {
+                    _infoText.text = $"选中: {meta.displayName}（同X轴·仅调Y） Y偏移:{Mathf.RoundToInt(d.posY)}  尺寸 {Mathf.RoundToInt(d.width)}×{Mathf.RoundToInt(d.height)}  Scale=1";
+                }
+                else
+                {
+                    _infoText.text = $"选中: {meta.displayName}  位置({Mathf.RoundToInt(d.posX)},{Mathf.RoundToInt(d.posY)})  尺寸 {Mathf.RoundToInt(d.width)}×{Mathf.RoundToInt(d.height)}  Scale=1";
+                }
             }
         }
 
@@ -1017,6 +1125,19 @@ namespace PixelSaur.UI
             Vector2 canvasSize = _canvasRect != null && _canvasRect.rect.width > 100f
                 ? _canvasRect.rect.size
                 : new Vector2(1920f, 1080f);
+
+            if (!string.IsNullOrEmpty(meta.parentElementId) && _draftLayout.TryGetValue(meta.parentElementId, out var parentData))
+            {
+                var parentMeta = HudLayoutManager.GetMeta(meta.parentElementId);
+                if (parentMeta != null)
+                {
+                    float parentWorldY = parentMeta.anchorMin.y * canvasSize.y + parentData.posY;
+                    float minLocalY = size.y * meta.pivot.y - parentWorldY;
+                    float maxLocalY = canvasSize.y - size.y * (1f - meta.pivot.y) - parentWorldY;
+                    float clampedX = meta.lockXToParent ? 0f : pos.x;
+                    return new Vector2(clampedX, Mathf.Clamp(pos.y, minLocalY, maxLocalY));
+                }
+            }
 
             float anchorX = meta.anchorMin.x * canvasSize.x;
             float anchorY = meta.anchorMin.y * canvasSize.y;
@@ -1120,7 +1241,7 @@ namespace PixelSaur.UI
             tagTxt.fontStyle = FontStyle.Bold;
             tagTxt.alignment = TextAnchor.MiddleCenter;
             tagTxt.color = Color.white;
-            tagTxt.text = meta.displayName;
+            tagTxt.text = meta.lockXToParent ? $"{meta.displayName}(仅Y)" : meta.displayName;
             tagTxt.raycastTarget = false;
 
             // Windows 窗口风格：4 条隐形宽边热区 + 4 个可见角点热区（触控与鼠标均易拖拽缩放）
@@ -1227,7 +1348,14 @@ namespace PixelSaur.UI
             {
                 if (_cornerDots[i] != null) _cornerDots[i].SetActive(selected);
             }
-            if (selected) transform.SetAsLastSibling();
+            if (selected)
+            {
+                if (!string.IsNullOrEmpty(_meta.parentElementId) && transform.parent != null)
+                {
+                    transform.parent.SetAsLastSibling();
+                }
+                transform.SetAsLastSibling();
+            }
         }
 
         public void BeginInteraction(PointerEventData eventData)
@@ -1252,8 +1380,11 @@ namespace PixelSaur.UI
 
             if (edge == HudResizeEdge.None)
             {
-                // 拖动中心移动位置
-                newPos = _editor.ClampPositionInCanvas(_meta, _startPos + delta, _startSize);
+                // 拖动中心移动位置（若 lockXToParent=true 则严格锁定 X=0 与父节点同轴，仅可沿 Y 轴滑动）
+                Vector2 candidate = _meta.lockXToParent
+                    ? new Vector2(0f, _startPos.y + delta.y)
+                    : _startPos + delta;
+                newPos = _editor.ClampPositionInCanvas(_meta, candidate, _startSize);
             }
             else
             {
@@ -1278,16 +1409,22 @@ namespace PixelSaur.UI
                     float actualDiff = targetDim - _startSize.x;
                     newSize = new Vector2(targetDim, targetDim);
 
-                    // 按对侧边缘锚定补偿位移（与 Windows 窗口拉伸手感一致）
+                    // 按对侧边缘锚定补偿位移（与 Windows 窗口拉伸手感一致；lockXToParent 时 X 恒为 0）
                     float shiftX = 0f;
                     float shiftY = 0f;
-                    if ((edge & HudResizeEdge.Right) != 0) shiftX = actualDiff * _meta.pivot.x;
-                    else if ((edge & HudResizeEdge.Left) != 0) shiftX = -actualDiff * (1f - _meta.pivot.x);
+                    if (!_meta.lockXToParent)
+                    {
+                        if ((edge & HudResizeEdge.Right) != 0) shiftX = actualDiff * _meta.pivot.x;
+                        else if ((edge & HudResizeEdge.Left) != 0) shiftX = -actualDiff * (1f - _meta.pivot.x);
+                    }
 
                     if ((edge & HudResizeEdge.Top) != 0) shiftY = actualDiff * _meta.pivot.y;
                     else if ((edge & HudResizeEdge.Bottom) != 0) shiftY = -actualDiff * (1f - _meta.pivot.y);
 
-                    newPos = _editor.ClampPositionInCanvas(_meta, _startPos + new Vector2(shiftX, shiftY), newSize);
+                    Vector2 candidate = _meta.lockXToParent
+                        ? new Vector2(0f, _startPos.y + shiftY)
+                        : _startPos + new Vector2(shiftX, shiftY);
+                    newPos = _editor.ClampPositionInCanvas(_meta, candidate, newSize);
                 }
                 else
                 {

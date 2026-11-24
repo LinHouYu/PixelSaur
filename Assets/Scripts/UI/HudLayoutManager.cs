@@ -47,6 +47,8 @@ namespace PixelSaur.UI
     {
         public string id;
         public string displayName;
+        public string parentElementId;
+        public bool lockXToParent;
         public Vector2 anchorMin;
         public Vector2 anchorMax;
         public Vector2 pivot;
@@ -77,6 +79,9 @@ namespace PixelSaur.UI
         public const string IdDinoSkill1Button = "DinoSkill1Button";
         public const string IdDinoSkill2Button = "DinoSkill2Button";
         public const string IdFreeLookEyeButton = "FreeLookEyeButton";
+        public const string IdMiniMapPanel = "MiniMapPanel";
+        public const string IdSprintButton = "SprintButton";
+        public const string IdSprintLockButton = "SprintLockButton";
 
         public static readonly HudElementMeta[] EditableElements =
         {
@@ -204,10 +209,51 @@ namespace PixelSaur.UI
                 anchorMin = new Vector2(1f, 1f),
                 anchorMax = new Vector2(1f, 1f),
                 pivot = new Vector2(0.5f, 0.5f),
-                defaultPos = new Vector2(-204f, -294f),
+                defaultPos = new Vector2(-274f, -364f),
                 defaultSize = new Vector2(80f, 80f),
                 minSize = new Vector2(56f, 56f),
                 maxSize = new Vector2(180f, 180f),
+                lockSquareAspect = true
+            },
+            new HudElementMeta
+            {
+                id = IdMiniMapPanel,
+                displayName = "2D 小地图",
+                anchorMin = new Vector2(1f, 1f),
+                anchorMax = new Vector2(1f, 1f),
+                pivot = new Vector2(1f, 1f),
+                defaultPos = new Vector2(-24f, -20f),
+                defaultSize = new Vector2(290f, 290f),
+                minSize = new Vector2(160f, 160f),
+                maxSize = new Vector2(480f, 480f),
+                lockSquareAspect = true
+            },
+            new HudElementMeta
+            {
+                id = IdSprintButton,
+                displayName = "疾跑按钮",
+                anchorMin = new Vector2(0f, 0f),
+                anchorMax = new Vector2(0f, 0f),
+                pivot = new Vector2(0.5f, 0.5f),
+                defaultPos = new Vector2(335f, 563f),
+                defaultSize = new Vector2(110f, 110f),
+                minSize = new Vector2(64f, 64f),
+                maxSize = new Vector2(200f, 200f),
+                lockSquareAspect = true
+            },
+            new HudElementMeta
+            {
+                id = IdSprintLockButton,
+                displayName = "奔跑锁定",
+                parentElementId = IdSprintButton,
+                lockXToParent = true,
+                anchorMin = new Vector2(0.5f, 0.5f),
+                anchorMax = new Vector2(0.5f, 0.5f),
+                pivot = new Vector2(0.5f, 0.5f),
+                defaultPos = new Vector2(0f, 102f),
+                defaultSize = new Vector2(64f, 64f),
+                minSize = new Vector2(44f, 44f),
+                maxSize = new Vector2(140f, 140f),
                 lockSquareAspect = true
             }
         };
@@ -274,12 +320,12 @@ namespace PixelSaur.UI
                     foreach (var item in payload.items)
                     {
                         if (item == null || !MetaById.TryGetValue(item.id, out var meta)) continue;
-                        // 兼容旧版左上角锚点保存的 FreeLookEyeButton 正数 X 坐标，自动迁移到新版右上角小地图左下默认位
-                        if (item.id == IdFreeLookEyeButton && item.posX > 0f) continue;
+                        // 兼容旧版左上角或旧版 220 小地图下的 FreeLookEyeButton 默认坐标，自动迁移到新版 290 小地图左下默认位
+                        if (item.id == IdFreeLookEyeButton && (item.posX > 0f || (Mathf.Abs(item.posX - (-204f)) < 1f && Mathf.Abs(item.posY - (-294f)) < 1f))) continue;
                         result[item.id] = new HudElementLayoutData
                         {
                             id = item.id,
-                            posX = item.posX,
+                            posX = meta.lockXToParent ? 0f : item.posX,
                             posY = item.posY,
                             width = Mathf.Clamp(item.width, meta.minSize.x, meta.maxSize.x),
                             height = Mathf.Clamp(item.height, meta.minSize.y, meta.maxSize.y)
@@ -306,7 +352,7 @@ namespace PixelSaur.UI
                     payload.items.Add(new HudElementLayoutData
                     {
                         id = meta.id,
-                        posX = d.posX,
+                        posX = meta.lockXToParent ? 0f : d.posX,
                         posY = d.posY,
                         width = Mathf.Clamp(d.width, meta.minSize.x, meta.maxSize.x),
                         height = Mathf.Clamp(d.height, meta.minSize.y, meta.maxSize.y)
@@ -359,6 +405,28 @@ namespace PixelSaur.UI
                 return;
             }
 
+            if (meta.id == IdSprintButton)
+            {
+                Transform joyTr = hudRoot.Find(IdVirtualJoystick);
+                VirtualJoystick joy = joyTr != null ? joyTr.GetComponent<VirtualJoystick>() : null;
+                if (joy != null)
+                {
+                    joy.ApplySprintButtonLayout(pos, size);
+                }
+                return;
+            }
+
+            if (meta.id == IdSprintLockButton)
+            {
+                Transform joyTr = hudRoot.Find(IdVirtualJoystick);
+                VirtualJoystick joy = joyTr != null ? joyTr.GetComponent<VirtualJoystick>() : null;
+                if (joy != null)
+                {
+                    joy.ApplySprintLockLayout(pos.y, size);
+                }
+                return;
+            }
+
             Transform tr = hudRoot.Find(meta.id);
             if (tr == null) return;
 
@@ -397,6 +465,14 @@ namespace PixelSaur.UI
                 if (eye != null)
                 {
                     eye.ApplyCustomLayout(pos, size);
+                }
+            }
+            else if (meta.id == IdMiniMapPanel)
+            {
+                var miniMap = tr.GetComponent<DinoMiniMapHUD>();
+                if (miniMap != null)
+                {
+                    miniMap.ApplyCustomLayout(pos, size);
                 }
             }
         }

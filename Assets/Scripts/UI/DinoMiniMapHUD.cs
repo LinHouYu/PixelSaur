@@ -21,7 +21,7 @@ namespace PixelSaur.UI
 
         [Header("小地图位置与尺寸（右上角正方形）")]
         [SerializeField] private Vector2 mapPosition = new Vector2(-24f, -20f);
-        [SerializeField] private float mapSize = 220f;
+        [SerializeField] private float mapSize = 290f;
         [SerializeField] private float borderThickness = 4f;
 
         [Header("2D 视野与烘焙范围（米）")]
@@ -53,8 +53,8 @@ namespace PixelSaur.UI
         [SerializeField] private Color preyAliveColor = new Color(0.12f, 0.82f, 0.24f, 1f);   // 绿色圆点
         [SerializeField] private Color preyCorpseColor = new Color(0.98f, 0.86f, 0.14f, 1f); // 尸体黄色圆点
         [SerializeField] private Color hazardColor = new Color(0.94f, 0.18f, 0.18f, 1f);     // 红色圆点
-        [SerializeField] private float playerArrowSize = 24f;
-        [SerializeField] private float creatureDotSize = 14f;
+        [SerializeField] private float playerArrowSize = 28f;
+        [SerializeField] private float creatureDotSize = 16f;
 
         [Header("内部节点引用")]
         [SerializeField] private RawImage terrainMapRawImage;
@@ -76,6 +76,14 @@ namespace PixelSaur.UI
 
         public Vector2 MapPosition => mapPosition;
         public float MapSize => mapSize;
+
+        public void ApplyCustomLayout(Vector2 anchoredPos, Vector2 size)
+        {
+            mapPosition = anchoredPos;
+            mapSize = Mathf.Clamp(Mathf.Max(size.x, size.y), 160f, 480f);
+            EnsureUIHierarchy();
+            UpdateMapVisuals();
+        }
 
         private void Awake()
         {
@@ -463,8 +471,13 @@ namespace PixelSaur.UI
             float centerV = (playerXZ.y - (_bakedCenterXZ.y - bakedWorldHalfExtent)) / bakedSpan;
             terrainMapRawImage.uvRect = new Rect(centerU - uvSize * 0.5f, centerV - uvSize * 0.5f, uvSize, uvSize);
 
-            // 2. 玩家中心箭头朝向（Unity 顺时针 Yaw 对应 UI 逆时针负 Z 旋转）
+            // 2. 玩家中心箭头朝向（Unity 顺时针 Yaw 对应 UI 逆时针负 Z 旋转，随小地图尺寸等比微调图标大小）
+            float markerScale = Mathf.Clamp(mapSize / 290f, 0.72f, 1.55f);
+            float scaledArrow = playerArrowSize * markerScale;
+            float scaledDot = creatureDotSize * markerScale;
+
             playerArrowRect.anchoredPosition = Vector2.zero;
+            playerArrowRect.sizeDelta = new Vector2(scaledArrow, scaledArrow);
             playerArrowRect.localEulerAngles = new Vector3(0f, 0f, -playerYaw);
 
             // 3. 更新生物圆点标记（绿猎物存活=绿点、死亡尸体=黄点；红危险体=红点）
@@ -492,7 +505,7 @@ namespace PixelSaur.UI
                 Vector2 rel = new Vector2(prey.transform.position.x - playerXZ.x, prey.transform.position.z - playerXZ.y);
                 if (dot.sprite == null) dot.sprite = _dotSprite;
                 dot.rectTransform.anchoredPosition = rel * pixelsPerMeter;
-                dot.rectTransform.sizeDelta = new Vector2(creatureDotSize, creatureDotSize);
+                dot.rectTransform.sizeDelta = new Vector2(scaledDot, scaledDot);
                 dot.color = prey.IsDead ? preyCorpseColor : preyAliveColor;
                 dot.gameObject.SetActive(true);
             }
@@ -517,7 +530,7 @@ namespace PixelSaur.UI
                 Vector2 rel = new Vector2(hazard.transform.position.x - playerXZ.x, hazard.transform.position.z - playerXZ.y);
                 if (dot.sprite == null) dot.sprite = _dotSprite;
                 dot.rectTransform.anchoredPosition = rel * pixelsPerMeter;
-                dot.rectTransform.sizeDelta = new Vector2(creatureDotSize, creatureDotSize);
+                dot.rectTransform.sizeDelta = new Vector2(scaledDot, scaledDot);
                 dot.color = hazardColor;
                 dot.gameObject.SetActive(true);
             }

@@ -17,7 +17,7 @@ namespace PixelSaur.UI
         public static DinoEvolutionHUD Instance { get; private set; }
 
         [Header("主界面合并进化入口位置与尺寸（与 TopBarStatusHUD 等高 68px、宽度更紧凑，紧邻小地图左侧）")]
-        [SerializeField] private Vector2 entryPosition = new Vector2(-260f, -20f);
+        [SerializeField] private Vector2 entryPosition = new Vector2(-330f, -20f);
         [SerializeField] private Vector2 entrySize = new Vector2(276f, 68f);
 
         [Header("图标与圆角底板资产")]

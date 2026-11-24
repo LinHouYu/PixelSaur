@@ -56,17 +56,40 @@ namespace PixelSaur.UI
         [Tooltip("进入疾跑或自动奔跑锁定时的黄色高亮颜色")]
         [SerializeField] private Color sprintActiveColor = Color.yellow;
 
+        [Header("锁定奔跑按钮配置（父节点为 SprintButton，严格同 X 轴仅调 Y 偏移）")]
+        [Tooltip("SprintButton 上方的奔跑锁定图标容器（直接挂在 SprintButton 下）")]
+        [SerializeField] private RectTransform sprintLockButton;
+        [SerializeField] private Image sprintLockBg;
+        [SerializeField] private Image sprintLockIcon;
+        [Tooltip("32*32 白色锁图标资产")]
+        [SerializeField] private Sprite sprintLockSprite;
+        [Tooltip("锁定奔跑按钮相对 SprintButton 的垂直偏移（仅 Y 轴，X 恒为 0）")]
+        [SerializeField] private float sprintLockYOffset = 102f;
+        [Tooltip("锁定奔跑按钮默认尺寸（内部锁图标在默认 64x64 下为 32x32）")]
+        [SerializeField] private Vector2 sprintLockSize = new Vector2(64f, 64f);
+        [Tooltip("未锁定时锁定按钮默认底色")]
+        [SerializeField] private Color lockNormalColor = new Color(0.10f, 0.14f, 0.20f, 0.72f);
+        [Tooltip("锁定奔跑状态时锁定按钮高亮变色反馈")]
+        [SerializeField] private Color lockActiveColor = new Color(1.0f, 0.84f, 0.12f, 0.96f);
+
         private Vector2 _defaultBackgroundPosition;
         private bool _hasRecordedDefaultPos;
+        private bool _hasCustomSprintLayout;
+        private Vector2 _customSprintCanvasPos = new Vector2(335f, 563f);
+        private Vector2 _customSprintSize = new Vector2(110f, 110f);
         private int _activePointerId = int.MinValue;
         private Canvas _canvas;
         private bool _isAutoRunPendingLock;
         private static Sprite _cachedBaseCircleSprite;
         private static Sprite _cachedKnobCircleSprite;
+        private static Sprite _cachedFallbackLockSprite;
 
         public bool IsSprinting { get; private set; }
         public bool IsAutoRunLocked { get; private set; }
         public Color SprintActiveColor => sprintActiveColor;
+        public RectTransform SprintButtonRect => sprintButton;
+        public RectTransform SprintLockButtonRect => sprintLockButton;
+        public Image SprintLockBgImage => sprintLockBg;
 
         public bool DynamicJoystick
         {
@@ -129,7 +152,6 @@ namespace PixelSaur.UI
         private void OnValidate()
         {
             InitializeReferences();
-            EnsureCircularAppearance();
         }
 
         private void InitializeReferences()
@@ -161,6 +183,10 @@ namespace PixelSaur.UI
             {
                 pterosaurRunSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_pterosaur_run_32x32.png");
             }
+            if (sprintLockSprite == null)
+            {
+                sprintLockSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/UI/icon_sprint_lock_32x32.png");
+            }
 #endif
             Transform sprintTr = transform.Find("SprintButton");
             GameObject sprintObj = sprintTr != null ? sprintTr.gameObject : new GameObject("SprintButton", typeof(RectTransform));
@@ -169,11 +195,22 @@ namespace PixelSaur.UI
             sprintButton.anchorMin = new Vector2(0.5f, 0.5f);
             sprintButton.anchorMax = new Vector2(0.5f, 0.5f);
             sprintButton.pivot = new Vector2(0.5f, 0.5f);
+            sprintButton.localScale = Vector3.one;
+
             float baseDim = background != null && background.sizeDelta.x > 10f ? background.sizeDelta.x : 220f;
             float ratio = baseDim / 220f;
-            sprintButtonYOffset = Mathf.Clamp(160f * ratio, 100f, 360f);
-            sprintButton.anchoredPosition = new Vector2(0f, sprintButtonYOffset);
-            sprintButton.sizeDelta = new Vector2(76f * ratio, 76f * ratio);
+            if (_hasCustomSprintLayout)
+            {
+                Vector2 joyPos = background != null ? background.anchoredPosition : new Vector2(335f, 330f);
+                sprintButton.anchoredPosition = _customSprintCanvasPos - joyPos;
+                sprintButton.sizeDelta = _customSprintSize;
+            }
+            else
+            {
+                sprintButtonYOffset = Mathf.Clamp(160f * ratio, 100f, 360f);
+                sprintButton.anchoredPosition = new Vector2(0f, sprintButtonYOffset);
+                sprintButton.sizeDelta = new Vector2(76f * ratio, 76f * ratio);
+            }
 
             sprintButtonBg = sprintObj.GetComponent<Image>();
             if (sprintButtonBg == null) sprintButtonBg = sprintObj.AddComponent<Image>();
@@ -182,6 +219,7 @@ namespace PixelSaur.UI
             sprintButtonBg.color = (IsSprinting || IsAutoRunLocked) ? sprintActiveColor : sprintNormalColor;
             sprintButtonBg.raycastTarget = false;
 
+            float sprintIconDim = Mathf.Clamp(sprintButton.sizeDelta.x * 0.48f, 24f, 110f);
             Transform iconTr = sprintObj.transform.Find("Icon");
             GameObject iconObj = iconTr != null ? iconTr.gameObject : new GameObject("Icon", typeof(RectTransform), typeof(Image));
             RectTransform iconRT = iconObj.GetComponent<RectTransform>();
@@ -190,7 +228,7 @@ namespace PixelSaur.UI
             iconRT.anchorMax = new Vector2(0.5f, 0.5f);
             iconRT.pivot = new Vector2(0.5f, 0.5f);
             iconRT.anchoredPosition = Vector2.zero;
-            iconRT.sizeDelta = new Vector2(36f * ratio, 36f * ratio);
+            iconRT.sizeDelta = new Vector2(sprintIconDim, sprintIconDim);
 
             sprintButtonIcon = iconObj.GetComponent<Image>();
             sprintButtonIcon.sprite = pterosaurRunSprite;
@@ -199,6 +237,112 @@ namespace PixelSaur.UI
             sprintButtonIcon.raycastTarget = false;
 
             sprintButton.gameObject.SetActive(true);
+
+            // 在 SprintButton 正上方生成奔跑锁定按钮（严格作为 SprintButton 的子物体，X 固定为 0，仅可调 Y）
+            EnsureSprintLockHierarchy();
+        }
+
+        private void EnsureSprintLockHierarchy()
+        {
+            if (sprintButton == null) return;
+
+            Transform lockTr = sprintButton.Find("SprintLockButton");
+            GameObject lockObj = lockTr != null ? lockTr.gameObject : new GameObject("SprintLockButton", typeof(RectTransform));
+            sprintLockButton = lockObj.GetComponent<RectTransform>();
+            sprintLockButton.SetParent(sprintButton, false);
+            sprintLockButton.anchorMin = new Vector2(0.5f, 0.5f);
+            sprintLockButton.anchorMax = new Vector2(0.5f, 0.5f);
+            sprintLockButton.pivot = new Vector2(0.5f, 0.5f);
+            sprintLockButton.localScale = Vector3.one;
+            sprintLockButton.anchoredPosition = new Vector2(0f, sprintLockYOffset);
+            float lockDim = Mathf.Clamp(Mathf.Max(sprintLockSize.x, sprintLockSize.y), 40f, 160f);
+            sprintLockButton.sizeDelta = new Vector2(lockDim, lockDim);
+
+            sprintLockBg = lockObj.GetComponent<Image>();
+            if (sprintLockBg == null) sprintLockBg = lockObj.AddComponent<Image>();
+            if (_cachedBaseCircleSprite == null) _cachedBaseCircleSprite = CreateAntiAliasedCircleSprite(256, true);
+            sprintLockBg.sprite = _cachedBaseCircleSprite;
+            sprintLockBg.raycastTarget = false;
+
+            Transform lockIconTr = lockObj.transform.Find("LockIcon");
+            GameObject lockIconObj = lockIconTr != null ? lockIconTr.gameObject : new GameObject("LockIcon", typeof(RectTransform), typeof(Image));
+            RectTransform lockIconRT = lockIconObj.GetComponent<RectTransform>();
+            lockIconRT.SetParent(sprintLockButton, false);
+            lockIconRT.anchorMin = new Vector2(0.5f, 0.5f);
+            lockIconRT.anchorMax = new Vector2(0.5f, 0.5f);
+            lockIconRT.pivot = new Vector2(0.5f, 0.5f);
+            lockIconRT.anchoredPosition = Vector2.zero;
+            // 默认 64x64 容器内为精确 32x32 白色锁图标，随按钮尺寸等比缩放
+            float iconSize = Mathf.Clamp(lockDim * 0.5f, 20f, 84f);
+            lockIconRT.sizeDelta = new Vector2(iconSize, iconSize);
+            lockIconRT.localScale = Vector3.one;
+
+            sprintLockIcon = lockIconObj.GetComponent<Image>();
+            sprintLockIcon.sprite = sprintLockSprite != null ? sprintLockSprite : GetFallbackWhiteLockSprite();
+            sprintLockIcon.type = Image.Type.Simple;
+            sprintLockIcon.preserveAspect = true;
+            sprintLockIcon.raycastTarget = false;
+
+            sprintLockButton.gameObject.SetActive(true);
+            UpdateSprintLockVisual(_isAutoRunPendingLock || IsAutoRunLocked);
+        }
+
+        public static Sprite GetFallbackWhiteLockSprite()
+        {
+            if (_cachedFallbackLockSprite != null) return _cachedFallbackLockSprite;
+            const int size = 32;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "ProceduralWhiteLock32",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            Color[] px = new Color[size * size];
+            for (int i = 0; i < px.Length; i++) px[i] = Color.clear;
+
+            for (int y = 4; y <= 17; y++)
+            {
+                for (int x = 6; x <= 25; x++)
+                {
+                    bool corner = (x == 6 || x == 25) && (y == 4 || y == 17);
+                    if (!corner) px[y * size + x] = Color.white;
+                }
+            }
+            for (int y = 6; y <= 15; y++)
+            {
+                for (int x = 12; x <= 19; x++)
+                {
+                    float dx = (x + 0.5f) - 16f;
+                    float dy = (y + 0.5f) - 12.5f;
+                    bool inHead = (dx * dx + dy * dy) <= 2.3f * 2.3f;
+                    bool inStem = (x == 15 || x == 16) && (y >= 7 && y <= 11);
+                    if (inHead || inStem) px[y * size + x] = Color.clear;
+                }
+            }
+            for (int y = 17; y <= 29; y++)
+            {
+                for (int x = 8; x <= 23; x++)
+                {
+                    float cx = x + 0.5f;
+                    float cy = y + 0.5f;
+                    if (cy >= 21f)
+                    {
+                        float r = Mathf.Sqrt((cx - 16f) * (cx - 16f) + (cy - 21f) * (cy - 21f));
+                        if (r >= 4.0f && r <= 7.2f) px[y * size + x] = Color.white;
+                    }
+                    else if ((x >= 9 && x <= 11) || (x >= 20 && x <= 22))
+                    {
+                        px[y * size + x] = Color.white;
+                    }
+                }
+            }
+
+            tex.SetPixels(px);
+            tex.Apply();
+            _cachedFallbackLockSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            _cachedFallbackLockSprite.hideFlags = HideFlags.HideAndDontSave;
+            return _cachedFallbackLockSprite;
         }
 
         public void SetSprintActiveColor(Color color)
@@ -221,6 +365,46 @@ namespace PixelSaur.UI
             {
                 sprintButtonIcon.color = highlighted ? new Color(0.12f, 0.12f, 0.12f, 1f) : new Color(1f, 1f, 1f, 0.78f);
             }
+            UpdateSprintLockVisual(_isAutoRunPendingLock || IsAutoRunLocked);
+        }
+
+        private void UpdateSprintLockVisual(bool locked)
+        {
+            if (sprintLockButton != null && !sprintLockButton.gameObject.activeSelf)
+            {
+                sprintLockButton.gameObject.SetActive(true);
+            }
+            if (sprintLockBg != null)
+            {
+                if (_cachedBaseCircleSprite == null) _cachedBaseCircleSprite = CreateAntiAliasedCircleSprite(256, true);
+                if (_cachedKnobCircleSprite == null) _cachedKnobCircleSprite = CreateAntiAliasedCircleSprite(128, false);
+                sprintLockBg.sprite = locked ? _cachedKnobCircleSprite : _cachedBaseCircleSprite;
+                sprintLockBg.color = locked ? lockActiveColor : lockNormalColor;
+            }
+            if (sprintLockIcon != null)
+            {
+                sprintLockIcon.color = locked ? new Color(0.10f, 0.10f, 0.10f, 1f) : new Color(1f, 1f, 1f, 0.94f);
+                sprintLockIcon.rectTransform.localScale = locked ? Vector3.one * 1.12f : Vector3.one;
+            }
+        }
+
+        public void ApplySprintButtonLayout(Vector2 canvasAnchoredPos, Vector2 size)
+        {
+            InitializeReferences();
+            _hasCustomSprintLayout = true;
+            _customSprintCanvasPos = canvasAnchoredPos;
+            float dim = Mathf.Clamp(Mathf.Max(size.x, size.y), 64f, 220f);
+            _customSprintSize = new Vector2(dim, dim);
+            EnsureSprintButtonHierarchy();
+        }
+
+        public void ApplySprintLockLayout(float localOffsetY, Vector2 size)
+        {
+            InitializeReferences();
+            sprintLockYOffset = localOffsetY;
+            float dim = Mathf.Clamp(Mathf.Max(size.x, size.y), 44f, 160f);
+            sprintLockSize = new Vector2(dim, dim);
+            EnsureSprintLockHierarchy();
         }
 
         public void CancelAutoRunLock()
