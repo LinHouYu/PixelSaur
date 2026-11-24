@@ -51,6 +51,9 @@ namespace PixelSaur.UI
         [Tooltip("上滑超出外圈触发自动奔跑锁定的推力比例阈值（默认 1.25）")]
         [Range(1.05f, 2.5f)]
         [SerializeField] private float lockMagnitude = 1.25f;
+        [Tooltip("手指滑入 SprintButton 触发疾跑的半径宽松系数")]
+        [Range(0.8f, 1.5f)]
+        [SerializeField] private float sprintHitRadiusMultiplier = 1.05f;
         [Tooltip("平时/非疾跑时的默认暗色半透明颜色")]
         [SerializeField] private Color sprintNormalColor = new Color(0.10f, 0.14f, 0.20f, 0.72f);
         [Tooltip("进入疾跑或自动奔跑锁定时的黄色高亮颜色")]
@@ -602,12 +605,39 @@ namespace PixelSaur.UI
         }
 
         /// <summary>
-        /// 基于摇杆本地偏移向量执行扇形疾跑，且必须手指滑到 SprintLockButton 区域才触发自动奔跑锁定
+        /// 计算摇杆拖动位置是否真正滑入 SprintButton 区域或达到 SprintButton 高度（在摇杆内部/边缘推动仅普通行走，避免误触疾跑耗水）
+        /// </summary>
+        private bool IsPointerInSprintZone(Vector2 joystickLocalPos, bool inSprintCone)
+        {
+            if (background == null || sprintButton == null || !sprintButton.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            Vector3 sprintWorldPos = sprintButton.position;
+            Vector3 sprintInBg = background.InverseTransformPoint(sprintWorldPos);
+            Vector2 sprintLocalPos = new Vector2(sprintInBg.x, sprintInBg.y);
+
+            float sprintRadius = Mathf.Max(28f, sprintButton.sizeDelta.x * 0.5f) * Mathf.Clamp(sprintHitRadiusMultiplier, 0.8f, 1.5f);
+
+            // 1. 手指直接滑入 SprintButton 圆形范围内（适配布局编辑器任意调整位置）
+            if (Vector2.Distance(joystickLocalPos, sprintLocalPos) <= sprintRadius)
+            {
+                return true;
+            }
+
+            // 2. 在正上方疾跑扇形区内且手指高度真正达到 SprintButton 所在高度（远高于摇杆外圈）
+            float triggerHeightY = sprintLocalPos.y - sprintRadius * 0.85f;
+            return inSprintCone && joystickLocalPos.y >= triggerHeightY;
+        }
+
+        /// <summary>
+        /// 基于摇杆本地偏移向量执行疾跑与自动奔跑锁定判定：
+        /// 摇杆内拖动仅普通行走；手指滑到 SprintButton 高度/区域内才疾跑；滑到 SprintLockButton 才锁定奔跑
         /// </summary>
         public void ProcessDragLocalPosition(Vector2 position)
         {
             float safeRange = Mathf.Max(1f, handleRange);
-            float rawRatio = position.magnitude / safeRange;
 
             // 计算限幅后的摇杆旋钮位置与归一化输入向量
             Vector2 clampedPos = Vector2.ClampMagnitude(position, safeRange);
@@ -617,12 +647,13 @@ namespace PixelSaur.UI
                 normalizedInput = Vector2.zero;
             }
 
-            // 1. 扇形疾跑判定：与正上方(Vector2.up)夹角 <= sprintAngleLimit (35°)，且推力 >= sprintMagnitude (0.85)
+            // 1. 正上方扇形角度判定（左右各偏 sprintAngleLimit）
             float angleFromUp = position.sqrMagnitude > 0.001f ? Vector2.Angle(Vector2.up, position) : 180f;
             bool inSprintCone = normalizedInput.sqrMagnitude > 0.001f && angleFromUp <= sprintAngleLimit;
 
-            // 2. 奔跑锁定判定：必须手指从摇杆滑到 SprintLockButton 所在区域才锁定；滑到 SprintButton 仅疾跑不锁定
+            // 2. 必须滑到 SprintLockButton 才锁定；滑到 SprintButton 高度/圆内才疾跑；其余在摇杆内拖动仅普通行走不耗水
             bool onLockButton = IsPointerOnSprintLockButton(position);
+            bool inSprintZone = !onLockButton && IsPointerInSprintZone(position, inSprintCone);
 
             if (onLockButton)
             {
@@ -634,15 +665,16 @@ namespace PixelSaur.UI
                 }
                 normalizedInput = Vector2.up;
             }
-            else if (inSprintCone && rawRatio >= sprintMagnitude)
+            else if (inSprintZone)
             {
-                // 滑到 SprintButton / 扇形疾跑区：仅疾跑，不触发自动锁定
+                // 滑到 SprintButton 高度/区域内：进入疾跑，不触发自动锁定
                 IsSprinting = true;
                 _isAutoRunPendingLock = false;
                 if (handle != null) handle.anchoredPosition = clampedPos;
             }
             else
             {
+                // 普通行走：不疾跑，不额外消耗水分
                 IsSprinting = false;
                 _isAutoRunPendingLock = false;
                 if (handle != null) handle.anchoredPosition = clampedPos;
