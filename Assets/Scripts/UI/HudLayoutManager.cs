@@ -250,10 +250,10 @@ namespace PixelSaur.UI
                 anchorMin = new Vector2(0.5f, 0.5f),
                 anchorMax = new Vector2(0.5f, 0.5f),
                 pivot = new Vector2(0.5f, 0.5f),
-                defaultPos = new Vector2(0f, 102f),
-                defaultSize = new Vector2(64f, 64f),
-                minSize = new Vector2(44f, 44f),
-                maxSize = new Vector2(140f, 140f),
+                defaultPos = new Vector2(0f, 116f),
+                defaultSize = new Vector2(92f, 92f),
+                minSize = new Vector2(52f, 52f),
+                maxSize = new Vector2(180f, 180f),
                 lockSquareAspect = true
             }
         };
@@ -322,6 +322,8 @@ namespace PixelSaur.UI
                         if (item == null || !MetaById.TryGetValue(item.id, out var meta)) continue;
                         // 兼容旧版左上角或旧版 220 小地图下的 FreeLookEyeButton 默认坐标，自动迁移到新版 290 小地图左下默认位
                         if (item.id == IdFreeLookEyeButton && (item.posX > 0f || (Mathf.Abs(item.posX - (-204f)) < 1f && Mathf.Abs(item.posY - (-294f)) < 1f))) continue;
+                        // 兼容旧版 64x64 默认锁按钮配置，自动升级至与 SprintButton 匹配的新版 92x92 / Y=116
+                        if (item.id == IdSprintLockButton && Mathf.Abs(item.width - 64f) < 1f && Mathf.Abs(item.posY - 102f) < 1f) continue;
                         result[item.id] = new HudElementLayoutData
                         {
                             id = item.id,
