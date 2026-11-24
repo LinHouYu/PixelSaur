@@ -201,10 +201,10 @@ namespace PixelSaur.UI
             {
                 id = IdFreeLookEyeButton,
                 displayName = "自由视角眼",
-                anchorMin = new Vector2(0f, 1f),
-                anchorMax = new Vector2(0f, 1f),
+                anchorMin = new Vector2(1f, 1f),
+                anchorMax = new Vector2(1f, 1f),
                 pivot = new Vector2(0.5f, 0.5f),
-                defaultPos = new Vector2(442f, -54f),
+                defaultPos = new Vector2(-204f, -294f),
                 defaultSize = new Vector2(80f, 80f),
                 minSize = new Vector2(56f, 56f),
                 maxSize = new Vector2(180f, 180f),
@@ -274,6 +274,8 @@ namespace PixelSaur.UI
                     foreach (var item in payload.items)
                     {
                         if (item == null || !MetaById.TryGetValue(item.id, out var meta)) continue;
+                        // 兼容旧版左上角锚点保存的 FreeLookEyeButton 正数 X 坐标，自动迁移到新版右上角小地图左下默认位
+                        if (item.id == IdFreeLookEyeButton && item.posX > 0f) continue;
                         result[item.id] = new HudElementLayoutData
                         {
                             id = item.id,

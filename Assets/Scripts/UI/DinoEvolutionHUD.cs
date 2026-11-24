@@ -16,9 +16,9 @@ namespace PixelSaur.UI
     {
         public static DinoEvolutionHUD Instance { get; private set; }
 
-        [Header("主界面入口位置与尺寸（与 TopBarStatusHUD 同高 68px，风格一致）")]
-        [SerializeField] private Vector2 entryPosition = new Vector2(-24f, -20f);
-        [SerializeField] private Vector2 entrySize = new Vector2(248f, 68f);
+        [Header("主界面合并进化入口位置与尺寸（与 TopBarStatusHUD 等高 68px、宽度更紧凑，紧邻小地图左侧）")]
+        [SerializeField] private Vector2 entryPosition = new Vector2(-260f, -20f);
+        [SerializeField] private Vector2 entrySize = new Vector2(276f, 68f);
 
         [Header("图标与圆角底板资产")]
         [SerializeField] private Sprite upgradeIconSprite;
@@ -235,8 +235,8 @@ namespace PixelSaur.UI
                 rootImg.raycastTarget = false;
             }
 
-            // 清理旧版直接子级（如旧版 StageNameText / ExpSlider / ScaleBadgeText）
-            string[] legacyNames = { "StageNameText", "ScaleBadgeText", "ExpSlider" };
+            // 清理旧版拆分出来的子级（旧版 StageNameText / ExpSlider / ScaleBadgeText / MiniEvolutionStrip）
+            string[] legacyNames = { "StageNameText", "ScaleBadgeText", "ExpSlider", "MiniEvolutionStrip" };
             foreach (string ln in legacyNames)
             {
                 Transform old = transform.Find(ln);
@@ -256,7 +256,7 @@ namespace PixelSaur.UI
 
         private void BuildTopRightEntryAndMiniBar(Font font)
         {
-            // 1. 主界面右上角【升级系统】入口按钮（与 TopBarStatusHUD 同款圆角深灰胶囊样式）
+            // 合并为单个与 TopBarStatusHUD 等高（68px）、宽度更紧凑（276px）的主界面进化面板，大字号且零穿模
             Transform entryTr = transform.Find("UpgradeEntryButton");
             GameObject entryGo = entryTr != null ? entryTr.gameObject : new GameObject("UpgradeEntryButton", typeof(RectTransform), typeof(Image), typeof(Button));
             entryGo.transform.SetParent(transform, false);
@@ -287,7 +287,7 @@ namespace PixelSaur.UI
             cb.selectedColor = Color.white;
             entryButton.colors = cb;
 
-            // 左侧 upgrade.png 图标
+            // 左侧 upgrade.png 图标（48x48 居中对齐）
             Transform iconTr = entryGo.transform.Find("UpgradeIcon");
             GameObject iconGo = iconTr != null ? iconTr.gameObject : new GameObject("UpgradeIcon", typeof(RectTransform), typeof(Image));
             iconGo.transform.SetParent(entryGo.transform, false);
@@ -295,7 +295,7 @@ namespace PixelSaur.UI
             iconRT.anchorMin = new Vector2(0f, 0.5f);
             iconRT.anchorMax = new Vector2(0f, 0.5f);
             iconRT.pivot = new Vector2(0f, 0.5f);
-            iconRT.anchoredPosition = new Vector2(12f, 0f);
+            iconRT.anchoredPosition = new Vector2(10f, 0f);
             iconRT.sizeDelta = new Vector2(48f, 48f);
             iconRT.localScale = Vector3.one;
 
@@ -306,62 +306,54 @@ namespace PixelSaur.UI
             entryIconImage.color = Color.white;
             entryIconImage.raycastTarget = false;
 
-            // 右侧 "升级系统" 文字
-            entryLabelText = EnsureText("EntryLabel", entryGo.transform, font, 26, TextAnchor.MiddleLeft,
-                new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(72f, 0f), new Vector2(-14f, 0f), "升级系统", Color.white);
+            // 上半区左侧：大号阶段名称（幼年期 / 亚成年期 / 成年期 / 完全体），自适应 BestFit 防止穿模
+            miniStageText = EnsureText("MiniStageText", entryGo.transform, font, 23, TextAnchor.MiddleLeft,
+                new Vector2(0f, 0.45f), new Vector2(1f, 0.98f), new Vector2(64f, 0f), new Vector2(-84f, -2f), "幼年期", Color.white);
+            miniStageText.resizeTextForBestFit = true;
+            miniStageText.resizeTextMinSize = 17;
+            miniStageText.resizeTextMaxSize = 23;
+            miniStageText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            miniStageText.verticalOverflow = VerticalWrapMode.Truncate;
 
-            // 可进化高亮角标
+            // 上半区右侧："升级" 入口提示文字，右对齐绝不与左侧阶段名重叠
+            entryLabelText = EnsureText("EntryLabel", entryGo.transform, font, 20, TextAnchor.MiddleRight,
+                new Vector2(1f, 0.45f), new Vector2(1f, 0.98f), new Vector2(-84f, 0f), new Vector2(-12f, -2f), "升级", new Color(0.86f, 0.92f, 1f, 1f));
+            entryLabelText.resizeTextForBestFit = true;
+            entryLabelText.resizeTextMinSize = 15;
+            entryLabelText.resizeTextMaxSize = 20;
+            entryLabelText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            entryLabelText.verticalOverflow = VerticalWrapMode.Truncate;
+
+            // 下半区：合入同一面板的高可读经验进度条（大字号 17px，高度 23px 绝不裁切穿模）
+            CreateProgressSlider("MiniExpSlider", entryGo.transform, font,
+                new Vector2(0f, 0f), new Vector2(1f, 0.44f), new Vector2(64f, 6f), new Vector2(-12f, -1f), 17,
+                out miniExpSlider, out miniExpFillImage, out miniExpText);
+            if (miniExpText != null)
+            {
+                miniExpText.resizeTextForBestFit = true;
+                miniExpText.resizeTextMinSize = 13;
+                miniExpText.resizeTextMaxSize = 17;
+            }
+
+            // 可进化高亮角标（悬停于合并面板底部正中下方，完全不遮挡图标或任何文字）
             Transform badgeTr = entryGo.transform.Find("ReadyBadge");
             GameObject badgeGo = badgeTr != null ? badgeTr.gameObject : new GameObject("ReadyBadge", typeof(RectTransform), typeof(Image));
             badgeGo.transform.SetParent(entryGo.transform, false);
             RectTransform badgeRT = badgeGo.GetComponent<RectTransform>();
-            badgeRT.anchorMin = new Vector2(0f, 1f);
-            badgeRT.anchorMax = new Vector2(0f, 1f);
-            badgeRT.pivot = new Vector2(0.5f, 0.5f);
-            badgeRT.anchoredPosition = new Vector2(8f, -4f);
-            badgeRT.sizeDelta = new Vector2(82f, 26f);
+            badgeRT.anchorMin = new Vector2(0.5f, 0f);
+            badgeRT.anchorMax = new Vector2(0.5f, 0f);
+            badgeRT.pivot = new Vector2(0.5f, 1f);
+            badgeRT.anchoredPosition = new Vector2(0f, -4f);
+            badgeRT.sizeDelta = new Vector2(96f, 26f);
             Image badgeImg = badgeGo.GetComponent<Image>();
             badgeImg.sprite = _roundedRectSprite != null ? _roundedRectSprite : _whiteSprite;
             badgeImg.type = _roundedRectSprite != null ? Image.Type.Sliced : Image.Type.Simple;
             badgeImg.color = new Color(0.96f, 0.64f, 0.08f, 1f);
             badgeImg.raycastTarget = false;
-            EnsureText("BadgeText", badgeGo.transform, font, 15, TextAnchor.MiddleCenter,
+            EnsureText("BadgeText", badgeGo.transform, font, 16, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, "可进化!", Color.white);
             readyBadgeObj = badgeGo;
             readyBadgeObj.SetActive(false);
-
-            // 2. 入口下方紧凑的阶段/经验实时状态条（同样可点击打开弹窗）
-            Transform stripTr = transform.Find("MiniEvolutionStrip");
-            GameObject stripGo = stripTr != null ? stripTr.gameObject : new GameObject("MiniEvolutionStrip", typeof(RectTransform), typeof(Image), typeof(Button));
-            stripGo.transform.SetParent(transform, false);
-            RectTransform stripRT = stripGo.GetComponent<RectTransform>();
-            stripRT.anchorMin = new Vector2(1f, 1f);
-            stripRT.anchorMax = new Vector2(1f, 1f);
-            stripRT.pivot = new Vector2(1f, 1f);
-            stripRT.anchoredPosition = new Vector2(entryPosition.x, entryPosition.y - entrySize.y - 8f);
-            stripRT.sizeDelta = new Vector2(entrySize.x, 48f);
-            stripRT.localScale = Vector3.one;
-
-            Image stripBg = stripGo.GetComponent<Image>();
-            if (panelBgSprite != null)
-            {
-                stripBg.sprite = panelBgSprite;
-                stripBg.type = Image.Type.Sliced;
-            }
-            stripBg.color = DefaultPillColor;
-            stripBg.raycastTarget = true;
-
-            Button stripBtn = stripGo.GetComponent<Button>();
-            stripBtn.targetGraphic = stripBg;
-            stripBtn.onClick.RemoveListener(OpenModal);
-            stripBtn.onClick.AddListener(OpenModal);
-
-            miniStageText = EnsureText("MiniStageText", stripGo.transform, font, 16, TextAnchor.MiddleLeft,
-                new Vector2(0f, 0.52f), new Vector2(1f, 1f), new Vector2(12f, 0f), new Vector2(-12f, -2f), "幼年期 · 1.0x", Color.white);
-
-            CreateProgressSlider("MiniExpSlider", stripGo.transform, font,
-                new Vector2(0f, 0f), new Vector2(1f, 0.50f), new Vector2(12f, 6f), new Vector2(-12f, -2f), 13,
-                out miniExpSlider, out miniExpFillImage, out miniExpText);
         }
 
         private void BuildEvolutionModalPopup(Font font)
@@ -550,7 +542,7 @@ namespace PixelSaur.UI
             fGo.transform.SetParent(faGo.transform, false);
             RectTransform fRT = fGo.GetComponent<RectTransform>();
             fRT.anchorMin = Vector2.zero;
-            fRT.anchorMax = Vector2.one;
+            fRT.anchorMax = new Vector2(0f, 1f);
             fRT.offsetMin = Vector2.zero;
             fRT.offsetMax = Vector2.zero;
 
@@ -687,11 +679,29 @@ namespace PixelSaur.UI
                 readyBadgeObj.SetActive(canEvolve);
             }
 
-            // 1. 更新右上常驻迷你阶段条
+            // 1. 更新合并后的顶部进化面板（大号阶段名 + 右侧升级提示 + 底部进度条）
             if (miniStageText != null)
             {
-                miniStageText.text = $"{curStage.stageName} · {curStage.targetScale:0.0}x";
+                miniStageText.text = curStage.stageName;
                 miniStageText.color = curStage.stageColor;
+            }
+            if (entryLabelText != null)
+            {
+                if (isMax)
+                {
+                    entryLabelText.text = "满级";
+                    entryLabelText.color = curStage.stageColor;
+                }
+                else if (canEvolve)
+                {
+                    entryLabelText.text = "可进化";
+                    entryLabelText.color = new Color(1f, 0.90f, 0.25f, 1f);
+                }
+                else
+                {
+                    entryLabelText.text = "升级";
+                    entryLabelText.color = new Color(0.86f, 0.92f, 1f, 1f);
+                }
             }
             if (miniExpFillImage != null)
             {
@@ -778,7 +788,8 @@ namespace PixelSaur.UI
         private void ApplyFallbackVisual()
         {
             if (readyBadgeObj != null) readyBadgeObj.SetActive(false);
-            if (miniStageText != null) { miniStageText.text = "幼年期 · 1.0x"; miniStageText.color = Color.white; }
+            if (miniStageText != null) { miniStageText.text = "幼年期"; miniStageText.color = Color.white; }
+            if (entryLabelText != null) { entryLabelText.text = "升级"; entryLabelText.color = new Color(0.86f, 0.92f, 1f, 1f); }
             if (miniExpSlider != null) miniExpSlider.value = 0f;
             if (miniExpText != null) miniExpText.text = "0 / 50";
             if (modalStageTitleText != null) { modalStageTitleText.text = "幼年期"; modalStageTitleText.color = Color.white; }

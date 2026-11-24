@@ -21,8 +21,8 @@ namespace PixelSaur.UI
         [Header("小眼睛图标资产 (eyes.png)")]
         [SerializeField] private Sprite eyeIconSprite;
 
-        [Header("位置与尺寸（默认位于 TopBarStatusHUD 右侧）")]
-        [SerializeField] private Vector2 buttonPosition = new Vector2(442f, -54f);
+        [Header("位置与尺寸（默认位于右上角小地图左下方）")]
+        [SerializeField] private Vector2 buttonPosition = new Vector2(-204f, -294f);
         [SerializeField] private Vector2 buttonSize = new Vector2(80f, 80f);
 
         [Header("自由视角参数配置")]
@@ -165,9 +165,9 @@ namespace PixelSaur.UI
             if (_rectTransform == null) _rectTransform = gameObject.AddComponent<RectTransform>();
             _canvas = GetComponentInParent<Canvas>();
 
-            // 外层圆形半透明底框固定不动，与 TopBarStatusHUD 一致使用左上角锚点
-            _rectTransform.anchorMin = new Vector2(0f, 1f);
-            _rectTransform.anchorMax = new Vector2(0f, 1f);
+            // 外层圆形半透明底框固定不动，使用右上角锚点紧贴小地图左下正下方
+            _rectTransform.anchorMin = new Vector2(1f, 1f);
+            _rectTransform.anchorMax = new Vector2(1f, 1f);
             _rectTransform.pivot = new Vector2(0.5f, 0.5f);
             _rectTransform.localScale = Vector3.one;
             _rectTransform.anchoredPosition = buttonPosition;
